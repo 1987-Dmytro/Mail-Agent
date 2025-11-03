@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mail Agent - Color Theme Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: #1a1a1a;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .themes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(800px, 1fr));
+            gap: 3rem;
+            margin-bottom: 3rem;
+        }
+
+        .theme-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .theme-header {
+            margin-bottom: 2rem;
+        }
+
+        .theme-header h2 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .theme-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .palette-section {
+            margin-bottom: 2rem;
+        }
+
+        .palette-section h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #374151;
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .color-swatch {
+            text-align: center;
+        }
+
+        .color-box {
+            height: 80px;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        .color-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.25rem;
+        }
+
+        .color-hex {
+            font-size: 0.7rem;
+            color: #6b7280;
+            font-family: 'Courier New', monospace;
+        }
+
+        .components-section {
+            margin-bottom: 2rem;
+        }
+
+        .component-demo {
+            padding: 1.5rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .buttons-demo {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .demo-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-size: 0.95rem;
+        }
+
+        .demo-input {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .demo-card {
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .demo-alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .personality-section {
+            background: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+
+        .personality-section h4 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: #374151;
+        }
+
+        .personality-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .personality-section li {
+            padding-left: 1.5rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .personality-section li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎨 Mail Agent Color Theme Explorer</h1>
+        <p>4 professionally crafted color themes based on Mail Agent's personality</p>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" onclick="scrollToTheme(1)">Theme 1: Professional Trust</button>
+        <button class="btn btn-primary" onclick="scrollToTheme(2)">Theme 2: Modern Minimal</button>
+        <button class="btn btn-primary" onclick="scrollToTheme(3)">Theme 3: Productivity Green</button>
+        <button class="btn btn-primary" onclick="scrollToTheme(4)">Theme 4: Sophisticated Dark</button>
+    </div>
+
+    <div class="themes-grid">
+        <!-- THEME 1: Professional Trust (Blue) -->
+        <div class="theme-card" id="theme-1">
+            <div class="theme-header">
+                <h2>Theme 1: Professional Trust</h2>
+                <div class="theme-meta">
+                    <span class="badge" style="background: #dbeafe; color: #1e40af;">Trustworthy</span>
+                    <span class="badge" style="background: #e0e7ff; color: #4338ca;">Professional</span>
+                    <span class="badge" style="background: #f3f4f6; color: #374151;">Enterprise-Ready</span>
+                </div>
+                <p style="color: #6b7280; margin-top: 0.5rem;">Classic blue conveys trust, reliability, and professionalism. Perfect for productivity tools handling sensitive email data.</p>
+            </div>
+
+            <div class="personality-section">
+                <h4>Emotional Impact & Best For:</h4>
+                <ul>
+                    <li><strong>Trust:</strong> Blue is the most trusted color in tech (banking, email, security)</li>
+                    <li><strong>Professionalism:</strong> Serious tool for serious professionals</li>
+                    <li><strong>Calm Efficiency:</strong> Reduces stress, focuses on productivity</li>
+                    <li><strong>Best for:</strong> Users who value reliability and data security</li>
+                </ul>
+            </div>
+
+            <div class="palette-section">
+                <h3>Primary & Secondary Colors</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #3b82f6;"></div>
+                        <div class="color-label">Primary</div>
+                        <div class="color-hex">#3b82f6</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #60a5fa;"></div>
+                        <div class="color-label">Primary Light</div>
+                        <div class="color-hex">#60a5fa</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #2563eb;"></div>
+                        <div class="color-label">Primary Dark</div>
+                        <div class="color-hex">#2563eb</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #8b5cf6;"></div>
+                        <div class="color-label">Accent</div>
+                        <div class="color-hex">#8b5cf6</div>
+                    </div>
+                </div>
+
+                <h3>Semantic Colors</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #10b981;"></div>
+                        <div class="color-label">Success</div>
+                        <div class="color-hex">#10b981</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #f59e0b;"></div>
+                        <div class="color-label">Warning</div>
+                        <div class="color-hex">#f59e0b</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #ef4444;"></div>
+                        <div class="color-label">Error</div>
+                        <div class="color-hex">#ef4444</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #06b6d4;"></div>
+                        <div class="color-label">Info</div>
+                        <div class="color-hex">#06b6d4</div>
+                    </div>
+                </div>
+
+                <h3>Neutral Grayscale</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #ffffff; border: 2px solid #e5e7eb;"></div>
+                        <div class="color-label">Background</div>
+                        <div class="color-hex">#ffffff</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #f9fafb;"></div>
+                        <div class="color-label">Background Alt</div>
+                        <div class="color-hex">#f9fafb</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #1f2937;"></div>
+                        <div class="color-label">Text Primary</div>
+                        <div class="color-hex">#1f2937</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #6b7280;"></div>
+                        <div class="color-label">Text Secondary</div>
+                        <div class="color-hex">#6b7280</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #e5e7eb;"></div>
+                        <div class="color-label">Border</div>
+                        <div class="color-hex">#e5e7eb</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="components-section">
+                <h3>Live Component Examples</h3>
+                <div class="component-demo">
+                    <h4 style="margin-bottom: 1rem; color: #1f2937;">Buttons</h4>
+                    <div class="buttons-demo">
+                        <button class="demo-btn" style="background: #3b82f6; color: white;">Approve</button>
+                        <button class="demo-btn" style="background: white; color: #3b82f6; border: 2px solid #3b82f6;">Edit</button>
+                        <button class="demo-btn" style="background: #f3f4f6; color: #6b7280;">Reject</button>
+                        <button class="demo-btn" style="background: #e5e7eb; color: #9ca3af; cursor: not-allowed;">Disabled</button>
+                    </div>
+                </div>
+
+                <div class="component-demo">
+                    <h4 style="margin-bottom: 1rem; color: #1f2937;">Form Inputs</h4>
+                    <input type="text" class="demo-input" placeholder="Folder name..." style="border: 2px solid #e5e7eb;">
+                    <input type="text" class="demo-input" placeholder="Focus state" style="border: 2px solid #3b82f6; outline: none;">
+                    <input type="text" class="demo-input" placeholder="Error state" style="border: 2px solid #ef4444;">
+                </div>
+
+                <div class="component-demo">
+                    <h4 style="margin-bottom: 1rem; color: #1f2937;">Cards & Content</h4>
+                    <div class="demo-card" style="background: white; border: 1px solid #e5e7eb;">
+                        <div style="font-weight: 600; color: #1f2937; margin-bottom: 0.5rem;">Email Proposal</div>
+                        <div style="color: #6b7280; font-size: 0.9rem; margin-bottom: 0.75rem;">From: sender@example.com</div>
+                        <div style="background: #f9fafb; padding: 0.75rem; border-radius: 6px; font-size: 0.85rem; color: #374151; margin-bottom: 0.75rem;">
+                            <strong>AI Reasoning:</strong> Email from Finanzamt regarding tax documents
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <span style="background: #dbeafe; color: #1e40af; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">Government</span>
+                            <span style="background: #fef3c7; color: #92400e; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">High Priority</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component-demo">
+                    <h4 style="margin-bottom: 1rem; color: #1f2937;">Alerts & Feedback</h4>
+                    <div class="demo-alert" style="background: #d1fae5; border-left: 4px solid #10b981; color: #065f46;">
+                        <span>✓</span> Email sorted to Government folder
+                    </div>
+                    <div class="demo-alert" style="background: #fee2e2; border-left: 4px solid #ef4444; color: #991b1b;">
+                        <span>✕</span> Failed to send response. Please try again.
+                    </div>
+                    <div class="demo-alert" style="background: #dbeafe; border-left: 4px solid #3b82f6; color: #1e40af;">
+                        <span>ⓘ</span> 3 of 8 emails reviewed
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- THEME 2: Modern Minimal (Slate/Zinc) -->
+        <div class="theme-card" id="theme-2">
+            <div class="theme-header">
+                <h2>Theme 2: Modern Minimal</h2>
+                <div class="theme-meta">
+                    <span class="badge" style="background: #f1f5f9; color: #334155;">Sophisticated</span>
+                    <span class="badge" style="background: #e2e8f0; color: #475569;">Clean</span>
+                    <span class="badge" style="background: #f8fafc; color: #64748b;">N26-Inspired</span>
+                </div>
+                <p style="color: #64748b; margin-top: 0.5rem;">Neutral slate tones with subtle color accents. Modern, minimal, and sophisticated - inspired by N26's clean aesthetic.</p>
+            </div>
+
+            <div class="personality-section">
+                <h4>Emotional Impact & Best For:</h4>
+                <ul>
+                    <li><strong>Sophistication:</strong> Minimal, refined, no-nonsense design</li>
+                    <li><strong>Focus:</strong> Neutral palette reduces distraction, enhances readability</li>
+                    <li><strong>Modern:</strong> Contemporary fintech aesthetic</li>
+                    <li><strong>Best for:</strong> Users who appreciate minimalism and visual calm</li>
+                </ul>
+            </div>
+
+            <div class="palette-section">
+                <h3>Primary & Secondary Colors</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #0f172a;"></div>
+                        <div class="color-label">Primary</div>
+                        <div class="color-hex">#0f172a</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #334155;"></div>
+                        <div class="color-label">Primary Light</div>
+                        <div class="color-hex">#334155</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #475569;"></div>
+                        <div class="color-label">Secondary</div>
+                        <div class="color-hex">#475569</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #3b82f6;"></div>
+                        <div class="color-label">Accent</div>
+                        <div class="color-hex">#3b82f6</div>
+                    </div>
+                </div>
+
+                <h3>Semantic Colors</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #10b981;"></div>
+                        <div class="color-label">Success</div>
+                        <div class="color-hex">#10b981</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #f59e0b;"></div>
+                        <div class="color-label">Warning</div>
+                        <div class="color-hex">#f59e0b</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #ef4444;"></div>
+                        <div class="color-label">Error</div>
+                        <div class="color-hex">#ef4444</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #64748b;"></div>
+                        <div class="color-label">Info</div>
+                        <div class="color-hex">#64748b</div>
+                    </div>
+                </div>
+
+                <h3>Neutral Grayscale</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #ffffff; border: 2px solid #e2e8f0;"></div>
+                        <div class="color-label">Background</div>
+                        <div class="color-hex">#ffffff</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #f8fafc;"></div>
+                        <div class="color-label">Background Alt</div>
+                        <div class="color-hex">#f8fafc</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #0f172a;"></div>
+                        <div class="color-label">Text Primary</div>
+                        <div class="color-hex">#0f172a</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #64748b;"></div>
+                        <div class="color-label">Text Secondary</div>
+                        <div class="color-hex">#64748b</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #e2e8f0;"></div>
+                        <div class="color-label">Border</div>
+                        <div class="color-hex">#e2e8f0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="components-section">
+                <h3>Live Component Examples</h3>
+                <div class="component-demo" style="background: #f8fafc;">
+                    <h4 style="margin-bottom: 1rem; color: #0f172a;">Buttons</h4>
+                    <div class="buttons-demo">
+                        <button class="demo-btn" style="background: #0f172a; color: white;">Approve</button>
+                        <button class="demo-btn" style="background: white; color: #0f172a; border: 2px solid #0f172a;">Edit</button>
+                        <button class="demo-btn" style="background: #f1f5f9; color: #64748b;">Reject</button>
+                        <button class="demo-btn" style="background: #e2e8f0; color: #94a3b8; cursor: not-allowed;">Disabled</button>
+                    </div>
+                </div>
+
+                <div class="component-demo" style="background: #f8fafc;">
+                    <h4 style="margin-bottom: 1rem; color: #0f172a;">Form Inputs</h4>
+                    <input type="text" class="demo-input" placeholder="Folder name..." style="border: 2px solid #e2e8f0; background: white;">
+                    <input type="text" class="demo-input" placeholder="Focus state" style="border: 2px solid #0f172a; outline: none; background: white;">
+                    <input type="text" class="demo-input" placeholder="Error state" style="border: 2px solid #ef4444; background: white;">
+                </div>
+
+                <div class="component-demo" style="background: #f8fafc;">
+                    <h4 style="margin-bottom: 1rem; color: #0f172a;">Cards & Content</h4>
+                    <div class="demo-card" style="background: white; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="font-weight: 600; color: #0f172a; margin-bottom: 0.5rem;">Email Proposal</div>
+                        <div style="color: #64748b; font-size: 0.9rem; margin-bottom: 0.75rem;">From: sender@example.com</div>
+                        <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px; font-size: 0.85rem; color: #334155; margin-bottom: 0.75rem; border-left: 3px solid #0f172a;">
+                            <strong>AI Reasoning:</strong> Email from Finanzamt regarding tax documents
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <span style="background: #f1f5f9; color: #334155; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 500;">Government</span>
+                            <span style="background: #fef3c7; color: #92400e; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 500;">High Priority</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component-demo" style="background: #f8fafc;">
+                    <h4 style="margin-bottom: 1rem; color: #0f172a;">Alerts & Feedback</h4>
+                    <div class="demo-alert" style="background: #d1fae5; border-left: 4px solid #10b981; color: #065f46;">
+                        <span>✓</span> Email sorted to Government folder
+                    </div>
+                    <div class="demo-alert" style="background: #fee2e2; border-left: 4px solid #ef4444; color: #991b1b;">
+                        <span>✕</span> Failed to send response. Please try again.
+                    </div>
+                    <div class="demo-alert" style="background: #f1f5f9; border-left: 4px solid #64748b; color: #334155;">
+                        <span>ⓘ</span> 3 of 8 emails reviewed
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- THEME 3: Productivity Green -->
+        <div class="theme-card" id="theme-3">
+            <div class="theme-header">
+                <h2>Theme 3: Productivity Green</h2>
+                <div class="theme-meta">
+                    <span class="badge" style="background: #d1fae5; color: #065f46;">Growth</span>
+                    <span class="badge" style="background: #dcfce7; color: #14532d;">Productive</span>
+                    <span class="badge" style="background: #f0fdf4; color: #166534;">Positive</span>
+                </div>
+                <p style="color: #6b7280; margin-top: 0.5rem;">Vibrant green communicates growth, success, and positive action. Energizing without being overwhelming.</p>
+            </div>
+
+            <div class="personality-section">
+                <h4>Emotional Impact & Best For:</h4>
+                <ul>
+                    <li><strong>Success & Growth:</strong> Green reinforces the "success" emotion</li>
+                    <li><strong>Positive Action:</strong> Encourages forward movement and completion</li>
+                    <li><strong>Fresh & Modern:</strong> Contemporary, energizing aesthetic</li>
+                    <li><strong>Best for:</strong> Users motivated by achievement and progress</li>
+                </ul>
+            </div>
+
+            <div class="palette-section">
+                <h3>Primary & Secondary Colors</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #10b981;"></div>
+                        <div class="color-label">Primary</div>
+                        <div class="color-hex">#10b981</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #34d399;"></div>
+                        <div class="color-label">Primary Light</div>
+                        <div class="color-hex">#34d399</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #059669;"></div>
+                        <div class="color-label">Primary Dark</div>
+                        <div class="color-hex">#059669</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #3b82f6;"></div>
+                        <div class="color-label">Accent</div>
+                        <div class="color-hex">#3b82f6</div>
+                    </div>
+                </div>
+
+                <h3>Semantic Colors</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #10b981;"></div>
+                        <div class="color-label">Success</div>
+                        <div class="color-hex">#10b981</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #f59e0b;"></div>
+                        <div class="color-label">Warning</div>
+                        <div class="color-hex">#f59e0b</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #ef4444;"></div>
+                        <div class="color-label">Error</div>
+                        <div class="color-hex">#ef4444</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #06b6d4;"></div>
+                        <div class="color-label">Info</div>
+                        <div class="color-hex">#06b6d4</div>
+                    </div>
+                </div>
+
+                <h3>Neutral Grayscale</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #ffffff; border: 2px solid #e5e7eb;"></div>
+                        <div class="color-label">Background</div>
+                        <div class="color-hex">#ffffff</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #f9fafb;"></div>
+                        <div class="color-label">Background Alt</div>
+                        <div class="color-hex">#f9fafb</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #1f2937;"></div>
+                        <div class="color-label">Text Primary</div>
+                        <div class="color-hex">#1f2937</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #6b7280;"></div>
+                        <div class="color-label">Text Secondary</div>
+                        <div class="color-hex">#6b7280</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #e5e7eb;"></div>
+                        <div class="color-label">Border</div>
+                        <div class="color-hex">#e5e7eb</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="components-section">
+                <h3>Live Component Examples</h3>
+                <div class="component-demo">
+                    <h4 style="margin-bottom: 1rem; color: #1f2937;">Buttons</h4>
+                    <div class="buttons-demo">
+                        <button class="demo-btn" style="background: #10b981; color: white;">Approve</button>
+                        <button class="demo-btn" style="background: white; color: #10b981; border: 2px solid #10b981;">Edit</button>
+                        <button class="demo-btn" style="background: #f3f4f6; color: #6b7280;">Reject</button>
+                        <button class="demo-btn" style="background: #e5e7eb; color: #9ca3af; cursor: not-allowed;">Disabled</button>
+                    </div>
+                </div>
+
+                <div class="component-demo">
+                    <h4 style="margin-bottom: 1rem; color: #1f2937;">Form Inputs</h4>
+                    <input type="text" class="demo-input" placeholder="Folder name..." style="border: 2px solid #e5e7eb;">
+                    <input type="text" class="demo-input" placeholder="Focus state" style="border: 2px solid #10b981; outline: none;">
+                    <input type="text" class="demo-input" placeholder="Error state" style="border: 2px solid #ef4444;">
+                </div>
+
+                <div class="component-demo">
+                    <h4 style="margin-bottom: 1rem; color: #1f2937;">Cards & Content</h4>
+                    <div class="demo-card" style="background: white; border: 1px solid #e5e7eb;">
+                        <div style="font-weight: 600; color: #1f2937; margin-bottom: 0.5rem;">Email Proposal</div>
+                        <div style="color: #6b7280; font-size: 0.9rem; margin-bottom: 0.75rem;">From: sender@example.com</div>
+                        <div style="background: #f0fdf4; padding: 0.75rem; border-radius: 6px; font-size: 0.85rem; color: #166534; margin-bottom: 0.75rem; border-left: 3px solid #10b981;">
+                            <strong>AI Reasoning:</strong> Email from Finanzamt regarding tax documents
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <span style="background: #dbeafe; color: #1e40af; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">Government</span>
+                            <span style="background: #fef3c7; color: #92400e; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">High Priority</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component-demo">
+                    <h4 style="margin-bottom: 1rem; color: #1f2937;">Alerts & Feedback</h4>
+                    <div class="demo-alert" style="background: #d1fae5; border-left: 4px solid #10b981; color: #065f46;">
+                        <span>✓</span> Email sorted to Government folder
+                    </div>
+                    <div class="demo-alert" style="background: #fee2e2; border-left: 4px solid #ef4444; color: #991b1b;">
+                        <span>✕</span> Failed to send response. Please try again.
+                    </div>
+                    <div class="demo-alert" style="background: #ecfdf5; border-left: 4px solid #10b981; color: #065f46;">
+                        <span>ⓘ</span> 3 of 8 emails reviewed
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- THEME 4: Sophisticated Dark -->
+        <div class="theme-card" id="theme-4">
+            <div class="theme-header">
+                <h2>Theme 4: Sophisticated Dark</h2>
+                <div class="theme-meta">
+                    <span class="badge" style="background: #374151; color: #f9fafb;">Premium</span>
+                    <span class="badge" style="background: #4b5563; color: #f9fafb;">Evening-Friendly</span>
+                    <span class="badge" style="background: #6b7280; color: #f9fafb;">Modern</span>
+                </div>
+                <p style="color: #6b7280; margin-top: 0.5rem;">Dark mode with vibrant accents. Perfect for evening email reviews, reduces eye strain, feels premium and modern.</p>
+            </div>
+
+            <div class="personality-section">
+                <h4>Emotional Impact & Best For:</h4>
+                <ul>
+                    <li><strong>Premium Feel:</strong> Dark themes convey sophistication and modernity</li>
+                    <li><strong>Eye Comfort:</strong> Reduces strain during evening email sessions</li>
+                    <li><strong>Focus:</strong> Dark background makes content pop, reduces distraction</li>
+                    <li><strong>Best for:</strong> Users who review emails in the evening, prefer dark mode</li>
+                </ul>
+            </div>
+
+            <div class="palette-section">
+                <h3>Primary & Secondary Colors</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #3b82f6;"></div>
+                        <div class="color-label">Primary</div>
+                        <div class="color-hex">#3b82f6</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #60a5fa;"></div>
+                        <div class="color-label">Primary Light</div>
+                        <div class="color-hex">#60a5fa</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #8b5cf6;"></div>
+                        <div class="color-label">Secondary</div>
+                        <div class="color-hex">#8b5cf6</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #06b6d4;"></div>
+                        <div class="color-label">Accent</div>
+                        <div class="color-hex">#06b6d4</div>
+                    </div>
+                </div>
+
+                <h3>Semantic Colors</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #34d399;"></div>
+                        <div class="color-label">Success</div>
+                        <div class="color-hex">#34d399</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #fbbf24;"></div>
+                        <div class="color-label">Warning</div>
+                        <div class="color-hex">#fbbf24</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #f87171;"></div>
+                        <div class="color-label">Error</div>
+                        <div class="color-hex">#f87171</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #60a5fa;"></div>
+                        <div class="color-label">Info</div>
+                        <div class="color-hex">#60a5fa</div>
+                    </div>
+                </div>
+
+                <h3>Dark Mode Palette</h3>
+                <div class="color-grid">
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #0f172a;"></div>
+                        <div class="color-label">Background</div>
+                        <div class="color-hex">#0f172a</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #1e293b;"></div>
+                        <div class="color-label">Background Alt</div>
+                        <div class="color-hex">#1e293b</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #f8fafc;"></div>
+                        <div class="color-label">Text Primary</div>
+                        <div class="color-hex">#f8fafc</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #cbd5e1;"></div>
+                        <div class="color-label">Text Secondary</div>
+                        <div class="color-hex">#cbd5e1</div>
+                    </div>
+                    <div class="color-swatch">
+                        <div class="color-box" style="background: #334155;"></div>
+                        <div class="color-label">Border</div>
+                        <div class="color-hex">#334155</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="components-section">
+                <h3>Live Component Examples</h3>
+                <div class="component-demo" style="background: #0f172a;">
+                    <h4 style="margin-bottom: 1rem; color: #f8fafc;">Buttons</h4>
+                    <div class="buttons-demo">
+                        <button class="demo-btn" style="background: #3b82f6; color: white;">Approve</button>
+                        <button class="demo-btn" style="background: #1e293b; color: #3b82f6; border: 2px solid #3b82f6;">Edit</button>
+                        <button class="demo-btn" style="background: #1e293b; color: #cbd5e1;">Reject</button>
+                        <button class="demo-btn" style="background: #334155; color: #64748b; cursor: not-allowed;">Disabled</button>
+                    </div>
+                </div>
+
+                <div class="component-demo" style="background: #0f172a;">
+                    <h4 style="margin-bottom: 1rem; color: #f8fafc;">Form Inputs</h4>
+                    <input type="text" class="demo-input" placeholder="Folder name..." style="border: 2px solid #334155; background: #1e293b; color: #f8fafc;">
+                    <input type="text" class="demo-input" placeholder="Focus state" style="border: 2px solid #3b82f6; outline: none; background: #1e293b; color: #f8fafc;">
+                    <input type="text" class="demo-input" placeholder="Error state" style="border: 2px solid #f87171; background: #1e293b; color: #f8fafc;">
+                </div>
+
+                <div class="component-demo" style="background: #0f172a;">
+                    <h4 style="margin-bottom: 1rem; color: #f8fafc;">Cards & Content</h4>
+                    <div class="demo-card" style="background: #1e293b; border: 1px solid #334155;">
+                        <div style="font-weight: 600; color: #f8fafc; margin-bottom: 0.5rem;">Email Proposal</div>
+                        <div style="color: #cbd5e1; font-size: 0.9rem; margin-bottom: 0.75rem;">From: sender@example.com</div>
+                        <div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 0.75rem; border-left: 3px solid #3b82f6;">
+                            <strong style="color: #f8fafc;">AI Reasoning:</strong> Email from Finanzamt regarding tax documents
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <span style="background: #1e3a8a; color: #93c5fd; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">Government</span>
+                            <span style="background: #78350f; color: #fcd34d; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">High Priority</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component-demo" style="background: #0f172a;">
+                    <h4 style="margin-bottom: 1rem; color: #f8fafc;">Alerts & Feedback</h4>
+                    <div class="demo-alert" style="background: #064e3b; border-left: 4px solid #34d399; color: #a7f3d0;">
+                        <span>✓</span> Email sorted to Government folder
+                    </div>
+                    <div class="demo-alert" style="background: #7f1d1d; border-left: 4px solid #f87171; color: #fca5a5;">
+                        <span>✕</span> Failed to send response. Please try again.
+                    </div>
+                    <div class="demo-alert" style="background: #1e3a8a; border-left: 4px solid #60a5fa; color: #93c5fd;">
+                        <span>ⓘ</span> 3 of 8 emails reviewed
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 3rem; padding: 2rem; background: white; border-radius: 12px;">
+        <h3 style="margin-bottom: 1rem;">Ready to Choose?</h3>
+        <p style="color: #6b7280; margin-bottom: 1.5rem;">Take your time exploring each theme. Which one feels right for Mail Agent's vision?</p>
+        <p style="font-size: 0.9rem; color: #9ca3af;">You can choose a theme number (1-4), combine elements from multiple themes, or request variations.</p>
+    </div>
+
+    <script>
+        function scrollToTheme(number) {
+            const theme = document.getElementById(`theme-${number}`);
+            if (theme) {
+                theme.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    </script>
+</body>
+</html>
