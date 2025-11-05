@@ -1,0 +1,213 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>4</storyId>
+    <title>Gmail OAuth Flow - Backend Implementation</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-04</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-4-gmail-oauth-flow-backend-implementation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to implement Gmail OAuth 2.0 authentication flow in the backend</iWant>
+    <soThat>users can grant permission for the application to access their Gmail</soThat>
+    <tasks>
+      - Task 1: Set up Google Cloud Project and Gmail API (AC: #1, #2, #3)
+      - Task 2: Install Gmail API dependencies (AC: #1)
+      - Task 3: Create OAuth login endpoint (AC: #4)
+      - Task 4: Implement token encryption utility (AC: #7)
+      - Task 5: Create OAuth callback endpoint (AC: #5, #6, #7)
+      - Task 6: Implement automatic token refresh logic (AC: #8)
+      - Task 7: Update User model for token storage (AC: #7)
+      - Task 8: Create Gmail connection status endpoint (AC: #4)
+      - Task 9: Integration testing and error handling (Testing)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Google Cloud Project created with Gmail API enabled
+    2. OAuth 2.0 credentials (client ID and secret) obtained and stored in environment variables
+    3. OAuth scopes configured for Gmail read/write access (gmail.readonly, gmail.modify, gmail.send, gmail.labels)
+    4. Backend endpoint created for initiating OAuth flow (POST /api/v1/auth/gmail/login) returning authorization URL
+    5. Backend callback endpoint created (GET /api/v1/auth/gmail/callback) to handle OAuth redirect
+    6. OAuth token exchange implemented (authorization code → access token + refresh token)
+    7. Access and refresh tokens encrypted and stored in database for authenticated user
+    8. Token refresh logic implemented for expired access tokens
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Technical Specification - Epic 1</title>
+        <section>OAuth Authentication Flow</section>
+        <snippet>Complete OAuth 2.0 flow with CSRF protection: User redirects to Google consent screen, grants permissions, backend exchanges authorization code for access_token + refresh_token, tokens encrypted with Fernet and stored in PostgreSQL, JWT issued for session management (lines 308-338).</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Technical Specification - Epic 1</title>
+        <section>Token Refresh Flow</section>
+        <snippet>Automatic token refresh on expiry: GmailClient detects 401 Unauthorized, loads encrypted refresh_token, exchanges for new access_token via Google OAuth API, updates database with encrypted token, retries original API call (lines 367-388).</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Authentication & Authorization</section>
+        <snippet>OAuth token management: Access tokens encrypted with Fernet symmetric encryption and stored in database, refresh tokens auto-used when access token expires, JWT tokens use HS256 with 24-hour expiration (lines 1258-1280).</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Data Encryption</section>
+        <snippet>Security requirements: OAuth tokens encrypted at rest using Fernet with key in environment variable, TLS 1.3 for all external communications, Gmail API enforces TLS, database connections use TLS (lines 1281-1293).</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 1.4 Definition</section>
+        <snippet>Story acceptance criteria: Google Cloud Project setup, OAuth credentials configuration, Gmail scopes (readonly, modify, send, labels), login and callback endpoints, token exchange and encryption, automatic token refresh (lines 100-118).</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>24-66</lines>
+        <reason>User model already exists with gmail_oauth_token and gmail_refresh_token fields (Text columns) ready for encrypted tokens. This story will populate these fields.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/database.py</path>
+        <kind>service</kind>
+        <symbol>DatabaseService</symbol>
+        <lines>29-271</lines>
+        <reason>Async database service with user CRUD operations: create_user, get_user, get_user_by_email. Use these methods for OAuth token storage.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/auth.py</path>
+        <kind>router</kind>
+        <symbol>router</symbol>
+        <lines>44-352</lines>
+        <reason>Existing auth router with register/login endpoints. Add Gmail OAuth endpoints (gmail/login, gmail/callback, gmail/status) to this file.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/api.py</path>
+        <kind>router</kind>
+        <symbol>api_router</symbol>
+        <lines>15-22</lines>
+        <reason>Main API router that includes auth_router. Auth endpoints already registered at /auth prefix. New OAuth endpoints will be at /api/v1/auth/gmail/*.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/config.py</path>
+        <kind>config</kind>
+        <symbol>Settings</symbol>
+        <lines>120-247</lines>
+        <reason>Settings class for environment variables. Add GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REDIRECT_URI, ENCRYPTION_KEY to this class.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/utils/auth.py</path>
+        <kind>utility</kind>
+        <symbol>create_access_token, verify_token</symbol>
+        <lines>1-352</lines>
+        <reason>JWT token utilities for session management. Reference this pattern but OAuth tokens use different flow (Google OAuth, not internal JWT).</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="google-api-python-client" version="^2.146.0" />
+        <package name="google-auth" version="^2.34.0" />
+        <package name="google-auth-oauthlib" version="^1.2.1" />
+        <package name="google-auth-httplib2" version="^0.2.0" />
+        <package name="cryptography" version="^43.0.1" />
+        <package name="fastapi" version="existing" />
+        <package name="sqlalchemy" version="existing" />
+        <package name="sqlmodel" version="existing" />
+        <package name="psycopg" version="existing" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - MUST use async database patterns from DatabaseService (async with, await)
+    - MUST encrypt OAuth tokens with Fernet before storing in database
+    - MUST validate state parameter in callback (CSRF protection)
+    - MUST use access_type='offline' and prompt='consent' to get refresh token
+    - MUST follow existing API path convention: /api/v1/auth/*
+    - MUST return {"success": bool, "data": {...}} response format
+    - MUST add new config values to Settings class in app/core/config.py
+    - MUST NOT log decrypted tokens (security violation)
+    - MUST NOT return decrypted tokens in API responses
+    - MUST create Alembic migration if User model changes (token_expiry field)
+    - MUST follow established code patterns from Stories 1.2 and 1.3
+    - MUST use existing User model fields (gmail_oauth_token, gmail_refresh_token)
+    - DO NOT recreate User model or database service
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/auth/gmail/login</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/v1/auth/gmail/login → {"success": true, "data": {"authorization_url": "https://..."}}</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/auth/gmail/callback</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/auth/gmail/callback?code=...&amp;state=... → {"success": true, "data": {"user_id": 123, "email": "..."}}</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/auth/gmail/status</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/auth/gmail/status (requires JWT auth) → {"success": true, "data": {"connected": true, "email": "...", "token_valid": true}}</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>encrypt_token / decrypt_token</name>
+      <kind>utility functions</kind>
+      <signature>encrypt_token(plaintext: str) → str, decrypt_token(ciphertext: str) → str</signature>
+      <path>backend/app/core/encryption.py (new file)</path>
+    </interface>
+    <interface>
+      <name>refresh_access_token</name>
+      <kind>async function</kind>
+      <signature>async refresh_access_token(user_id: int) → str</signature>
+      <path>backend/app/core/gmail_auth.py (new file)</path>
+    </interface>
+    <interface>
+      <name>Google OAuth Flow</name>
+      <kind>external API</kind>
+      <signature>Flow.from_client_config(client_config, scopes) → authorization_url, state</signature>
+      <path>google_auth_oauthlib.flow.Flow</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Project uses pytest framework with httpx for async testing. Test files follow naming pattern test_*.py or *_test.py. Tests configured in pyproject.toml with dependency group test = ["httpx>=0.28.1", "pytest>=8.3.5"]. Tests should use pytest markers for slow tests. Mock external APIs (Google OAuth) using pytest-mock or unittest.mock. Use FastAPI TestClient for endpoint testing.</standards>
+    <locations>
+      - backend/tests/ (to be created if not exists)
+      - backend/tests/test_auth.py (OAuth endpoints)
+      - backend/tests/test_encryption.py (token encryption)
+      - backend/tests/test_gmail_auth.py (token refresh)
+    </locations>
+    <ideas>
+      - AC1: Test encrypt_token and decrypt_token roundtrip with sample OAuth token
+      - AC2: Test invalid encryption key handling
+      - AC4: Test POST /api/v1/auth/gmail/login returns valid authorization_url with correct scopes
+      - AC4: Test authorization_url contains client_id, redirect_uri, state parameters
+      - AC5: Test GET /api/v1/auth/gmail/callback with valid code exchanges for tokens
+      - AC5: Test callback with invalid state parameter returns 403 Forbidden (CSRF protection)
+      - AC5: Test callback with invalid code returns 401 Unauthorized
+      - AC6: Mock Google OAuth token exchange endpoint and verify request format
+      - AC7: Test tokens are encrypted before database storage
+      - AC7: Test User record created/updated with encrypted tokens
+      - AC8: Test refresh_access_token function with expired token
+      - AC8: Mock Google OAuth refresh endpoint and verify refresh_token sent
+      - AC8: Test new access_token encrypted and stored in database
+      - Integration: Test complete OAuth flow from login to callback
+      - Integration: Test token refresh on expiry
+      - Security: Test tokens never logged or returned in responses
+      - Security: Test state validation prevents CSRF attacks
+    </ideas>
+  </tests>
+</story-context>

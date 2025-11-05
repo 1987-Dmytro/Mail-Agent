@@ -273,6 +273,570 @@ mail-agent/
   - Cache label IDs to reduce list_labels calls
   - Respect rate limit headers and back off proactively
 
+#### Gmail Label Management Flow
+
+The Gmail Label Management system enables programmatic creation and management of Gmail labels (folders) for email organization. This flow diagram illustrates the label creation and application workflows.
+
+**Label Creation Workflow (Story 1.8):**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Label Creation Flow (Epic 1)                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+User (Epic 4 UI)
+    │
+    │ POST /api/v1/folders/
+    │ {
+    │   "name": "Government",
+    │   "keywords": ["finanzamt", "tax"],
+    │   "color": "#FF5733"
+    │ }
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                     API Layer (folders.py)                          │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Authenticate user via JWT (get_current_user)              │  │
+│  │ 2. Validate request: name (1-100 chars), color (#RRGGBB)    │  │
+│  │ 3. Extract user_id from JWT token                            │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ call FolderService.create_folder()
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Service Layer (folder_service.py)                      │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 4. Validate folder name (not empty, 1-100 chars)            │  │
+│  │ 5. Check database for duplicate (user_id, name)             │  │
+│  │    - If duplicate exists → raise ValueError                  │  │
+│  │ 6. Initialize GmailClient(user_id)                           │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ call GmailClient.create_label()
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Gmail Client (gmail_client.py)                         │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 7. Load user's OAuth tokens from database (encrypted)       │  │
+│  │ 8. Construct Gmail label object:                             │  │
+│  │    {                                                          │  │
+│  │      "name": "Government",                                    │  │
+│  │      "labelListVisibility": "labelShow",                     │  │
+│  │      "messageListVisibility": "show",                        │  │
+│  │      "color": {"backgroundColor": "#FF5733"}                 │  │
+│  │    }                                                          │  │
+│  │ 9. Call Gmail API: labels().create()                         │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ HTTPS POST
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Gmail API                                   │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 10. Validate OAuth token                                      │  │
+│  │ 11. Check if label name already exists                        │  │
+│  │     - If exists → return 409 Conflict                         │  │
+│  │     - Else → create label                                     │  │
+│  │ 12. Return label_id (e.g., "Label_123")                       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ label_id = "Label_123"
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Gmail Client Error Handling                            │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ If 409 Conflict (duplicate label name):                      │  │
+│  │   13. Call list_labels() to find existing label              │  │
+│  │   14. Return existing label_id (idempotent operation)        │  │
+│  │                                                                │  │
+│  │ If 401 Unauthorized (token expired):                          │  │
+│  │   15. Refresh OAuth token                                     │  │
+│  │   16. Retry create_label()                                    │  │
+│  │                                                                │  │
+│  │ If 429 Rate Limit:                                             │  │
+│  │   17. Exponential backoff (max 3 retries)                     │  │
+│  │   18. Log warning and retry                                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ return label_id to FolderService
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Database Layer (PostgreSQL)                            │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 19. Create FolderCategory record:                             │  │
+│  │     INSERT INTO folder_categories (                           │  │
+│  │       user_id = 1,                                            │  │
+│  │       name = "Government",                                    │  │
+│  │       gmail_label_id = "Label_123",                           │  │
+│  │       keywords = ["finanzamt", "tax"],                        │  │
+│  │       color = "#FF5733",                                      │  │
+│  │       created_at = NOW(),                                     │  │
+│  │       updated_at = NOW()                                      │  │
+│  │     )                                                          │  │
+│  │ 20. Enforce unique constraint on (user_id, name)             │  │
+│  │ 21. Return FolderCategory object with all fields             │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ return FolderCategory
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                     API Response (201 Created)                      │
+│  {                                                                  │
+│    "id": 5,                                                         │
+│    "user_id": 1,                                                    │
+│    "name": "Government",                                            │
+│    "gmail_label_id": "Label_123",                                   │
+│    "keywords": ["finanzamt", "tax"],                                │
+│    "color": "#FF5733",                                              │
+│    "is_default": false,                                             │
+│    "created_at": "2025-11-05T12:00:00Z",                            │
+│    "updated_at": "2025-11-05T12:00:00Z"                             │
+│  }                                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ Label created in both Gmail and database ✅
+    ↓
+User sees new folder in UI
+```
+
+**Label Application Workflow (Epic 2 AI Sorting Preview):**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              Label Application Flow (Epic 2 Integration)            │
+└─────────────────────────────────────────────────────────────────────┘
+
+Email arrives in Gmail
+    │
+    ↓
+Email Polling Service detects new email (Story 1.6)
+    │
+    ↓
+Save to EmailProcessingQueue table (Story 1.7)
+    │
+    │ status = "pending"
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              AI Classification Service (Epic 2)                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Load email content and user's FolderCategories            │  │
+│  │ 2. Use Gemini LLM to classify email                          │  │
+│  │    Prompt includes folder names and keywords                  │  │
+│  │ 3. Select best matching FolderCategory                        │  │
+│  │ 4. Update EmailProcessingQueue:                               │  │
+│  │    - proposed_folder_id = 5 (Government folder)              │  │
+│  │    - classification = "government_docs"                       │  │
+│  │    - status = "processing"                                    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ Send approval request to user
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                   Telegram Bot (Epic 2)                             │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 5. Send message to user:                                      │  │
+│  │    "New email from sender@example.com                         │  │
+│  │     Subject: Tax documents                                    │  │
+│  │     Proposed folder: Government                               │  │
+│  │     [✅ Approve] [❌ Reject]"                                  │  │
+│  │                                                                │  │
+│  │ 6. User clicks [✅ Approve] button                            │  │
+│  │ 7. Telegram sends callback query to backend                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ POST /api/v1/telegram/callback
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Approval Handler (Epic 2)                              │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 8. Load EmailProcessingQueue record by email_id              │  │
+│  │ 9. Extract proposed_folder_id = 5                             │  │
+│  │ 10. Load FolderCategory by id (includes gmail_label_id)      │  │
+│  │ 11. Extract gmail_label_id = "Label_123"                      │  │
+│  │ 12. Extract gmail_message_id from EmailProcessingQueue       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ call GmailClient.apply_label()
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Gmail Client (gmail_client.py)                         │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 13. Construct modify request:                                 │  │
+│  │     {                                                          │  │
+│  │       "addLabelIds": ["Label_123"]                            │  │
+│  │     }                                                          │  │
+│  │ 14. Call Gmail API: messages().modify()                       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ HTTPS POST
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Gmail API                                   │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 15. Validate OAuth token                                      │  │
+│  │ 16. Validate message_id and label_id exist                    │  │
+│  │ 17. Add label to email message                                │  │
+│  │ 18. Return success (200 OK)                                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ success = True
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Update EmailProcessingQueue                            │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 19. Update EmailProcessingQueue:                              │  │
+│  │     - status = "completed"                                    │  │
+│  │     - updated_at = NOW()                                      │  │
+│  │ 20. Log event: "email_sorted"                                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ Email sorted ✅
+    ↓
+User sees email in Gmail under "Government" label
+```
+
+**Error Handling Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Error Handling Scenarios                         │
+└─────────────────────────────────────────────────────────────────────┘
+
+Error: 409 Conflict (Duplicate Label Name)
+    │
+    ├─→ Detected in: GmailClient.create_label()
+    │
+    ├─→ Handler: Call list_labels() to find existing label by name
+    │
+    ├─→ Action: Return existing label_id (idempotent operation)
+    │
+    └─→ Result: Folder creation succeeds with existing label ✅
+
+Error: 404 Not Found (Invalid Message ID or Label ID)
+    │
+    ├─→ Detected in: GmailClient.apply_label() or remove_label()
+    │
+    ├─→ Handler: Log error with message_id and label_id
+    │
+    ├─→ Action: Return False (operation failed)
+    │
+    └─→ Result: Service layer handles error, updates status accordingly
+
+Error: 401 Unauthorized (Expired OAuth Token)
+    │
+    ├─→ Detected in: All Gmail API calls
+    │
+    ├─→ Handler: _execute_with_retry() method in GmailClient
+    │
+    ├─→ Action: Call _refresh_token() to get new access token
+    │
+    ├─→ Retry: Re-attempt original API call with new token
+    │
+    └─→ Result: Operation succeeds transparently ✅
+
+Error: 429 Rate Limit Exceeded
+    │
+    ├─→ Detected in: All Gmail API calls
+    │
+    ├─→ Handler: _execute_with_retry() with exponential backoff
+    │
+    ├─→ Action: Wait 2^retry_count seconds (max 3 retries)
+    │
+    ├─→ Retry: Re-attempt API call after backoff period
+    │
+    └─→ Result: Operation eventually succeeds or logs failure
+
+Error: IntegrityError (Duplicate Folder Name)
+    │
+    ├─→ Detected in: FolderService.create_folder() during DB insert
+    │
+    ├─→ Handler: Catch SQLAlchemy IntegrityError
+    │
+    ├─→ Action: Raise ValueError with user-friendly message
+    │
+    └─→ Result: API returns 400 Bad Request to user
+```
+
+**Key Design Decisions:**
+
+1. **Idempotent Label Creation**: Gmail API returns 409 Conflict if label name exists. The `create_label()` method handles this by calling `list_labels()` and returning the existing label ID, making the operation idempotent and safe for concurrent requests.
+
+2. **Database-First Validation**: The service layer checks for duplicate folder names in the database before calling the Gmail API. This prevents unnecessary API calls and enforces the unique constraint early.
+
+3. **Atomic Operations**: Folder creation is atomic - if Gmail API fails, no database record is created (transaction rollback). This prevents orphaned database records without corresponding Gmail labels.
+
+4. **Separation of Concerns**:
+   - **API Layer**: Authentication, request validation, HTTP error responses
+   - **Service Layer**: Business logic, duplicate checks, coordination between DB and Gmail
+   - **Gmail Client**: Low-level Gmail API operations, retry logic, token refresh
+   - **Database Layer**: Data persistence, unique constraints, cascade deletes
+
+5. **Error Resilience**: All Gmail API calls use `_execute_with_retry()` with exponential backoff for transient errors (401, 429, 503). Token refresh happens automatically on 401 Unauthorized.
+
+6. **Security**: All operations require JWT authentication, and all database queries filter by `user_id` to prevent cross-user access. OAuth tokens are encrypted at rest.
+
+#### Gmail Email Sending Flow
+
+The Email Sending system enables sending emails via Gmail API on behalf of authenticated users with MIME message composition, threading support, and comprehensive error handling. This flow is used for AI-generated responses in Epic 3 and manual testing in development.
+
+**Email Sending Workflow (Story 1.9):**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                Email Sending Flow (Story 1.9)                       │
+└─────────────────────────────────────────────────────────────────────┘
+
+User/AI System
+    │
+    │ POST /api/v1/test/send-email
+    │ {
+    │   "to": "recipient@example.com",
+    │   "subject": "Test Email",
+    │   "body": "Email content",
+    │   "body_type": "plain",
+    │   "thread_id": "thread_abc123" (optional)
+    │ }
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                     API Layer (test.py)                             │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Authenticate user via JWT (get_current_user)              │  │
+│  │ 2. Validate request using Pydantic:                          │  │
+│  │    - to: EmailStr (valid email format)                       │  │
+│  │    - body_type: "plain" or "html"                            │  │
+│  │    - subject, body: string                                   │  │
+│  │ 3. Extract user_id from JWT token                            │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ call GmailClient.send_email()
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Gmail Client (gmail_client.py)                         │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 4. Load user's OAuth tokens from database (encrypted)       │  │
+│  │ 5. Load user's email address from User model                │  │
+│  │ 6. If thread_id provided:                                    │  │
+│  │    - Call get_thread_message_ids(thread_id)                 │  │
+│  │    - Extract message IDs for References header              │  │
+│  │    - Set In-Reply-To to latest message ID                   │  │
+│  │ 7. Call _compose_mime_message():                             │  │
+│  │    - Create MIMEMultipart message object                     │  │
+│  │    - Set From header (user's Gmail address)                 │  │
+│  │    - Set To header (recipient email)                        │  │
+│  │    - Set Subject header                                      │  │
+│  │    - Set Date header (RFC 2822 format)                      │  │
+│  │    - If threading: Add In-Reply-To, References headers      │  │
+│  │    - Attach body as MIMEText (text/plain or text/html)      │  │
+│  │    - Encode as base64 URL-safe string                       │  │
+│  │ 8. Log email_send_started event                              │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ MIME message encoded
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Gmail Client Send Logic                                │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 9. Construct Gmail API request:                              │  │
+│  │    {                                                          │  │
+│  │      "raw": "<base64_encoded_mime_message>"                  │  │
+│  │    }                                                          │  │
+│  │ 10. Call Gmail API via _execute_with_retry():                │  │
+│  │     service.users().messages().send(                         │  │
+│  │       userId='me',                                            │  │
+│  │       body=request_body                                       │  │
+│  │     ).execute()                                               │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ HTTPS POST
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Gmail API                                   │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 11. Validate OAuth token                                      │  │
+│  │ 12. Parse MIME message (decode base64)                        │  │
+│  │ 13. Validate email headers (From, To, Subject, Date)         │  │
+│  │ 14. Check sending quota (100 sends/day free tier)            │  │
+│  │ 15. Validate recipient email exists                           │  │
+│  │ 16. Check message size (<25MB limit)                          │  │
+│  │ 17. Send email to recipient via Gmail SMTP                    │  │
+│  │ 18. Add email to Sent folder                                  │  │
+│  │ 19. If threading: Link to conversation thread                │  │
+│  │ 20. Return message_id (e.g., "18abc123def456")               │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ message_id = "18abc123def456"
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│              Gmail Client Success Logging                           │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 21. Extract message_id from response                          │  │
+│  │ 22. Calculate send duration (milliseconds)                    │  │
+│  │ 23. Log email_sent event:                                     │  │
+│  │     {                                                          │  │
+│  │       "event": "email_sent",                                  │  │
+│  │       "user_id": 123,                                         │  │
+│  │       "recipient": "recipient@example.com",                   │  │
+│  │       "subject": "Test Email",                                │  │
+│  │       "message_id": "18abc123def456",                         │  │
+│  │       "success": true,                                        │  │
+│  │       "duration_ms": 1234,                                    │  │
+│  │       "timestamp": "2025-11-05T10:15:31.357Z"                 │  │
+│  │     }                                                          │  │
+│  │ 24. Return message_id to API layer                            │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ return message_id
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                     API Response (200 OK)                           │
+│  {                                                                  │
+│    "success": true,                                                 │
+│    "data": {                                                        │
+│      "message_id": "18abc123def456",                                │
+│      "recipient": "recipient@example.com",                          │
+│      "subject": "Test Email"                                        │
+│    }                                                                │
+│  }                                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ Email sent successfully ✅
+    ↓
+Email appears in recipient's inbox
+(and in sender's Sent folder in Gmail)
+```
+
+**Email Sending Error Handling:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              Email Sending Error Handling                           │
+└─────────────────────────────────────────────────────────────────────┘
+
+Gmail API Error Occurs
+    │
+    ├─ 400 Bad Request (Invalid Recipient)
+    │   │
+    │   └─→ InvalidRecipientError raised
+    │       │
+    │       └─→ API returns 400 with error message
+    │           "Invalid recipient email address: invalid@example.com"
+    │
+    ├─ 401 Unauthorized (Token Expired)
+    │   │
+    │   └─→ Auto-handled by _execute_with_retry()
+    │       │
+    │       ├─ 1. Refresh OAuth token via refresh_token
+    │       ├─ 2. Update database with new access_token
+    │       └─ 3. Retry send_email() once
+    │
+    ├─ 413 Request Entity Too Large (>25MB)
+    │   │
+    │   └─→ MessageTooLargeError raised
+    │       │
+    │       └─→ API returns 413 with error message
+    │           "Email exceeds Gmail 25MB size limit"
+    │
+    ├─ 429 Too Many Requests (Quota Exceeded)
+    │   │
+    │   └─→ QuotaExceededError raised
+    │       │
+    │       ├─ 1. Extract retry_after from response headers
+    │       ├─ 2. Log quota_exceeded event with user_id
+    │       ├─ 3. _execute_with_retry() applies exponential backoff:
+    │       │    - Retry 1: Wait 2 seconds
+    │       │    - Retry 2: Wait 4 seconds
+    │       │    - Retry 3: Wait 8 seconds
+    │       └─ 4. If all retries fail → API returns 429 error
+    │           "Gmail API quota exceeded (100 sends/day)"
+    │           Headers: {"Retry-After": "86400"}
+    │
+    └─ 503 Service Unavailable (Transient Gmail Error)
+        │
+        └─→ Auto-handled by _execute_with_retry()
+            │
+            ├─ 1. Log transient_error event
+            ├─ 2. Exponential backoff (max 3 retries)
+            └─ 3. If all retries fail → Raise HttpError
+                "Gmail API temporarily unavailable"
+```
+
+**MIME Message Structure (RFC 2822 Compliant):**
+
+```
+From: user@gmail.com
+To: recipient@example.com
+Subject: Test Email
+Date: Tue, 05 Nov 2025 10:15:30 +0000
+In-Reply-To: <previous-message-id@mail.gmail.com>  (if thread_id provided)
+References: <msg1@mail.gmail.com> <msg2@mail.gmail.com>  (if thread_id provided)
+Content-Type: text/plain; charset="utf-8"
+
+Email body content here...
+
+---
+Base64 URL-safe encoded before sending to Gmail API
+```
+
+**Threading Headers for Replies:**
+
+When sending a reply to an existing email thread:
+
+1. **In-Reply-To Header**: Contains Message-ID of the email being replied to
+   - Format: `In-Reply-To: <18abc123def456@mail.gmail.com>`
+   - Single message ID in angle brackets
+
+2. **References Header**: Contains all message IDs in the conversation thread
+   - Format: `References: <msg1@mail.gmail.com> <msg2@mail.gmail.com> <msg3@mail.gmail.com>`
+   - Space-separated list of message IDs in chronological order
+   - Gmail uses this to group emails into conversation threads
+
+3. **Thread Construction Process**:
+   ```
+   thread_id provided
+       ↓
+   Call get_thread_message_ids(thread_id)
+       ↓
+   Gmail API threads().get(id=thread_id)
+       ↓
+   Extract message IDs: ["msg1", "msg2", "msg3"]
+       ↓
+   Construct headers:
+       In-Reply-To: <msg3>  (latest)
+       References: <msg1> <msg2> <msg3>  (all)
+       ↓
+   Email appears in Gmail conversation thread
+   ```
+
+**Gmail Sending Quotas and Rate Limits (Story 1.9):**
+
+| Quota Type | Free Tier | G Suite | Reset Frequency |
+|------------|-----------|---------|-----------------|
+| Email Sends | 100/day | 2,000/day | Daily (midnight PT) |
+| API Requests | 10,000/day | 25,000/day | Daily (midnight PT) |
+| Message Size | 25MB max | 25MB max | N/A |
+
+**Typical Mail Agent Sending Usage:**
+- AI-generated responses: 10-20 sends/day per user
+- Test emails: 5 sends/day per user
+- Total: 15-25 sends/day (12-25% of free tier quota)
+
 **2. Telegram Bot API Integration**
 - **Protocol:** HTTPS REST API
 - **Authentication:** Bot token (stored in environment variable)

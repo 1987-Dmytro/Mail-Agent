@@ -1,0 +1,175 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>6</storyId>
+    <title>Basic Email Monitoring Service</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-05</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-6-basic-email-monitoring-service.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to periodically poll Gmail inbox for new emails</iWant>
+    <soThat>I can detect incoming emails that need processing</soThat>
+    <tasks>
+- Task 1: Set up Background Task Infrastructure (AC: #1)
+  - Install Celery and Redis dependencies (celery>=5.4.0, redis>=5.0.1)
+  - Configure Celery worker with Redis as message broker
+  - Create celery.py configuration file with worker settings
+  - Add Celery beat scheduler configuration for periodic tasks
+  - Test Celery worker startup and beat scheduler
+
+- Task 2: Create Email Polling Task Module (AC: #2, #3)
+  - Create backend/app/tasks/email_tasks.py module
+  - Define poll_user_emails() Celery task function
+  - Add @shared_task decorator to make task discoverable
+  - Configure polling interval via environment variable POLLING_INTERVAL_SECONDS (default: 120)
+  - Register task with Celery beat scheduler
+  - Implement task to call GmailClient.get_messages(query="is:unread", max_results=50)
+  - Add structured logging for polling cycle start and completion
+
+- Task 3: Implement Email Metadata Extraction (AC: #4)
+  - Extract message_id, thread_id, sender, subject, received_at, labels from Gmail API response
+  - Create EmailMetadata dataclass or dict with all extracted fields
+  - Validate extracted metadata (ensure required fields present)
+
+- Task 4: Implement Duplicate Detection (AC: #5)
+  - Before processing email, query database for existing email with same gmail_message_id
+  - Use SQLAlchemy query to check for duplicates
+  - If email exists, skip processing and log "Email already processed"
+  - If email is new, proceed with processing
+  - Log count of new emails vs. skipped duplicates
+
+- Task 5: Implement Multi-User Polling (AC: #6)
+  - Create poll_all_users() orchestrator task
+  - Query database for all active users
+  - For each active user, check if gmail_oauth_token exists
+  - For each user with valid token, call poll_user_emails.delay(user_id)
+  - Use Celery task chaining to avoid overwhelming Gmail API
+  - Add delay between users (e.g., 1 second) to respect rate limits
+  - Log start and end of multi-user polling cycle
+
+- Task 6: Add Comprehensive Logging (AC: #7)
+  - Use structlog for all logging operations
+  - Log polling cycle start, emails fetched, new emails detected, duplicates skipped, errors with context, and polling cycle completion
+
+- Task 7: Environment Configuration (AC: #8)
+  - Add POLLING_INTERVAL_SECONDS, REDIS_URL, CELERY_BROKER_URL, CELERY_RESULT_BACKEND to .env.example
+  - Load environment variables in celery.py using python-dotenv
+  - Document environment variables in README.md
+
+- Task 8: Create Unit Tests (Testing)
+  - Create backend/tests/test_email_polling.py
+  - Test: test_poll_user_emails_fetches_unread_emails()
+  - Test: test_duplicate_detection_skips_existing_emails()
+  - Test: test_poll_all_users_iterates_active_users()
+  - Test: test_polling_error_handling()
+  - Run tests: pytest tests/test_email_polling.py -v
+
+- Task 9: Integration Testing and Documentation (Testing)
+  - Manual test: Start Redis server, Celery worker, Celery beat scheduler
+  - Manual test: Send test email to Gmail account
+  - Manual test: Verify polling task fetches email within 2 minutes
+  - Manual test: Check logs for "emails_fetched" and "new_emails_detected"
+  - Manual test: Send duplicate email, verify it's skipped
+  - Update backend/README.md with Email Polling section
+  - Document background task architecture in docs/architecture.md
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Background task scheduler implemented (asyncio or Celery with Redis)
+2. Email polling task created that runs at configurable intervals (default: every 2 minutes)
+3. Polling task retrieves unread emails from Gmail inbox using Gmail client
+4. Email metadata extracted (message_id, thread_id, sender, subject, date, labels)
+5. Processed emails marked internally to avoid duplicate processing
+6. Polling task handles multiple users (iterates through all active users)
+7. Logging implemented for each polling cycle (emails found, processing status)
+8. Configuration added for polling interval via environment variable
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/epics.md" title="Epic Breakdown" section="Story 1.6: Basic Email Monitoring Service" snippet="Story definition with acceptance criteria for email polling task, background scheduler implementation, and multi-user support. Lines 140-157." />
+      <doc path="docs/tech-spec-epic-1.md" title="Epic 1 Technical Specification" section="Background Task Processing" snippet="Celery + Redis setup for email polling tasks running every 2 minutes per user. Task priorities and component locations defined. Lines 56-66." />
+      <doc path="docs/tech-spec-epic-1.md" title="Epic 1 Technical Specification" section="Services and Modules" snippet="EmailPollingService and EmailPollingTask specifications with inputs/outputs and file locations (app/services/email_polling.py, app/tasks/email_tasks.py). Lines 76-86." />
+      <doc path="docs/tech-spec-epic-1.md" title="Epic 1 Technical Specification" section="Reliability" snippet="Error handling strategy for Gmail API transient errors (503, timeouts), auth errors (401, 403), quota exceeded (429), and Celery retry configuration. Lines 476-490." />
+      <doc path="docs/architecture.md" title="System Architecture" section="Project Structure - Background Tasks" snippet="Background task directory structure showing tasks/ folder with email_tasks.py for email polling & processing. Lines 140-145." />
+      <doc path="docs/PRD.md" title="Product Requirements Document" section="Epic List" snippet="Epic 1 goal: Establish Gmail connectivity foundation enabling basic email monitoring. Lines 200-205." />
+      <doc path="docs/stories/1-5-gmail-api-client-integration.md" title="Story 1.5: Gmail API Client Integration" section="Completion Notes" snippet="GmailClient class completed with get_messages() method for fetching unread emails, automatic token refresh, and rate limit handling. Prerequisite for Story 1.6." />
+    </docs>
+    <code>
+      <artifact path="backend/app/core/gmail_client.py" kind="service" symbol="GmailClient" lines="62-480" reason="Gmail API wrapper with get_messages() method for fetching emails. Story 1.6 will use this client for polling unread emails." />
+      <artifact path="backend/app/core/gmail_client.py" kind="service" symbol="get_messages()" lines="281-350" reason="Method to retrieve emails from Gmail with query support (e.g., 'is:unread'). Returns list of email dicts with message_id, thread_id, sender, subject, received_at, labels." />
+      <artifact path="backend/app/core/gmail_auth.py" kind="service" symbol="get_valid_gmail_credentials()" lines="1-100" reason="Function to retrieve and refresh Gmail OAuth credentials. Handles automatic token refresh on 401 errors." />
+      <artifact path="backend/app/models/user.py" kind="model" symbol="User" lines="28-60" reason="User model with gmail_oauth_token, gmail_refresh_token, and is_active fields. Query active users for multi-user polling." />
+      <artifact path="backend/app/services/database.py" kind="service" symbol="DatabaseService" lines="29-80" reason="Database service with async session management. Use for querying active users and checking for duplicate emails." />
+      <artifact path="backend/app/core/logging.py" kind="utility" symbol="structlog setup" lines="1-100" reason="Structured logging configuration. Use structlog.get_logger(__name__) for all polling task logging." />
+    </code>
+    <dependencies>
+      <python>
+        <package name="celery" version=">=5.4.0" purpose="Distributed task queue for background email polling" />
+        <package name="redis" version=">=5.0.1" purpose="Message broker and result backend for Celery" />
+        <package name="structlog" version=">=25.2.0" purpose="Structured logging for polling tasks (already installed)" />
+        <package name="python-dotenv" version=">=1.1.0" purpose="Environment variable management (already installed)" />
+        <package name="sqlmodel" version=">=0.0.24" purpose="Database ORM for querying users and emails (already installed)" />
+        <package name="google-api-python-client" version=">=2.146.0" purpose="Gmail API integration via GmailClient (already installed)" />
+        <package name="google-auth" version=">=2.34.0" purpose="OAuth credential management (already installed)" />
+        <package name="fastapi" version=">=0.115.12" purpose="Web framework for API endpoints (already installed)" />
+        <package name="pytest" version=">=8.3.5" purpose="Testing framework for unit tests (already installed in test group)" />
+      </python>
+      <infrastructure>
+        <service name="Redis" version="latest" purpose="Message broker for Celery, required for task scheduling and result storage" />
+        <service name="PostgreSQL" version="18-alpine" purpose="Database for user data and email metadata (already configured in docker-compose.yml)" />
+        <service name="Celery Worker" purpose="Background worker process to execute polling tasks" />
+        <service name="Celery Beat" purpose="Scheduler to trigger periodic polling tasks every 2 minutes" />
+      </infrastructure>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Use existing GmailClient class from backend/app/core/gmail_client.py (Story 1.5) - DO NOT reimplement Gmail API integration
+    - Follow async/await patterns established in DatabaseService for all database operations
+    - Use structlog for all logging operations with contextual fields (user_id, message_id, count, etc.)
+    - Create new directory backend/app/tasks/ for Celery task modules
+    - Celery tasks must use @shared_task decorator for autodiscovery
+    - Task retry logic: max 3 retries with exponential backoff for transient errors
+    - Respect Gmail API rate limits: max 10,000 requests/day per user (polling uses ~720 requests/day)
+    - Add 1-second delay between user polling tasks to avoid API rate limit spikes
+    - Environment configuration via python-dotenv: POLLING_INTERVAL_SECONDS, REDIS_URL, CELERY_BROKER_URL, CELERY_RESULT_BACKEND
+    - Error handling: Retry transient Gmail errors (503, timeouts), trigger token refresh on auth errors (401, 403)
+    - No email content should be logged - only metadata for monitoring and debugging
+  </constraints>
+  <interfaces>
+    <interface name="GmailClient.get_messages()" kind="method" signature="async def get_messages(self, query: str = 'is:unread', max_results: int = 50) -> List[Dict]" path="backend/app/core/gmail_client.py:281" />
+    <interface name="get_valid_gmail_credentials()" kind="function" signature="async def get_valid_gmail_credentials(user_id: int, db_service: DatabaseService) -> Credentials" path="backend/app/core/gmail_auth.py" />
+    <interface name="DatabaseService.get_session()" kind="method" signature="async def get_session() -> AsyncSession" path="backend/app/services/database.py" />
+    <interface name="User.query" kind="model" signature="session.query(User).filter_by(is_active=True).all()" path="backend/app/models/user.py:28" />
+    <interface name="Celery Task Decorator" kind="decorator" signature="@shared_task(bind=True, max_retries=3, default_retry_delay=60)" path="New: backend/app/tasks/email_tasks.py" />
+  </interfaces>
+  <tests>
+    <standards>
+Testing framework: pytest (>=8.3.5) with async support. Use unittest.mock for mocking (Mock, AsyncMock, MagicMock, patch). Test file naming: test_*.py. Fixtures for common setup (e.g., mock_db_service, gmail_client). Mock external dependencies (GmailClient, DatabaseService, Redis/Celery). Test coverage expectations: Unit tests for all task functions, integration tests for end-to-end flows. Assertion patterns: Verify method calls with assert_called_once_with(), check return values, validate logging output. Error testing: Mock HttpError exceptions to test retry logic and error handling. Existing test patterns in test_gmail_client.py demonstrate mocking Gmail API responses, token refresh flows, and rate limiting scenarios.
+    </standards>
+    <locations>
+backend/tests/ - Main test directory
+backend/tests/test_email_polling.py - New test file for Story 1.6 polling tasks
+backend/tests/test_gmail_client.py - Existing tests showing mocking patterns (reference for style)
+backend/tests/test_encryption.py - Existing tests for token encryption
+    </locations>
+    <ideas>
+      <test id="AC1" criteria="Background task scheduler implemented" description="Test Celery worker and beat scheduler startup with correct configuration. Mock Celery app initialization and verify beat schedule contains 'poll-all-users' task with 120-second interval." />
+      <test id="AC2" criteria="Email polling task runs at configurable intervals" description="Test poll_user_emails() task is registered with Celery and respects POLLING_INTERVAL_SECONDS environment variable. Verify task executes on schedule." />
+      <test id="AC3" criteria="Polling retrieves unread emails from Gmail" description="Mock GmailClient.get_messages(query='is:unread', max_results=50) to return 3 test emails. Verify poll_user_emails() calls Gmail client with correct parameters and user_id." />
+      <test id="AC4" criteria="Email metadata extracted correctly" description="Test metadata extraction for message_id, thread_id, sender, subject, received_at, labels. Mock Gmail API response with all fields and verify parsing logic." />
+      <test id="AC5" criteria="Duplicate detection works" description="Mock database query to return existing email with matching gmail_message_id. Verify task skips processing and logs 'duplicate_email_skipped'. Test new email path when no duplicate found." />
+      <test id="AC6" criteria="Multi-user polling iterates all active users" description="Mock User.query().filter_by(is_active=True).all() to return 3 users. Verify poll_all_users() spawns poll_user_emails.delay() for each user with correct user_id. Verify 1-second delay between users." />
+      <test id="AC7" criteria="Logging implemented for polling cycle" description="Capture structlog output and verify log entries: 'polling_started', 'emails_fetched', 'new_emails_detected', 'duplicates_skipped', 'polling_completed'. Check contextual fields (user_id, count, message_id)." />
+      <test id="AC8" criteria="Polling interval configurable via environment" description="Test that POLLING_INTERVAL_SECONDS environment variable is loaded and used in Celery beat schedule. Verify default value of 120 seconds when not set." />
+      <test id="error-handling" criteria="Error handling and retry logic" description="Mock GmailClient to raise HttpError(503) and verify task retries with exponential backoff. Mock HttpError(401) and verify token refresh triggered. Verify task does not crash on transient errors." />
+      <test id="integration" criteria="End-to-end polling flow" description="Integration test (manual or automated): Start Redis, Celery worker, Celery beat. Send test email to Gmail account. Verify polling task fetches email within 2 minutes. Check logs for expected entries. Verify duplicate detection on second poll." />
+    </ideas>
+  </tests>
+</story-context>

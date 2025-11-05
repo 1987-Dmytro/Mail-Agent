@@ -1,0 +1,25 @@
+# Engineering Backlog
+
+This backlog collects cross-cutting or future action items that emerge from reviews and planning.
+
+Routing guidance:
+
+- Use this file for non-urgent optimizations, refactors, or follow-ups that span multiple stories/epics.
+- Must-fix items to ship a story belong in that story's `Tasks / Subtasks`.
+- Same-epic improvements may also be captured under the epic Tech Spec `Post-Review Follow-ups` section.
+
+| Date | Story | Epic | Type | Severity | Owner | Status | Notes |
+| ---- | ----- | ---- | ---- | -------- | ----- | ------ | ----- |
+| 2025-11-05 | 1.6 | 1 | Enhancement | Medium | TBD | Open | Make Gmail API max_results configurable via environment variable (currently hard-coded to 50). File: backend/app/tasks/email_tasks.py:109 |
+| 2025-11-05 | 1.6 | 1 | Enhancement | Medium | TBD | Open | Add validation for gmail_refresh_token presence before spawning poll task to prevent unnecessary task execution. File: backend/app/tasks/email_tasks.py:170 |
+| 2025-11-05 | 1.6 | 1 | TechDebt | Low | TBD | Open | Optimize event loop management in Celery tasks - avoid creating new loop on each task execution for better performance. File: backend/app/tasks/email_tasks.py:43-46 |
+| 2025-11-05 | 1.6 | 1 | Enhancement | Low | TBD | Open | Automate integration tests for CI/CD pipeline (currently manual). Create automated end-to-end test suite for email polling flow. File: backend/tests/ |
+| 2025-11-05 | 1.8 | 1 | Bug | High | TBD | Open | Add FolderCategories documentation section to README.md - table schema, usage patterns, example API requests, color/visibility options. File: backend/README.md:334 |
+| 2025-11-05 | 1.8 | 1 | Bug | High | TBD | Open | Add Gmail label management flow diagram to architecture.md showing label creation/application workflow, error handling flow (409/404), with sequence diagram. File: docs/architecture.md |
+| 2025-11-05 | 1.8 | 1 | TechDebt | Medium | TBD | Open | Create test_folder_service.py with service integration tests - test_create_folder_end_to_end, test_list_folders_by_user, test_delete_folder, test_duplicate_folder_name_error. File: backend/tests/test_folder_service.py |
+| 2025-11-05 | 1.9 | 1 | Bug | High | TBD | Open | Create integration test file backend/tests/test_email_integration.py with test_send_email_end_to_end, test_send_email_with_thread_reply, test_send_email_error_handling. Verify JWT auth integration with email sending. Task 9 marked complete but file does NOT exist. |
+| 2025-11-05 | 1.9 | 1 | Bug | High | TBD | Open | Add Email Sending section to backend/README.md - document send_email() signature, MIME composition, threading headers, example API request for /test/send-email, error codes (QuotaExceededError, InvalidRecipientError, MessageTooLargeError), Gmail quota limits (10K requests/day, 100 sends/day). Task 10 marked complete but section missing. |
+| 2025-11-05 | 1.9 | 1 | Bug | High | TBD | Open | Update docs/architecture.md with Email Sending Flow - add sequence diagram (User → Backend → GmailClient → Gmail API), MIME message structure, threading header construction, error handling flow, Gmail sending quotas in Rate Limits section. Task 10 marked complete but documentation incomplete. |
+| 2025-11-05 | 1.9 | 1 | TechDebt | Medium | TBD | Open | Add explicit retry logic test test_send_email_retry_on_network_error() - mock 503 error, verify _execute_with_retry() triggers 3 retries with exponential backoff (2s, 4s, 8s). File: backend/tests/test_email_sending.py |
+| 2025-11-05 | 1.9 | 1 | TechDebt | Medium | TBD | Open | Add explicit logging test test_send_email_logging() - mock send_email(), capture structured logs, verify email_sent event has all fields (user_id, recipient, subject, message_id, timestamp, success=True), verify no body content logged (GDPR). File: backend/tests/test_email_sending.py |
+| 2025-11-05 | 1.9 | 1 | TechDebt | Medium | TBD | Open | Run pytest coverage report for email sending - execute pytest tests/test_email_sending.py --cov=app.core.gmail_client --cov-report=html and verify 100% coverage claim for send_email() and _compose_mime_message(). Task 8 claims 100% but coverage not measured. |

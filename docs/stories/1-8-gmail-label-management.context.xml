@@ -1,0 +1,222 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>8</storyId>
+    <title>Gmail Label Management</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-05</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-8-gmail-label-management.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to create and manage Gmail labels (folders) programmatically</iWant>
+    <soThat>I can organize emails into user-defined categories</soThat>
+    <tasks>
+- Task 1: Create FolderCategories SQLAlchemy Model (AC: #7)
+- Task 2: Update User Model with Folder Relationship (AC: #7)
+- Task 3: Create Alembic Database Migration (AC: #8)
+- Task 4: Implement Gmail Label Listing Method (AC: #1)
+- Task 5: Implement Gmail Label Creation Method (AC: #2, #5)
+- Task 6: Implement Label Application Method (AC: #3)
+- Task 7: Implement Label Removal Method (AC: #4)
+- Task 8: Create FolderCategory Service Layer (AC: #6, #7)
+- Task 9: Create API Endpoints for Folder Management (Testing)
+- Task 10: Create Unit Tests for Gmail Label Methods (Testing)
+- Task 11: Create Unit Tests for FolderCategory Model (Testing)
+- Task 12: Create Integration Tests for Folder Service (Testing)
+- Task 13: Integration Testing and Documentation (Testing)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Method implemented in Gmail client to list existing Gmail labels
+2. Method implemented to create new Gmail label with specified name
+3. Method implemented to apply label to email message (add label to message)
+4. Method implemented to remove label from email message
+5. Label color and visibility settings configurable when creating labels
+6. Error handling for duplicate label names (return existing label ID)
+7. Database table created for FolderCategories (id, user_id, name, gmail_label_id, keywords, created_at)
+8. Migration applied for FolderCategories table
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>FolderCategories Table Schema (lines 132-150)</section>
+        <snippet>Defines FolderCategory model with user_id FK, gmail_label_id, keywords array for AI classification, color hex codes, unique constraint on (user_id, name), and cascade delete pattern</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>GmailClient Python Interface (lines 221-306)</section>
+        <snippet>Gmail API wrapper interface with list_labels(), create_label(name, color), apply_label(message_id, label_id), remove_label() methods. Includes token refresh, retry logic, and error handling patterns</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Gmail API Integration (lines 270-275)</section>
+        <snippet>Gmail API rate limits (10K requests/day), quota management strategy with batch operations, push notifications for optimization, label ID caching, and proactive rate limit handling</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>Database Models and Migrations (lines 225-335)</section>
+        <snippet>SQLAlchemy models with async sessions, Alembic migration workflow, database health checks, and established patterns for ForeignKey relationships with cascade delete</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>Email Data Model (lines 988-1200)</section>
+        <snippet>EmailProcessingQueue table with proposed_folder_id FK referencing FolderCategories. Migration ordering critical: FolderCategories must exist before EmailProcessingQueue FK</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>service</kind>
+        <symbol>GmailClient</symbol>
+        <lines>62-462</lines>
+        <reason>Existing GmailClient class to extend with label management methods (list_labels, create_label, apply_label, remove_label). Contains established patterns: _execute_with_retry for error handling, async methods, structlog logging</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>29-66</lines>
+        <reason>User model to extend with folders relationship. Already has emails relationship established. Pattern: Relationship back_populates, cascade delete-orphan</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>15-69</lines>
+        <reason>EmailProcessingQueue.proposed_folder_id (line 61) references FolderCategories table. Critical: FolderCategories migration must run before EmailProcessingQueue migration</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/database.py</path>
+        <kind>service</kind>
+        <symbol>DatabaseService</symbol>
+        <lines>29-267</lines>
+        <reason>DatabaseService patterns for async operations: async_session() context manager, session.add/commit/refresh cycle. Use for FolderService implementation</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/api.py</path>
+        <kind>router</kind>
+        <symbol>api_router</symbol>
+        <lines>1-50</lines>
+        <reason>API router configuration for registering new folders endpoints. Pattern: router.include_router(folders_router, prefix="/folders", tags=["folders"])</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="fastapi" version=">=0.115.12">Web framework for API endpoints</package>
+        <package name="sqlmodel" version=">=0.0.24">ORM for database models (SQLAlchemy + Pydantic)</package>
+        <package name="alembic" version=">=1.13.3">Database migration tool</package>
+        <package name="google-api-python-client" version=">=2.146.0">Gmail API client library</package>
+        <package name="google-auth" version=">=2.34.0">Google OAuth authentication</package>
+        <package name="google-auth-oauthlib" version=">=1.2.1">OAuth flow implementation</package>
+        <package name="cryptography" version=">=43.0.1">Token encryption (Fernet)</package>
+        <package name="structlog" version=">=25.2.0">Structured logging</package>
+        <package name="pydantic" version=">=2.11.1">Data validation for API schemas</package>
+        <package name="pytest" version=">=8.3.5">Testing framework</package>
+        <package name="pytest-asyncio" version=">=0.25.2">Async test support</package>
+        <package name="httpx" version=">=0.28.1">HTTP client for testing</package>
+      </python>
+      <database>
+        <package name="PostgreSQL" version="18">Primary database via Docker Compose</package>
+        <package name="psycopg2-binary" version=">=2.9.10">PostgreSQL adapter (sync)</package>
+        <package name="sqlalchemy[asyncio]">Async database engine (via sqlmodel)</package>
+      </database>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Database migration ordering: FolderCategories table must be created before EmailProcessingQueue FK can reference it</constraint>
+    <constraint>All folder operations require JWT authentication via get_current_user dependency</constraint>
+    <constraint>Gmail API rate limits: 10K requests/day. Label operations count toward quota (~100/day budgeted)</constraint>
+    <constraint>Use async/await patterns throughout - all database and Gmail operations are async</constraint>
+    <constraint>Structured logging with structlog - log events with contextual fields (user_id, label_id, etc.)</constraint>
+    <constraint>Error handling: Use _execute_with_retry pattern from GmailClient for Gmail API calls</constraint>
+    <constraint>User_id filtering: All queries must filter by user_id to prevent cross-user data access</constraint>
+    <constraint>Unique constraint on (user_id, name): Enforce at database level, check in service layer before Gmail API call</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>GmailClient.list_labels()</name>
+      <kind>Gmail API method</kind>
+      <signature>async def list_labels(self) -> List[Dict]</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Returns list of dicts with keys: label_id, name, type (system/user), visibility</description>
+    </interface>
+    <interface>
+      <name>GmailClient.create_label(name, color)</name>
+      <kind>Gmail API method</kind>
+      <signature>async def create_label(self, name: str, color: str = None) -> str</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Creates Gmail label, returns gmail_label_id. Idempotent: returns existing label_id on duplicate (409 error)</description>
+    </interface>
+    <interface>
+      <name>GmailClient.apply_label(message_id, label_id)</name>
+      <kind>Gmail API method</kind>
+      <signature>async def apply_label(self, message_id: str, label_id: str) -> bool</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Applies label to email message. Returns True on success, False on failure</description>
+    </interface>
+    <interface>
+      <name>GmailClient.remove_label(message_id, label_id)</name>
+      <kind>Gmail API method</kind>
+      <signature>async def remove_label(self, message_id: str, label_id: str) -> bool</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Removes label from email message. Returns True on success, False on failure</description>
+    </interface>
+    <interface>
+      <name>FolderService.create_folder(user_id, name, keywords, color)</name>
+      <kind>Business logic service</kind>
+      <signature>async def create_folder(user_id: int, name: str, keywords: List[str] = None, color: str = None) -> FolderCategory</signature>
+      <path>backend/app/services/folder_service.py</path>
+      <description>Creates folder in both database and Gmail. Validates name, checks duplicates, calls GmailClient.create_label(), stores record</description>
+    </interface>
+    <interface>
+      <name>POST /api/v1/folders/</name>
+      <kind>REST endpoint</kind>
+      <signature>Request: {name: str, keywords: List[str], color: str}. Response: FolderCategory JSON</signature>
+      <path>backend/app/api/folders.py</path>
+      <description>Create new folder for authenticated user. Requires JWT token. Returns created FolderCategory with gmail_label_id</description>
+    </interface>
+    <interface>
+      <name>GET /api/v1/folders/</name>
+      <kind>REST endpoint</kind>
+      <signature>Response: List[FolderCategory]</signature>
+      <path>backend/app/api/folders.py</path>
+      <description>List all folders for authenticated user</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Testing framework: pytest with pytest-asyncio for async test support. Test isolation via db_session fixture that creates/drops tables per test. Mock external dependencies (Gmail API, DatabaseService) using unittest.mock. Pattern: Arrange-Act-Assert with descriptive test names (test_verb_noun_condition). Gmail API mocking: Mock service.users().labels().method() chains. Database tests: Use real PostgreSQL test database with fresh schema per test. Run tests: pytest backend/tests/test_*.py -v. Coverage: pytest --cov=app --cov-report=term-missing.
+    </standards>
+    <locations>
+      <location>backend/tests/</location>
+      <location>backend/tests/test_gmail_label_management.py</location>
+      <location>backend/tests/test_folder_category_model.py</location>
+      <location>backend/tests/test_folder_service.py</location>
+      <location>backend/tests/conftest.py (shared fixtures)</location>
+    </locations>
+    <ideas>
+      <test ac="1">test_list_labels_success - Mock Gmail API labels().list() response with system and user labels, verify parsing of label_id, name, type, visibility</test>
+      <test ac="2,5">test_create_label_with_color - Mock labels().create() API call, verify color parameter in request body, verify gmail_label_id returned</test>
+      <test ac="6">test_create_label_duplicate_returns_existing - Mock 409 Conflict error, verify fallback to list_labels(), verify existing label_id returned (idempotent)</test>
+      <test ac="3">test_apply_label_to_message - Mock messages().modify() API with addLabelIds, verify True returned on success</test>
+      <test ac="4">test_remove_label_from_message - Mock messages().modify() API with removeLabelIds, verify True returned</test>
+      <test ac="7">test_folder_category_model_creation - Create FolderCategory record with all fields, verify user relationship traversal, verify keywords array storage</test>
+      <test ac="7">test_unique_constraint_user_folder_name - Attempt duplicate (user_id, name), expect IntegrityError from database</test>
+      <test ac="7">test_cascade_delete_folders - Delete user, verify all folders deleted via cascade relationship</test>
+      <test ac="6,7">test_folder_service_create_folder_end_to_end - Mock Gmail API, create folder via FolderService, verify DB record and Gmail label created</test>
+      <test ac="8">test_alembic_migration_up_down - Run alembic upgrade head, verify table exists, run downgrade, verify table dropped</test>
+    </ideas>
+  </tests>
+</story-context>

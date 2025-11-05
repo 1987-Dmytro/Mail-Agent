@@ -1,0 +1,209 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>7</storyId>
+    <title>Email Data Model and Storage</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-05</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-7-email-data-model-and-storage.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>to store email metadata in the database for tracking and processing</iWant>
+    <soThat>I can maintain state of which emails have been processed</soThat>
+    <tasks>
+- Task 1: Create EmailProcessingQueue SQLAlchemy Model (AC: #1, #2, #4)
+- Task 2: Update User Model with Email Relationship (AC: #4)
+- Task 3: Create Alembic Database Migration (AC: #3)
+- Task 4: Integrate Email Persistence into Polling Task (AC: #5, #6)
+- Task 5: Create Query Helper Methods (AC: #7)
+- Task 6: Update Database Service with Email Queries (Testing)
+- Task 7: Create Unit Tests for EmailProcessingQueue Model (Testing)
+- Task 8: Create Unit Tests for Email Persistence in Polling (Testing)
+- Task 9: Create Unit Tests for EmailService (Testing)
+- Task 10: Integration Testing and Documentation (Testing)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. EmailProcessingQueue table created in database schema (id, user_id, gmail_message_id, gmail_thread_id, sender, subject, received_at, status, created_at)
+2. Status field supports states: pending, processing, approved, rejected, completed
+3. Database migration created and applied for EmailProcessingQueue table
+4. SQLAlchemy model created for EmailProcessingQueue with relationships to Users
+5. Email polling task saves newly detected emails to EmailProcessingQueue with status=pending
+6. Duplicate detection implemented (skip emails already in queue based on gmail_message_id)
+7. Query methods created to fetch emails by status and user
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>Data Models - EmailProcessingQueue Table</section>
+        <snippet>Defines complete EmailProcessingQueue schema with all columns (id, user_id, gmail_message_id, gmail_thread_id, sender, subject, received_at, status), relationships to User and FolderCategory, indexes for performance, and future-proof columns for Epics 2-3.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>APIs and Interfaces - GmailClient Interface</section>
+        <snippet>Documents GmailClient.get_messages() method that returns email metadata dicts with keys: message_id, thread_id, sender, subject, snippet, received_at, labels. Used by polling task to fetch emails.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture</title>
+        <section>Technology Stack</section>
+        <snippet>PostgreSQL 18 for RDBMS, SQLAlchemy with async sessions, Alembic for migrations. FastAPI 0.120.4+ with async endpoints. Celery + Redis for background task processing.</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>Environment Variables and Database Setup</section>
+        <snippet>Documents DATABASE_URL configuration, SQLAlchemy integration patterns, and development workflow. Explains async session management via DatabaseService.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/1-3-database-setup-for-user-data.md</path>
+        <title>Story 1.3: Database Setup</title>
+        <section>SQLAlchemy Patterns and User Model</section>
+        <snippet>Established patterns: Use async sessions via DatabaseService, server_default timestamps with func.now(), ForeignKey relationships with cascade delete. User model provides foundation for email relationship.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/1-6-basic-email-monitoring-service.md</path>
+        <title>Story 1.6: Email Monitoring Service</title>
+        <section>Email Polling Implementation</section>
+        <snippet>Created poll_user_emails() Celery task that fetches emails from Gmail via GmailClient. Returns metadata ready for database persistence. Includes placeholder for duplicate detection (deferred to Story 1.7).</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 1.7 Requirements</section>
+        <snippet>Acceptance criteria: EmailProcessingQueue table with status field (pending, processing, approved, rejected, completed), SQLAlchemy model, database migration, duplicate detection, and query methods for fetching emails by status.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>28-71</lines>
+        <reason>User model with SQLModel/SQLAlchemy. Story 1.7 must add emails relationship (back_populates="user") to support EmailProcessingQueue relationship. Currently has sessions relationship as reference pattern.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/database.py</path>
+        <kind>service</kind>
+        <symbol>DatabaseService</symbol>
+        <lines>29-271</lines>
+        <reason>Provides async_session() context manager for database operations. Story 1.7 EmailService must use this pattern: async with database_service.async_session() as session. Shows create/query/update patterns to follow.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/tasks/email_tasks.py</path>
+        <kind>celery_task</kind>
+        <symbol>poll_user_emails, _poll_user_emails_async</symbol>
+        <lines>23-143</lines>
+        <reason>Email polling task with TODO placeholder at lines 125-127 for EmailProcessingQueue integration. Story 1.7 must complete duplicate detection logic and add database persistence after line 127.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>client</kind>
+        <symbol>GmailClient</symbol>
+        <lines>62-100</lines>
+        <reason>Gmail API wrapper. Returns email metadata dicts from get_messages() with keys: message_id, thread_id, sender, subject, received_at, labels. EmailProcessingQueue model must accept this structure.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <core>
+          <package name="python" version=">=3.13" />
+          <package name="fastapi" version=">=0.115.12" />
+          <package name="uvicorn" version=">=0.34.0" />
+        </core>
+        <database>
+          <package name="sqlmodel" version=">=0.0.24" note="SQLAlchemy + Pydantic integration for models" />
+          <package name="alembic" version=">=1.13.3" note="Database migrations" />
+          <package name="psycopg2-binary" version=">=2.9.10" note="PostgreSQL async driver" />
+        </database>
+        <background_tasks>
+          <package name="celery" version=">=5.4.0" note="Background task queue for email polling" />
+          <package name="redis" version=">=5.0.1" note="Celery broker and result backend" />
+        </background_tasks>
+        <gmail_integration>
+          <package name="google-api-python-client" version=">=2.146.0" note="Gmail API client" />
+          <package name="google-auth" version=">=2.34.0" note="OAuth authentication" />
+          <package name="google-auth-oauthlib" version=">=1.2.1" note="OAuth flow helpers" />
+        </gmail_integration>
+        <security>
+          <package name="cryptography" version=">=43.0.1" note="Token encryption with Fernet" />
+          <package name="python-jose" version=">=3.4.0" note="JWT token handling" />
+          <package name="bcrypt" version=">=4.3.0" note="Password hashing" />
+        </security>
+        <logging>
+          <package name="structlog" version=">=25.2.0" note="Structured logging with JSON output" />
+        </logging>
+        <testing>
+          <package name="pytest" version=">=8.3.5" />
+          <package name="pytest-asyncio" version=">=0.25.2" note="Async test support" />
+          <package name="httpx" version=">=0.28.1" note="HTTP client for API testing" />
+        </testing>
+      </python>
+      <infrastructure>
+        <service name="PostgreSQL" version="18" note="Primary relational database" />
+        <service name="Redis" version="latest" note="Celery message broker" />
+        <service name="Docker Compose" note="Local development orchestration" />
+      </infrastructure>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use SQLModel (not pure SQLAlchemy) for model definitions - User model uses SQLModel with Field() and Relationship()</constraint>
+    <constraint>All timestamps must use DateTime(timezone=True) with server_default=func.now() for created_at and onupdate=func.now() for updated_at</constraint>
+    <constraint>Foreign keys must specify ondelete="CASCADE" for user relationships to ensure data cleanup on user deletion (GDPR compliance)</constraint>
+    <constraint>Use async/await patterns consistently - all database operations via database_service.async_session() context manager</constraint>
+    <constraint>Use structlog for logging with structured context fields (user_id, message_id, status, etc.) - import: from app.core.logging import logger or structlog.get_logger(__name__)</constraint>
+    <constraint>Celery tasks must use @shared_task decorator with retry configuration - see email_tasks.py pattern</constraint>
+    <constraint>Index frequently queried columns - user_id, gmail_message_id, status, gmail_thread_id must be indexed for query performance</constraint>
+    <constraint>Unique constraint on gmail_message_id enforces duplicate prevention at database level</constraint>
+    <constraint>Email metadata from GmailClient uses keys: message_id (NOT gmail_message_id) - mapping required when persisting to EmailProcessingQueue</constraint>
+    <constraint>Status field must support states: pending, processing, approved, rejected, completed (Epic 1 only - future epics may add more)</constraint>
+    <constraint>Alembic migrations must be auto-generated with: alembic revision --autogenerate -m "message"</constraint>
+    <constraint>Test database operations with pytest async fixtures - follow patterns from existing tests</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>DatabaseService.async_session()</name>
+      <kind>context_manager</kind>
+      <signature>async with database_service.async_session() as session:</signature>
+      <path>backend/app/services/database.py</path>
+      <description>All database operations must use this async context manager pattern. EmailService and email_tasks.py integration must follow this pattern.</description>
+    </interface>
+    <interface>
+      <name>GmailClient.get_messages()</name>
+      <kind>async_method</kind>
+      <signature>async def get_messages(query: str = "is:unread", max_results: int = 50) -> List[Dict]</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Returns list of email metadata dicts with keys: message_id, thread_id, sender, subject, received_at, labels. EmailProcessingQueue persistence must map these fields.</description>
+    </interface>
+    <interface>
+      <name>SQLModel Relationship Pattern</name>
+      <kind>orm_relationship</kind>
+      <signature>emails = Relationship(back_populates="user")</signature>
+      <path>backend/app/models/user.py</path>
+      <description>User model uses Relationship() for bidirectional relationships. EmailProcessingQueue must add: user = Relationship(back_populates="emails").</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Testing follows pytest with async support (pytest-asyncio). Use @pytest.fixture for test fixtures including mock_database_service and mock objects. Mock external dependencies (GmailClient, DatabaseService) using unittest.mock (AsyncMock, MagicMock, patch). Tests are located in backend/tests/ directory following naming convention test_*.py. Async tests use async def test_* pattern with pytest-asyncio auto mode. Database tests use async session mocking. Structured logging assertions check for expected log events and context fields.</standards>
+    <locations>backend/tests/test_email_model.py, backend/tests/test_email_service.py, backend/tests/test_email_polling.py (existing - will be updated)</locations>
+    <ideas>
+      <test ac="1,2,4" id="test_email_model_creation">Create EmailProcessingQueue record with all required fields, verify User relationship traversal, check status field default value is "pending", validate timestamps auto-populate.</test>
+      <test ac="6" id="test_unique_gmail_message_id">Attempt to insert duplicate EmailProcessingQueue record with same gmail_message_id, expect IntegrityError from unique constraint. Verify database-level duplicate prevention.</test>
+      <test ac="4" id="test_cascade_delete_emails">Create User with multiple EmailProcessingQueue records, delete User, verify all associated emails automatically deleted via cascade delete. Validates GDPR compliance.</test>
+      <test ac="5" id="test_poll_saves_new_emails">Mock GmailClient.get_messages() to return test emails, mock database session, call poll_user_emails(user_id), verify EmailProcessingQueue records created with status="pending", verify structured logging.</test>
+      <test ac="6" id="test_duplicate_detection_database">Pre-populate database with existing email record, mock GmailClient to return same email, call poll_user_emails(), verify no duplicate record created, verify "duplicate_email_skipped" log event.</test>
+      <test ac="7" id="test_get_emails_by_status">Create emails with different statuses (pending, processing, completed), call EmailService.get_emails_by_status(user_id, "pending"), verify only pending emails returned.</test>
+      <test ac="7" id="test_update_email_status">Create email with status="pending", call EmailService.update_email_status(email_id, "processing"), verify database record updated, verify "email_status_updated" log event.</test>
+      <test ac="3" id="test_migration_up_down">Apply migration with alembic upgrade head, verify email_processing_queue table exists in database, check indexes created, test rollback with alembic downgrade -1, verify table dropped cleanly.</test>
+    </ideas>
+  </tests>
+</story-context>

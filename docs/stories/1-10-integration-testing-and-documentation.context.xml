@@ -1,0 +1,286 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>10</storyId>
+    <title>Integration Testing and Documentation</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-05</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-10-integration-testing-and-documentation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>to create integration tests and documentation for Gmail integration</iWant>
+    <soThat>I can verify the foundation works end-to-end and others can understand the system</soThat>
+    <tasks>
+      - Task 1: Create Integration Test for OAuth Flow
+      - Task 2: Create Integration Test for Email Polling
+      - Task 3: Create Integration Test for Label Management
+      - Task 4: Create Integration Test for Email Sending
+      - Task 5: Create Combined Epic 1 Integration Test
+      - Task 6: Generate API Documentation
+      - Task 7: Create Architecture Documentation for Gmail Integration
+      - Task 8: Update Setup Guide with Gmail API Configuration
+      - Task 9: Document Environment Variables
+      - Task 10: Run All Integration Tests
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Integration test created that runs complete OAuth flow (mocked Google OAuth)</criterion>
+    <criterion id="AC2">Integration test verifies email polling and storage in database</criterion>
+    <criterion id="AC3">Integration test verifies label creation and application to emails</criterion>
+    <criterion id="AC4">Integration test verifies email sending capability</criterion>
+    <criterion id="AC5">API documentation generated using FastAPI automatic docs (Swagger UI at /docs)</criterion>
+    <criterion id="AC6">Architecture documentation created in docs/ folder explaining Gmail integration flow</criterion>
+    <criterion id="AC7">Setup guide updated with Gmail API configuration steps</criterion>
+    <criterion id="AC8">Environment variables documented in README.md</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>Test Strategy Summary</section>
+        <snippet>Comprehensive testing strategy including unit tests (80%+ coverage), integration tests (OAuth flow, email polling, label management), test fixtures, and tools (pytest, pytest-asyncio, pytest-mock, httpx, Factory Boy).</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>APIs and Interfaces</section>
+        <snippet>FastAPI automatic documentation via Swagger UI at /docs. Documents all Epic 1 endpoints: OAuth endpoints (login, callback, status), test endpoints (send-email), health checks. Includes request/response schemas with Pydantic models.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>Configuration Requirements</section>
+        <snippet>Complete environment variables list for Epic 1: DATABASE_URL, REDIS_URL, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REDIRECT_URI, ENCRYPTION_KEY, JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRATION_HOURS, ENVIRONMENT, LOG_LEVEL.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture</title>
+        <section>Project Structure</section>
+        <snippet>LangGraph-orchestrated AI agent system with FastAPI backend, Gmail API integration, PostgreSQL database. Technology stack: FastAPI 0.120.4, LangGraph 1.0.2, PostgreSQL 18, Celery + Redis, Prometheus + Grafana monitoring.</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>Environment Variables</section>
+        <snippet>Backend configuration including application settings (PROJECT_NAME, VERSION, APP_ENV, DEBUG), API settings (API_V1_STR, ALLOWED_ORIGINS), database settings (PostgreSQL), and Gmail API settings.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/1-9-email-sending-capability.md</path>
+        <title>Story 1.9 - Email Sending Capability</title>
+        <section>Dev Notes - Testing Patterns</section>
+        <snippet>Established integration test patterns: 13 unit tests + 10 integration tests (100% pass rate). Uses pytest-mock for Gmail API mocking, async test support with pytest-asyncio, automatic database cleanup, comprehensive error handling tests.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 1.10</section>
+        <snippet>Integration testing and documentation story covering OAuth flow testing, email polling verification, label management tests, API documentation generation, architecture documentation, setup guide, and environment variable documentation.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>service</kind>
+        <symbol>GmailClient</symbol>
+        <lines>1-50</lines>
+        <reason>Core Gmail API client with send_email, create_label, apply_label methods. Contains quota documentation and error handling patterns to reference in tests.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/auth.py</path>
+        <kind>controller</kind>
+        <symbol>OAuth endpoints</symbol>
+        <lines>1-50</lines>
+        <reason>OAuth authentication endpoints (/api/v1/auth/gmail/login, /callback, /status) that need integration testing and API documentation.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/test.py</path>
+        <kind>controller</kind>
+        <symbol>Test endpoints</symbol>
+        <lines>N/A</lines>
+        <reason>Test email sending endpoint that needs API documentation in Swagger UI.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/test_email_integration.py</path>
+        <kind>test</kind>
+        <symbol>Email integration tests</symbol>
+        <lines>1-80</lines>
+        <reason>Existing integration test patterns from Story 1.9: test fixtures (test_user, authenticated_client), async testing with pytest-asyncio, mock Gmail API responses.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/conftest.py</path>
+        <kind>test</kind>
+        <symbol>Test fixtures</symbol>
+        <lines>1-55</lines>
+        <reason>Shared test fixtures: db_session with automatic table creation/teardown, event loop configuration for async tests.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>N/A</lines>
+        <reason>User model with gmail_oauth_token and gmail_refresh_token fields for OAuth token storage testing.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>N/A</lines>
+        <reason>Email model with gmail_message_id, thread_id, sender, subject fields for email polling tests.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/folder_category.py</path>
+        <kind>model</kind>
+        <symbol>FolderCategory</symbol>
+        <lines>N/A</lines>
+        <reason>Folder model with gmail_label_id field for label management tests.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/encryption.py</path>
+        <kind>utility</kind>
+        <symbol>encrypt_token, decrypt_token</symbol>
+        <lines>N/A</lines>
+        <reason>Token encryption utilities using Fernet cipher for OAuth token security testing.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/utils/errors.py</path>
+        <kind>utility</kind>
+        <symbol>Custom exceptions</symbol>
+        <lines>N/A</lines>
+        <reason>Custom exceptions (QuotaExceededError, InvalidRecipientError, MessageTooLargeError) for error handling tests.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/main.py</path>
+        <kind>application</kind>
+        <symbol>FastAPI app</symbol>
+        <lines>N/A</lines>
+        <reason>FastAPI application entry point with automatic Swagger UI documentation at /docs endpoint.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="fastapi" version="0.115.12+"/>
+        <package name="pytest" version="latest"/>
+        <package name="pytest-asyncio" version="latest"/>
+        <package name="pytest-mock" version="latest"/>
+        <package name="pytest-cov" version="latest"/>
+        <package name="httpx" version="latest"/>
+        <package name="sqlalchemy" version="latest"/>
+        <package name="sqlmodel" version="latest"/>
+        <package name="google-auth-oauthlib" version="latest"/>
+        <package name="google-api-python-client" version="latest"/>
+        <package name="structlog" version="latest"/>
+        <package name="cryptography" version="latest"/>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - All integration tests MUST mock external Gmail API calls using pytest-mock (no real API calls)
+    - Tests MUST use async/await patterns with pytest-asyncio for FastAPI async endpoints
+    - Database isolation: Each test gets fresh db_session fixture with automatic table cleanup
+    - OAuth tokens MUST be encrypted using Fernet cipher in all tests
+    - Test coverage target: 80%+ for Epic 1 core modules (gmail_client, email_polling, auth endpoints)
+    - API documentation MUST be generated via FastAPI automatic docs (Swagger UI at /docs)
+    - Architecture diagrams MUST use Mermaid or ASCII art (Markdown compatible)
+    - Environment variables MUST be documented in backend/README.md and .env.example
+    - All tests MUST pass before story completion (pytest tests/integration/ -v)
+    - Structured logging validation: Tests MUST verify log events (email_polling_completed, label_created, email_sent)
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/auth/gmail/login</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/v1/auth/gmail/login → { "authorization_url": string }</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/auth/gmail/callback</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/auth/gmail/callback?code=string&state=string → { "user_id": string, "email": string, "token_expires_at": string }</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/auth/gmail/status</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/auth/gmail/status [Auth: JWT] → { "connected": boolean, "email": string, "token_valid": boolean }</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>POST /api/v1/test/send-email</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/v1/test/send-email [Auth: JWT] { "to": string, "subject": string, "body": string, "body_type": string } → { "message_id": string, "recipient": string, "subject": string }</signature>
+      <path>backend/app/api/v1/test.py</path>
+    </interface>
+    <interface>
+      <name>GET /health</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /health → { "status": string, "timestamp": string }</signature>
+      <path>backend/app/api/v1/health.py</path>
+    </interface>
+    <interface>
+      <name>GET /health/db</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /health/db → { "status": string, "database": string }</signature>
+      <path>backend/app/api/v1/health.py</path>
+    </interface>
+    <interface>
+      <name>GmailClient.send_email()</name>
+      <kind>class method</kind>
+      <signature>async send_email(to: str, subject: str, body: str, body_type: str = "plain", thread_id: Optional[str] = None) -> Dict</signature>
+      <path>backend/app/core/gmail_client.py</path>
+    </interface>
+    <interface>
+      <name>GmailClient.create_label()</name>
+      <kind>class method</kind>
+      <signature>async create_label(name: str, color: str) -> Dict</signature>
+      <path>backend/app/core/gmail_client.py</path>
+    </interface>
+    <interface>
+      <name>GmailClient.apply_label()</name>
+      <kind>class method</kind>
+      <signature>async apply_label(message_id: str, label_id: str) -> Dict</signature>
+      <path>backend/app/core/gmail_client.py</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      Testing follows pytest best practices with async support via pytest-asyncio. All integration tests mock external Gmail API calls using pytest-mock to ensure fast, reliable, isolated tests. Test fixtures in conftest.py provide db_session with automatic table creation/teardown and authenticated clients with JWT tokens. OAuth tokens are encrypted using Fernet cipher in all tests. Structured logging is validated by checking for specific log events (email_polling_completed, label_created, email_sent). Coverage target is 80%+ for Epic 1 core modules. Tests use Factory Boy for test data generation and httpx AsyncClient for API endpoint testing.
+    </standards>
+    <locations>
+      - backend/tests/ - Root test directory
+      - backend/tests/integration/ - Integration tests (to be created)
+      - backend/tests/conftest.py - Shared test fixtures
+      - backend/tests/test_email_integration.py - Existing email sending integration tests (Story 1.9)
+      - backend/tests/test_*.py - Unit tests for specific modules
+    </locations>
+    <ideas>
+      <test story="AC1" name="OAuth Flow Integration Test">
+        Create test_oauth_integration.py with test_oauth_flow_end_to_end(). Mock Google OAuth endpoints (authorization URL, token exchange). Simulate user approval by calling callback with mock code. Verify encrypted tokens stored in Users table. Test token refresh with mocked 401 error.
+      </test>
+      <test story="AC2" name="Email Polling Integration Test">
+        Create test_email_polling_integration.py with test_email_polling_end_to_end(). Mock Gmail API list/get endpoints returning 5 unread emails. Trigger polling task manually (bypass Celery). Verify 5 EmailProcessingQueue records created. Test duplicate detection on second poll.
+      </test>
+      <test story="AC3" name="Label Management Integration Test">
+        Create test_label_integration.py with test_label_creation_and_application(). Mock Gmail API create label (return label_id). Verify FolderCategory record created. Mock apply label endpoint. Verify Gmail API called with correct addLabelIds parameter.
+      </test>
+      <test story="AC4" name="Email Sending Integration Test">
+        Reference existing test_email_integration.py from Story 1.9 (10 tests passing). Create test_email_sending_end_to_end() that validates MIME composition, Base64 encoding, threading headers, and error handling.
+      </test>
+      <test story="AC1-4" name="Combined Epic 1 Workflow Test">
+        Create test_epic_1_complete.py with test_epic_1_complete_workflow(). Test complete flow: OAuth → Email Polling → Label Creation → Label Application → Email Send. Validates all Epic 1 components work together end-to-end.
+      </test>
+      <test story="AC5" name="API Documentation Verification">
+        Manual verification: Start server, visit http://localhost:8000/docs. Verify all endpoints documented with proper schemas, descriptions, and examples. Ensure OAuth security scheme documented.
+      </test>
+      <test story="AC6-8" name="Documentation Review">
+        Manual review of architecture.md, backend/README.md, and .env.example to ensure completeness and accuracy of Gmail integration flow, setup guide, and environment variables.
+      </test>
+    </ideas>
+  </tests>
+</story-context>

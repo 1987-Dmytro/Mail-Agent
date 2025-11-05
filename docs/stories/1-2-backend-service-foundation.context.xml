@@ -1,0 +1,211 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>2</storyId>
+    <title>Backend Service Foundation</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-03</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-2-backend-service-foundation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to set up the FastAPI backend service with basic structure</iWant>
+    <soThat>I have a running API server ready for Gmail integration</soThat>
+    <tasks>
+      - Task 1: Clone and configure FastAPI + LangGraph production template (AC: #1, #7)
+        - Clone template from https://github.com/wassim249/fastapi-langgraph-agent-production-ready-template to backend/ directory
+        - Review template structure and verify it includes FastAPI, LangGraph, PostgreSQL setup, JWT auth, logging
+        - Install dependencies from requirements.txt in virtual environment
+        - Verify template dependencies match Epic 1 requirements (FastAPI 0.120.4, Python 3.13+)
+
+      - Task 2: Configure environment variables and .env setup (AC: #4)
+        - Copy .env.example to .env in backend directory
+        - Populate .env with required variables from Story 1.1 (DATABASE_URL, REDIS_URL placeholders for now)
+        - Verify python-dotenv loads environment variables correctly on app startup
+        - Document all environment variables in backend/README.md with descriptions
+
+      - Task 3: Configure CORS middleware for frontend development (AC: #3)
+        - Add CORS middleware to FastAPI app in main.py
+        - Configure allowed origins: http://localhost:3000, http://127.0.0.1:3000
+        - Set CORS to allow credentials (cookies, authorization headers)
+        - Test CORS configuration with simple fetch from browser console
+
+      - Task 4: Implement structured JSON logging (AC: #6)
+        - Verify template's structured logging implementation (JSON format)
+        - Configure log level from environment variable (LOG_LEVEL)
+        - Add logging to health check endpoint to verify JSON format
+        - Test log output includes timestamp, level, service name, message
+
+      - Task 5: Create/verify health check endpoint (AC: #2)
+        - Verify template includes GET /health endpoint
+        - Ensure endpoint returns JSON: {"status": "healthy"} with 200 status code
+        - Add timestamp to response: {"status": "healthy", "timestamp": "..."}
+        - Test endpoint via curl or browser
+
+      - Task 6: Run development server and verify functionality (AC: #5)
+        - Start uvicorn development server: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+        - Verify server starts without errors
+        - Access FastAPI automatic docs at http://localhost:8000/docs
+        - Test health endpoint returns expected response
+        - Verify hot reload works (edit main.py, confirm auto-restart)
+
+      - Task 7: Testing and documentation (Testing)
+        - Test CORS by making fetch request from browser console on localhost:3000
+        - Verify all acceptance criteria satisfied
+        - Update backend/README.md with setup instructions
+        - Document template features being used vs. deferred
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. FastAPI application initialized with main.py entry point
+    2. Basic API health check endpoint created (GET /health) returning status
+    3. CORS middleware configured for local frontend development
+    4. Environment variable loading implemented using python-dotenv
+    5. Development server runs successfully on localhost:8000
+    6. Basic logging configured (structured JSON format)
+    7. Requirements.txt or pyproject.toml created with initial dependencies (fastapi, uvicorn, python-dotenv)
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>Project Initialization - Backend Setup</section>
+        <snippet>Clone the production-ready FastAPI + LangGraph template, create virtual environment, install dependencies, configure environment variables, run database migrations, start development server on port 8000.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>ADR-006: FastAPI Template as Foundation</section>
+        <snippet>Decision to use wassim249/fastapi-langgraph-agent-production-ready-template as starting point. Provides 80% of infrastructure needs (FastAPI, LangGraph, PostgreSQL, monitoring), production-grade patterns, saves 20-30 hours of setup time.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>Technology Stack Details - Core Technologies</section>
+        <snippet>Python 3.13+, FastAPI 0.120.4 (async web framework, automatic OpenAPI docs), LangGraph 1.0.2, Celery for background tasks, Redis as message broker.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>Logging Strategy</section>
+        <snippet>Structured JSON logging format with timestamp, level, service, message. Log levels: DEBUG (dev only), INFO (normal operations), WARN (recoverable), ERROR (failures). Never log email bodies, OAuth tokens, passwords.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation & Gmail Integration</title>
+        <section>System Architecture Alignment - FastAPI + LangGraph Template Foundation</section>
+        <snippet>Leverages wassim249 template as base. Inherits FastAPI async endpoints, JWT authentication scaffolding, structured logging, Prometheus metrics, PostgreSQL + Alembic migrations. Extended with Gmail-specific API clients and models.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>NFR002: Reliability</section>
+        <snippet>System shall maintain 99.5% uptime during MVP phase with zero data loss or incorrect email sending (99.9%+ sending reliability).</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>NFR003: Scalability</section>
+        <snippet>System shall support variable email loads of 5-50+ emails per day per user without performance degradation, and architecture shall accommodate growth from 1 to 100 users on free-tier infrastructure.</snippet>
+      </doc>
+      <doc>
+        <path>backend/.env.example</path>
+        <title>Environment Variables Template</title>
+        <section>Backend Configuration</section>
+        <snippet>Template includes DATABASE_URL, REDIS_URL, GMAIL_CLIENT_ID/SECRET, TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, ENCRYPTION_KEY, JWT_SECRET_KEY, ENVIRONMENT, LOG_LEVEL.</snippet>
+      </doc>
+      <doc>
+        <path>README.md</path>
+        <title>Mail Agent - Project Overview</title>
+        <section>Technology Stack</section>
+        <snippet>Backend: Python 3.13+, FastAPI. Database: PostgreSQL 18. Task Queue: Celery + Redis. Infrastructure: Docker, Docker Compose.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/</path>
+        <kind>directory</kind>
+        <symbol>N/A</symbol>
+        <lines>N/A</lines>
+        <reason>Empty directory created in Story 1.1, ready to receive template clone</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="fastapi" version="0.120.4" />
+        <package name="uvicorn" version="0.34.0" />
+        <package name="python-dotenv" version="1.0.1" />
+        <package name="pydantic" version="2.10.4" />
+        <package name="sqlalchemy" version="2.0.36" />
+        <package name="alembic" version="1.13.3" />
+        <package name="celery" version="5.4.0" />
+        <package name="redis" version="5.1.1" />
+        <package name="prometheus-client" version="latest" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Template must be cloned to backend/ directory (empty from Story 1.1)
+    - Python version must be 3.13+ (latest stable)
+    - FastAPI version must match Epic 1 requirement: 0.120.4
+    - CORS must allow localhost:3000 and 127.0.0.1:3000 for Epic 4 frontend
+    - Logging must use structured JSON format (production-grade observability)
+    - Environment variables must be loaded via python-dotenv on app startup
+    - Health endpoint must return JSON: {"status": "healthy", "timestamp": "..."}
+    - Development server must run on localhost:8000 with hot reload enabled
+    - Defer: Database setup (Story 1.3), authentication (Story 1.4), LangGraph workflows (Epic 2)
+    - Security: .gitignore already prevents committing .env files (from Story 1.1)
+    - Directory structure must follow template conventions: backend/app/ for application code
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>GET /health</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /health -> JSON {"status": "healthy", "timestamp": "ISO8601"}</signature>
+      <path>backend/app/api/health.py</path>
+    </interface>
+    <interface>
+      <name>FastAPI Application Entry</name>
+      <kind>Python module</kind>
+      <signature>app.main:app (FastAPI application instance)</signature>
+      <path>backend/app/main.py</path>
+    </interface>
+    <interface>
+      <name>Environment Configuration</name>
+      <kind>Python module</kind>
+      <signature>Settings class with pydantic BaseSettings for environment variables</signature>
+      <path>backend/app/config.py</path>
+    </interface>
+    <interface>
+      <name>CORS Middleware</name>
+      <kind>FastAPI middleware</kind>
+      <signature>CORSMiddleware(allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"], allow_credentials=True)</signature>
+      <path>backend/app/main.py</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Template setup story - manual verification only. No automated tests required at this stage. Automated tests begin in Story 1.3+ (business logic). Verification includes: server starts without errors, health endpoint returns 200 with JSON, CORS allows localhost:3000 requests, environment variables load correctly, logs output in JSON format, hot reload works.
+    </standards>
+    <locations>
+      backend/tests/ (to be created in future stories)
+    </locations>
+    <ideas>
+      - AC1: Verify FastAPI app initializes successfully with main.py entry point
+      - AC2: Test health endpoint returns {"status": "healthy", "timestamp": "..."} with 200 status code
+      - AC3: Test CORS allows requests from localhost:3000 with credentials
+      - AC4: Verify environment variables load correctly from .env file via python-dotenv
+      - AC5: Test uvicorn development server starts on localhost:8000 and accepts requests
+      - AC6: Verify logs output in JSON format with required fields (timestamp, level, service, message)
+      - AC7: Verify requirements.txt exists with fastapi, uvicorn, python-dotenv dependencies
+    </ideas>
+  </tests>
+</story-context>

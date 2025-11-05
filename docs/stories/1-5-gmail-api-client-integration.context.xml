@@ -1,0 +1,211 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>5</storyId>
+    <title>Gmail API Client Integration</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-04</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-5-gmail-api-client-integration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>to create a Gmail API client wrapper that uses stored OAuth tokens</iWant>
+    <soThat>I can read emails and perform Gmail operations programmatically</soThat>
+    <tasks>
+      <task id="1" ac="1">Verify Gmail API Dependencies</task>
+      <task id="2" ac="2">Create GmailClient Class Structure</task>
+      <task id="3" ac="3">Implement get_messages() Method</task>
+      <task id="4" ac="4">Implement get_message_detail() Method</task>
+      <task id="5" ac="5">Implement get_thread() Method</task>
+      <task id="6" ac="6">Implement Token Refresh Error Handling</task>
+      <task id="7" ac="8">Add Rate Limiting Documentation</task>
+      <task id="8" ac="7">Create Unit Tests for GmailClient</task>
+      <task id="9" ac="">Integration Testing and Documentation</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Gmail API Python client library integrated (google-api-python-client)</criterion>
+    <criterion id="2">Gmail client class created that loads user's OAuth tokens from database</criterion>
+    <criterion id="3">Method implemented to list emails from inbox (get_messages)</criterion>
+    <criterion id="4">Method implemented to read full email content including body and metadata (get_message_detail)</criterion>
+    <criterion id="5">Method implemented to read email thread history (get_thread)</criterion>
+    <criterion id="6">Error handling implemented for expired tokens (triggers automatic refresh)</criterion>
+    <criterion id="7">Unit tests created for Gmail client methods using mock responses</criterion>
+    <criterion id="8">Rate limiting considerations documented (Gmail API quotas)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation &amp; Gmail Integration</title>
+        <section>Gmail API Integration</section>
+        <snippet>Implements Gmail API wrapper for email operations with OAuth tokens, rate limit management (10,000 requests/day), retry logic with exponential backoff, and OAuth 2.0 scopes for gmail.readonly, gmail.modify, gmail.send, gmail.labels.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation &amp; Gmail Integration</title>
+        <section>System Components - GmailClient</section>
+        <snippet>Gmail API wrapper for all email operations including OAuth token management, email ID/label data handling, returning email and label objects. Located at app/core/gmail_client.py.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation &amp; Gmail Integration</title>
+        <section>Data Models - User</section>
+        <snippet>User model includes gmail_oauth_token and gmail_refresh_token columns (encrypted with Fernet), token_expiry field for automatic refresh triggers.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Gmail API Strategy</section>
+        <snippet>Polling strategy with 2-minute intervals meets latency requirements, simpler than webhooks for local development. FastAPI async endpoints with LangGraph integration for email processing workflows.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Technology Stack - Gmail API</section>
+        <snippet>Official Google API Python client for OAuth 2.0, email read/write/labels/send operations. Production-grade background task processing with Celery + Redis for email polling and processing.</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Mail Agent Backend Service</title>
+        <section>Technology Stack</section>
+        <snippet>FastAPI 0.115.12+ async framework, Python 3.13+, PostgreSQL 18, Structlog JSON logging, Prometheus + Grafana monitoring, JWT authentication.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/1-4-gmail-oauth-flow-backend-implementation.md</path>
+        <title>Story 1.4: Gmail OAuth Flow Backend Implementation</title>
+        <section>Completion Notes</section>
+        <snippet>OAuth token infrastructure complete with encryption.py for Fernet token encryption/decryption, gmail_auth.py with get_valid_gmail_credentials() function for auto-refreshing credentials, User model with token fields.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/gmail_auth.py</path>
+        <kind>service</kind>
+        <symbol>get_valid_gmail_credentials</symbol>
+        <lines>99-166</lines>
+        <reason>Essential function for obtaining valid Gmail credentials with automatic token refresh. Returns Credentials object ready for Gmail API client. Must be used by GmailClient._get_gmail_service() method.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_auth.py</path>
+        <kind>service</kind>
+        <symbol>refresh_access_token</symbol>
+        <lines>22-96</lines>
+        <reason>Handles OAuth token refresh when access token expires. Encrypts and stores new token in database. Used internally by get_valid_gmail_credentials().</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/encryption.py</path>
+        <kind>utility</kind>
+        <symbol>encrypt_token, decrypt_token</symbol>
+        <lines>13-62</lines>
+        <reason>Fernet symmetric encryption utilities for OAuth tokens. Already used by gmail_auth.py for token storage security.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>28-71</lines>
+        <reason>User model with gmail_oauth_token, gmail_refresh_token, and token_expiry fields. GmailClient will load OAuth tokens from this model via DatabaseService.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/database.py</path>
+        <kind>service</kind>
+        <symbol>DatabaseService</symbol>
+        <lines>29-271</lines>
+        <reason>Database service with async session management and user operations. GmailClient will use get_user() method and should support dependency injection with optional db_service parameter.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/database.py</path>
+        <kind>service</kind>
+        <symbol>database_service</symbol>
+        <lines>270</lines>
+        <reason>Singleton DatabaseService instance. Use as fallback when db_service not provided to GmailClient constructor.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/test_encryption.py</path>
+        <kind>test</kind>
+        <symbol>test_encryption</symbol>
+        <lines>1-</lines>
+        <reason>Existing test file demonstrates testing patterns with mocking and pytest. Use as reference for test_gmail_client.py structure.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="google-api-python-client" version=">=2.146.0" purpose="Gmail API client library for email operations"/>
+        <package name="google-auth" version=">=2.34.0" purpose="OAuth 2.0 authentication and credentials management"/>
+        <package name="google-auth-oauthlib" version=">=1.2.1" purpose="OAuth 2.0 authorization code flow"/>
+        <package name="google-auth-httplib2" version=">=0.2.0" purpose="HTTP transport for Google API clients"/>
+        <package name="cryptography" version=">=43.0.1" purpose="Fernet encryption for OAuth token storage"/>
+        <package name="fastapi" version=">=0.115.12" purpose="Async web framework"/>
+        <package name="sqlmodel" version=">=0.0.24" purpose="ORM for database operations"/>
+        <package name="structlog" version=">=25.2.0" purpose="Structured JSON logging"/>
+        <package name="pytest" version=">=8.3.5" purpose="Testing framework"/>
+        <package name="httpx" version=">=0.28.1" purpose="Async HTTP client for testing"/>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Must use async/await patterns consistently with existing codebase (DatabaseService, gmail_auth all async)</constraint>
+    <constraint>Must support dependency injection with optional db_service parameter for testability</constraint>
+    <constraint>Must use structlog for all logging with contextual fields (user_id, method name, error details)</constraint>
+    <constraint>Must implement lazy service initialization - build Gmail service on first API call, not in __init__</constraint>
+    <constraint>Must handle HttpError exceptions from Gmail API with specific status code handling (401, 403, 429, 500-503)</constraint>
+    <constraint>Must use get_valid_gmail_credentials() from gmail_auth.py - do NOT reimplement token refresh logic</constraint>
+    <constraint>Must store all email metadata matching EmailProcessingQueue schema: gmail_message_id, gmail_thread_id, sender, subject, received_at</constraint>
+    <constraint>Must decode base64url email body data and handle MIME multipart messages</constraint>
+    <constraint>Must implement exponential backoff for rate limit errors (429) with 2^n second delays</constraint>
+    <constraint>Must never log email content or OAuth tokens (privacy and security requirement)</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>get_valid_gmail_credentials</name>
+      <kind>function</kind>
+      <signature>async def get_valid_gmail_credentials(user_id: int, db_service: DatabaseService = None) -> Credentials</signature>
+      <path>backend/app/core/gmail_auth.py</path>
+    </interface>
+    <interface>
+      <name>DatabaseService.get_user</name>
+      <kind>method</kind>
+      <signature>async def get_user(user_id: int) -> Optional[User]</signature>
+      <path>backend/app/services/database.py</path>
+    </interface>
+    <interface>
+      <name>Gmail API - messages.list</name>
+      <kind>REST API</kind>
+      <signature>service.users().messages().list(userId='me', q=query, maxResults=max_results).execute()</signature>
+      <path>google-api-python-client</path>
+    </interface>
+    <interface>
+      <name>Gmail API - messages.get</name>
+      <kind>REST API</kind>
+      <signature>service.users().messages().get(userId='me', id=message_id, format='full|metadata', metadataHeaders=[]).execute()</signature>
+      <path>google-api-python-client</path>
+    </interface>
+    <interface>
+      <name>Gmail API - threads.get</name>
+      <kind>REST API</kind>
+      <signature>service.users().threads().get(userId='me', id=thread_id, format='full').execute()</signature>
+      <path>google-api-python-client</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Testing framework: pytest>=8.3.5 with async support. Test structure: Use descriptive test function names with test_ prefix (e.g., test_get_messages_returns_email_list). Mocking: Use unittest.mock for mocking Gmail API responses and database services. Assertions: Use pytest assertions with clear failure messages. Fixtures: Define reusable fixtures for mock data (email metadata JSON, user objects). Test isolation: Each test should be independent with its own mocks. Coverage: Target 100% code coverage for core business logic. Testing patterns established in test_encryption.py: roundtrip tests, edge cases (empty strings, special characters), exception handling with pytest.raises.</standards>
+    <locations>backend/tests/test_gmail_client.py (new file to create)</locations>
+    <ideas>
+      <test id="1" ac="3">test_get_messages_returns_email_list - Mock Gmail API list() and get() responses, verify returned list structure matches spec with message_id, thread_id, sender, subject, snippet, received_at, labels fields</test>
+      <test id="2" ac="4">test_get_message_detail_extracts_body_text_plain - Mock get(format='full') with text/plain MIME type, verify body extraction and base64url decoding</test>
+      <test id="3" ac="4">test_get_message_detail_extracts_body_text_html - Mock get(format='full') with text/html MIME type, verify HTML stripping works correctly</test>
+      <test id="4" ac="4">test_get_message_detail_handles_multipart_message - Mock multipart MIME message with nested parts, verify correct part selection (prefer text/plain)</test>
+      <test id="5" ac="5">test_get_thread_returns_sorted_messages - Mock threads.get() with multiple messages, verify chronological sorting by received_at (oldest first)</test>
+      <test id="6" ac="6">test_token_refresh_on_401_error - Mock Gmail API returning HttpError 401, verify service cleared and get_valid_gmail_credentials called for refresh, verify retry succeeds</test>
+      <test id="7" ac="8">test_rate_limit_exponential_backoff - Mock Gmail API returning HttpError 429 three times then success, verify exponential delays (2s, 4s, 8s), verify final retry succeeds</test>
+      <test id="8" ac="2">test_gmail_client_initialization - Verify GmailClient initializes with user_id and optional db_service, verify lazy service loading (service is None until first API call)</test>
+      <test id="9" ac="3,4,5">test_parse_gmail_date_converts_milliseconds - Test _parse_gmail_date() helper converts internalDate (milliseconds since epoch) to datetime correctly</test>
+    </ideas>
+  </tests>
+</story-context>

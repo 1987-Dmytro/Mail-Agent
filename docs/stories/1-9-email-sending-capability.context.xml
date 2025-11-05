@@ -1,0 +1,267 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>9</storyId>
+    <title>Email Sending Capability</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-05</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-9-email-sending-capability.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to send emails via Gmail API on behalf of authenticated users</iWant>
+    <soThat>I can execute approved response actions</soThat>
+    <tasks>
+      <task id="1" status="pending" acs="1,3,5">
+        <title>Implement MIME Message Composition Method</title>
+        <description>Create _compose_mime_message() method in GmailClient to generate RFC 2822 compliant MIME messages with proper headers (From, To, Subject, Date), support plain/HTML body types, and threading headers (In-Reply-To, References)</description>
+      </task>
+      <task id="2" status="pending" acs="2">
+        <title>Implement Gmail API Send Method</title>
+        <description>Create send_email() method using Gmail API messages.send endpoint with base64-encoded MIME, error handling for quota/recipients, retry logic via _execute_with_retry(), and structured logging</description>
+      </task>
+      <task id="3" status="pending" acs="3">
+        <title>Add Plain Text and HTML Body Support</title>
+        <description>Support body_type parameter ('plain'/'html') with MIMEText content type switching and optional plain text fallback for HTML emails</description>
+      </task>
+      <task id="4" status="pending" acs="4">
+        <title>Implement Reply-to-Thread Functionality</title>
+        <description>Add get_thread_message_ids() helper and threading logic to construct In-Reply-To and References headers from thread history for conversation threading</description>
+      </task>
+      <task id="5" status="pending" acs="6">
+        <title>Implement Error Handling for Send Failures</title>
+        <description>Handle quota exceeded (429), invalid recipient (400), auth errors (401), network errors, and message too large (413) with custom exception classes and structured logging</description>
+      </task>
+      <task id="6" status="pending" acs="7">
+        <title>Implement Structured Logging for Sent Emails</title>
+        <description>Log email_send_started, email_sent, email_send_failed events with structured fields (user_id, recipient, subject, message_id, timestamp, success, duration_ms) without logging sensitive body content</description>
+      </task>
+      <task id="7" status="pending" acs="8">
+        <title>Create Test Endpoint for Sending Email</title>
+        <description>Implement POST /api/v1/test/send-email endpoint with JWT auth, request validation (SendEmailTestRequest), threading support, and success/error responses</description>
+      </task>
+      <task id="8" status="pending">
+        <title>Create Unit Tests for Email Sending</title>
+        <description>Test MIME composition (plain/HTML/threading), send success, error handling (invalid recipient, quota, retry), logging capture, thread message ID extraction</description>
+      </task>
+      <task id="9" status="pending">
+        <title>Create Integration Test for Email Sending</title>
+        <description>End-to-end test from API endpoint through Gmail API mock with full error handling scenarios and log verification</description>
+      </task>
+      <task id="10" status="pending">
+        <title>Update Documentation</title>
+        <description>Update backend/README.md with email sending methods, MIME format, threading headers, error codes, and quota limits; update docs/architecture.md with sending flow diagram</description>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Method implemented in Gmail client to compose email message (MIME format)</criterion>
+    <criterion id="2">Method implemented to send email using Gmail API (messages.send)</criterion>
+    <criterion id="3">Support for plain text and HTML email bodies</criterion>
+    <criterion id="4">Support for reply-to-thread functionality (includes In-Reply-To and References headers)</criterion>
+    <criterion id="5">Sent emails include proper headers (From, To, Subject, Date)</criterion>
+    <criterion id="6">Error handling for send failures (quota exceeded, invalid recipient)</criterion>
+    <criterion id="7">Logging implemented for all sent emails (recipient, subject, timestamp, success/failure)</criterion>
+    <criterion id="8">Test endpoint created for sending test email (POST /test/send-email)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Error Handling</section>
+        <snippet>Defines error response format, error code categories (GMAIL_*, TELEGRAM_*, LLM_*, etc.), retry strategy using tenacity with exponential backoff (3 attempts, 2^n seconds), and structured error logging with error_code, user_id, operation, retry_attempt fields.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Integration Points - Telegram/Gemini/ChromaDB</section>
+        <snippet>Describes integration patterns for external APIs. Telegram Bot API uses HTTPS with rate limits (30 msg/sec). Gemini API uses REST with stateless request/response. Pattern established: HTTPS protocols, environment-based auth, rate limit awareness.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>APIs and Interfaces - GmailClient.send_email()</section>
+        <snippet>Method signature: async def send_email(to, subject, body, in_reply_to, references) -> message_id. Takes recipient, subject, plain/HTML body, optional threading headers. Returns Gmail message_id. Must use Gmail API messages.send endpoint with base64-encoded MIME message.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>Reliability & Availability - Error Handling & Retry</section>
+        <snippet>Gmail API errors: Transient errors (503, network timeout) retry 3x with exponential backoff. Auth errors (401/403) trigger token refresh then retry once. Quota exceeded (429) log warning and pause. Database errors retry 3x before failing task.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>OAuth Authentication Flow</section>
+        <snippet>OAuth flow: User connects Gmail → Backend generates OAuth URL with scopes (gmail.readonly, gmail.modify, gmail.send, gmail.labels) → User grants → Backend exchanges code for access_token+refresh_token → Encrypts tokens via Fernet → Stores in DB → Issues JWT.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>service</kind>
+        <symbol>GmailClient</symbol>
+        <lines>62-726</lines>
+        <reason>Existing GmailClient class with established patterns: _get_gmail_service() for auth, _execute_with_retry() for error handling, structlog for logging. Already has methods: get_messages(), get_message_detail(), get_thread(), list_labels(), create_label(), apply_label(), remove_label(). Need to extend with send_email(), _compose_mime_message(), get_thread_message_ids().</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>helper</kind>
+        <symbol>_execute_with_retry</symbol>
+        <lines>202-279</lines>
+        <reason>Retry logic handler that manages 401 token refresh, 429 rate limit with exponential backoff (2s, 4s, 8s), 500-503 server errors. Established pattern for all Gmail API calls. Must be used for send_email() reliability.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>helper</kind>
+        <symbol>_decode_base64url</symbol>
+        <lines>117-133</lines>
+        <reason>Base64 URL-safe decoder for Gmail MIME messages. Reverse operation needed: send_email() will use base64.urlsafe_b64encode() to encode MIME messages for Gmail API.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>30-71</lines>
+        <reason>User model with email field (line 53) - source for From header in MIME composition. OAuth tokens stored encrypted (gmail_oauth_token, gmail_refresh_token).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/logging.py</path>
+        <kind>infrastructure</kind>
+        <symbol>structlog</symbol>
+        <lines>1-183</lines>
+        <reason>Structlog configuration for JSON logging with timestamp, level, environment fields. Use structlog.get_logger(__name__) for email sending logging. Example pattern: logger.info("email_sent", user_id=x, recipient=y, success=True).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/test_gmail_label_management.py</path>
+        <kind>test</kind>
+        <symbol>test suite</symbol>
+        <lines>all</lines>
+        <reason>Reference for testing patterns: Mock Gmail API responses, use pytest-asyncio for async tests, verify structured logging. Follow same approach for test_email_sending.py.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python requires=">=3.13">
+        <package name="fastapi" version=">=0.115.12" purpose="REST API framework for test endpoint"/>
+        <package name="pydantic" version=">=2.11.1" purpose="Data validation for SendEmailTestRequest model"/>
+        <package name="google-api-python-client" version=">=2.146.0" purpose="Gmail API service.users().messages().send()"/>
+        <package name="google-auth" version=">=2.34.0" purpose="OAuth2 credentials for Gmail API"/>
+        <package name="structlog" version=">=25.2.0" purpose="Structured logging with contextual fields"/>
+        <package name="pytest" version=">=8.3.5" purpose="Test framework for unit and integration tests"/>
+        <package name="pytest-asyncio" version=">=0.25.2" purpose="Async test support for GmailClient methods"/>
+        <package name="email.mime" version="stdlib" purpose="MIMEText, MIMEMultipart for MIME message composition"/>
+        <package name="base64" version="stdlib" purpose="URL-safe base64 encoding for Gmail API"/>
+        <package name="datetime" version="stdlib" purpose="RFC 2822 Date header generation"/>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="pattern">Extend existing GmailClient class - do not create separate email sending service</constraint>
+    <constraint type="pattern">Use _execute_with_retry() for all Gmail API calls (error handling and retry logic)</constraint>
+    <constraint type="pattern">Use structlog.get_logger(__name__) for structured logging with contextual fields</constraint>
+    <constraint type="security">Never log email body content - only log metadata (recipient, subject, message_id, timestamp)</constraint>
+    <constraint type="pattern">Use async def for all new methods following existing GmailClient async patterns</constraint>
+    <constraint type="pattern">Private helper methods use underscore prefix (e.g., _compose_mime_message)</constraint>
+    <constraint type="pattern">Input validation at method entry: raise ValueError for invalid params before API calls</constraint>
+    <constraint type="testing">100% test coverage required for send_email() and _compose_mime_message()</constraint>
+    <constraint type="testing">Mock Gmail API responses using pytest mocks - no actual API calls in tests</constraint>
+    <constraint type="error-handling">Custom exception classes: QuotaExceededError, InvalidRecipientError, MessageTooLargeError</constraint>
+    <constraint type="api">Gmail API quota: 10,000 requests/day, 100 sends/day - track usage via logging</constraint>
+    <constraint type="format">MIME message encoding: base64.urlsafe_b64encode() for Gmail API compatibility</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>send_email</name>
+      <kind>async method</kind>
+      <signature>async def send_email(self, to: str, subject: str, body: str, in_reply_to: str = None, references: str = None, body_type: str = "plain") -> str</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Send email via Gmail API. Returns message_id. Raises InvalidRecipientError (400), QuotaExceededError (429), MessageTooLargeError (413).</description>
+    </interface>
+    <interface>
+      <name>_compose_mime_message</name>
+      <kind>private method</kind>
+      <signature>def _compose_mime_message(self, to: str, subject: str, body: str, in_reply_to: str = None, references: str = None, body_type: str = "plain") -> str</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Compose RFC 2822 compliant MIME message with headers (From, To, Subject, Date, In-Reply-To, References) and base64 URL-safe encoding. Returns encoded string for Gmail API.</description>
+    </interface>
+    <interface>
+      <name>get_thread_message_ids</name>
+      <kind>async method</kind>
+      <signature>async def get_thread_message_ids(self, thread_id: str) -> List[str]</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Extract all message IDs from Gmail thread for constructing References header. Returns list of message IDs in chronological order.</description>
+    </interface>
+    <interface>
+      <name>Gmail API messages.send</name>
+      <kind>REST endpoint</kind>
+      <signature>POST https://gmail.googleapis.com/gmail/v1/users/me/messages/send</signature>
+      <path>external</path>
+      <description>Gmail API endpoint for sending emails. Request body: {"raw": "base64_encoded_mime_message"}. Returns: {"id": "message_id", "threadId": "thread_id", "labelIds": ["SENT"]}.</description>
+    </interface>
+    <interface>
+      <name>POST /api/v1/test/send-email</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/v1/test/send-email with JWT auth</signature>
+      <path>backend/app/api/test.py (to be created)</path>
+      <description>Test endpoint for sending email. Request: SendEmailTestRequest (to, subject, body, body_type, thread_id). Response: {success, data: {message_id, recipient, subject}}.</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      Testing framework: pytest with pytest-asyncio for async method testing. Mock Gmail API responses using unittest.mock (Mock, AsyncMock, patch). Follow patterns from test_gmail_label_management.py: Create fixtures for mock_db_service, gmail_client, sample API responses. Use @pytest.mark.asyncio decorator for async tests. Patch _get_gmail_service() to inject mock service. Verify method calls, return values, exception raising, and structured logging. Test isolation via conftest.py db_session fixture. No actual Gmail API calls in tests - all external calls mocked.
+    </standards>
+    <locations>
+      <location>backend/tests/test_email_sending.py</location>
+      <location>backend/tests/test_email_integration.py</location>
+      <location>backend/tests/conftest.py (shared fixtures)</location>
+    </locations>
+    <ideas>
+      <test id="1" maps_to_ac="1,3,5">
+        <name>test_compose_mime_message_plain_text</name>
+        <description>Verify MIME message composition with plain text body, proper headers (From, To, Subject, Date), Content-Type: text/plain, base64 URL-safe encoding</description>
+      </test>
+      <test id="2" maps_to_ac="3">
+        <name>test_compose_mime_message_html</name>
+        <description>Verify HTML body composition with Content-Type: text/html and proper HTML MIME structure</description>
+      </test>
+      <test id="3" maps_to_ac="4">
+        <name>test_compose_mime_message_with_threading</name>
+        <description>Verify In-Reply-To and References headers present and correctly formatted with angle brackets when threading parameters provided</description>
+      </test>
+      <test id="4" maps_to_ac="2">
+        <name>test_send_email_success</name>
+        <description>Mock Gmail API send endpoint, verify send_email() calls API with base64 MIME message, returns message_id</description>
+      </test>
+      <test id="5" maps_to_ac="6">
+        <name>test_send_email_invalid_recipient</name>
+        <description>Mock 400 Bad Request error, verify InvalidRecipientError raised with recipient email in error message</description>
+      </test>
+      <test id="6" maps_to_ac="6">
+        <name>test_send_email_quota_exceeded</name>
+        <description>Mock 429 Rate Limit error, verify QuotaExceededError raised, verify retry_after hint present in exception</description>
+      </test>
+      <test id="7" maps_to_ac="6">
+        <name>test_send_email_retry_on_network_error</name>
+        <description>Mock 503 Service Unavailable, verify _execute_with_retry() attempts 3 retries with exponential backoff (2s, 4s, 8s delays)</description>
+      </test>
+      <test id="8" maps_to_ac="7">
+        <name>test_send_email_logging</name>
+        <description>Mock send_email(), capture structured logs using structlog, verify email_sent event logged with fields: user_id, recipient, subject, message_id, timestamp, success=True. Verify no body content logged.</description>
+      </test>
+      <test id="9" maps_to_ac="4">
+        <name>test_get_thread_message_ids</name>
+        <description>Mock Gmail threads.get() API response, verify get_thread_message_ids() extracts all message IDs from thread in chronological order</description>
+      </test>
+      <test id="10" maps_to_ac="8">
+        <name>test_send_email_endpoint_success</name>
+        <description>Integration test: POST /api/v1/test/send-email with JWT auth, verify Gmail API called, response contains message_id, structured logs generated</description>
+      </test>
+    </ideas>
+  </tests>
+</story-context>
