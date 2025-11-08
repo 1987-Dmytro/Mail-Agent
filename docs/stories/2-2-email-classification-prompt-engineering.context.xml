@@ -1,0 +1,305 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>2</storyId>
+    <title>Email Classification Prompt Engineering</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-07</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-2-email-classification-prompt-engineering.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to create effective prompts for email classification</iWant>
+    <soThat>the AI can accurately suggest which folder category each email belongs to</soThat>
+    <tasks>
+      - Task 1: Design Classification Prompt Template Structure (AC: #1, #2)
+        * Create prompt template file with clear sections (system role, task description, input/output format, examples)
+        * Add placeholders for dynamic content (email_sender, email_subject, email_body_preview, user_folder_categories, user_email)
+        * Include email body preprocessing (strip HTML, limit to 500 characters)
+        * Document prompt template version v1.0
+
+      - Task 2: Create JSON Output Schema Definition (AC: #3)
+        * Define Pydantic model ClassificationResponse in backend/app/models/classification_response.py
+        * Required fields: suggested_folder (string), reasoning (string, max 300 chars)
+        * Optional fields: priority_score (int, 0-100), confidence (float, 0.0-1.0)
+        * Add validation rules for all fields
+
+      - Task 3: Write Classification Prompt Instructions (AC: #1, #2, #3)
+        * Craft system role instruction (AI email classification assistant)
+        * Write task description explaining classification goal
+        * Add classification guidelines for each category (Government, Important, Clients, Newsletters, Personal, Unclassified)
+        * Include reasoning requirements (1-2 sentences, concise)
+        * Specify output format (valid JSON, no markdown fences)
+
+      - Task 4: Create Few-Shot Examples (AC: #4)
+        * Design 5 example classification scenarios with input/output
+        * Cover different languages (2 German, 1 English, 1 Russian, 1 Ukrainian)
+        * Cover different categories (Government, Clients, Newsletters, Unclassified)
+        * Include edge cases (unclear classification with low confidence)
+
+      - Task 5: Implement Prompt Construction Function (AC: #1, #2)
+        * Create build_classification_prompt(email_data, user_folders) function
+        * Load prompt template and substitute placeholders with actual data
+        * Ensure proper escaping for JSON context
+        * Add comprehensive docstring with example usage
+
+      - Task 6: Create Unit Tests for Prompt Engineering (AC: #4, #5, #6, #7)
+        * Test prompt structure validation
+        * Test HTML body handling
+        * Test long body truncation
+        * Test classification response schema validation
+        * Test multiple folder categories
+        * Run all tests with pytest
+
+      - Task 7: Test Classification with Real Gemini API (AC: #5, #6)
+        * Create integration test file with @pytest.mark.integration
+        * Test government email (German)
+        * Test client email (English)
+        * Test newsletter email
+        * Test unclear email
+        * Test multilingual classification (Russian, Ukrainian, German, English)
+        * Document test results
+
+      - Task 8: Test Edge Cases (AC: #7)
+        * Email with no body (only subject)
+        * Email with multiple possible categories
+        * Email in unsupported language
+        * Very short email (1 sentence)
+        * Email with special characters (emojis, unicode)
+        * Email from unknown sender domain
+        * Document edge case handling strategy
+
+      - Task 9: Store Prompt Version in Configuration (AC: #8)
+        * Create backend/app/config/prompts.yaml with version metadata
+        * Load prompt version in LLMClient initialization
+        * Log prompt version with each classification call
+        * Add prompt version to test endpoint response
+        * Document prompt refinement process
+
+      - Task 10: Validate Multilingual Capability (AC: #6)
+        * Create multilingual test dataset (5 emails per language: RU, UK, EN, DE)
+        * Test classification accuracy across all 20 emails
+        * Verify language-agnostic classification
+        * Calculate accuracy (target >= 85%)
+        * Document per-language accuracy
+        * Identify language-specific edge cases
+
+      - Task 11: Document Prompt Engineering Strategy (AC: #8)
+        * Add "Email Classification Prompt Engineering" section to backend/README.md
+        * Document prompt design principles (few-shot learning, structured output, multilingual, token efficiency)
+        * Document prompt refinement workflow
+        * Document prompt versioning strategy (MAJOR.MINOR format)
+        * Include example prompt output
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Classification prompt template created with placeholders for email metadata and user categories
+    2. Prompt includes email sender, subject, body preview, and user-defined folder categories
+    3. Prompt instructs LLM to output structured JSON with folder suggestion and reasoning
+    4. Prompt examples created showing expected input/output format
+    5. Testing performed with sample emails across different categories (government, clients, newsletters)
+    6. Multilingual capability validated (prompt works for Russian, Ukrainian, English, German emails)
+    7. Edge cases handled (unclear emails, multiple possible categories)
+    8. Prompt version stored in config for future refinement
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Technical Specification - Epic 2</title>
+        <section>Data Models - Gemini Classification Response Schema</section>
+        <snippet>Classification response schema (lines 239-247): JSON structure with suggested_folder (string), reasoning (string, max 300 chars), priority_score (int, 0-100), and confidence (float, 0.0-1.0). This schema defines the expected output format for classification prompts.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Goals</section>
+        <snippet>Multilingual requirements (lines 13-19): System must deliver contextually appropriate multilingual responses across 4 languages (Russian, Ukrainian, English, German). AI must understand email content regardless of input language without translation layer.</snippet>
+      </doc>
+      <doc>
+        <path>docs/preparation/prompt-engineering-guide.md</path>
+        <title>Prompt Engineering Guide for Epic 2</title>
+        <section>Core Principles & Email Classification Template</section>
+        <snippet>Best practices for Gemini prompt engineering: Clear instructions, structured JSON output, few-shot examples (3-5 diverse examples), explicit constraints, multilingual handling. Includes classification prompt template structure and example implementations.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>Decision Summary & LLM Provider</section>
+        <snippet>Google Gemini 2.5 Flash selected as LLM provider (lines 81): True unlimited free tier (1M tokens/min), excellent multilingual support, fast inference. LangGraph framework for workflow orchestration with persistent checkpointing.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-1-gemini-llm-integration.md</path>
+        <title>Story 2.1 - Gemini LLM Integration (Completed)</title>
+        <section>Dev Agent Record - Completion Notes</section>
+        <snippet>LLMClient implementation patterns: LLMClient.send_prompt() for classification, JSON mode with response_mime_type="application/json", Pydantic schema validation, exponential backoff retry, token usage tracking via Prometheus. Test endpoint POST /api/v1/test/gemini available for prompt validation.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/llm_client.py</path>
+        <kind>service</kind>
+        <symbol>LLMClient</symbol>
+        <lines>49-322</lines>
+        <reason>Core LLM client class from Story 2.1. Provides send_prompt(prompt, response_format="json", operation="classification") for classification prompts and receive_completion() for parsed JSON responses. Includes automatic retry logic, token tracking, and error handling.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/test.py</path>
+        <kind>controller</kind>
+        <symbol>test_gemini_connectivity</symbol>
+        <lines>272-441</lines>
+        <reason>Test endpoint POST /api/v1/test/gemini for validating classification prompts. Accepts prompt and response_format ("text" or "json"), returns AI response with tokens_used and latency_ms. Use extensively during prompt iteration (Task 7).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/folder_category.py</path>
+        <kind>model</kind>
+        <symbol>FolderCategory</symbol>
+        <lines>15-66</lines>
+        <reason>User folder category model. Contains name, keywords (for classification hints), gmail_label_id, and color. Prompt must map email to one of user's folder names exactly. Accessed via user.folders relationship.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/utils/errors.py</path>
+        <kind>error_handling</kind>
+        <symbol>GeminiAPIError, GeminiInvalidRequestError, GeminiRateLimitError, GeminiTimeoutError</symbol>
+        <lines>1-100</lines>
+        <reason>Custom exception classes for Gemini API errors. Used by LLMClient for error handling. Classification prompt construction should catch GeminiInvalidRequestError for JSON parsing failures.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>Email</symbol>
+        <lines>1-100</lines>
+        <reason>Email data model with sender, subject, body, message_id fields. Prompt construction function will receive email_data dict with these fields. Body should be truncated to 500 chars for token efficiency.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="google-generativeai" version="0.8.3">Gemini API SDK for LLM calls</package>
+        <package name="pydantic" version="2.11.1">Data validation and ClassificationResponse schema definition</package>
+        <package name="pytest" version="8.3.5">Testing framework for unit and integration tests</package>
+        <package name="pytest-asyncio" version="0.25.2">Async test support</package>
+        <package name="tenacity" version="8.2.3">Retry logic (already used in LLMClient)</package>
+        <package name="structlog" version="25.2.0">Structured logging</package>
+        <package name="prometheus-client" version="0.19.0">Metrics tracking (gemini_token_usage_total)</package>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    1. **Reuse LLMClient from Story 2.1**: Do NOT create new LLM client code. Use existing LLMClient.send_prompt() and receive_completion() methods. LLMClient already handles JSON mode, retry logic, token tracking, and error handling.
+
+    2. **JSON Mode Required**: Classification prompts MUST use JSON mode (response_format="json" in send_prompt()). Gemini's JSON mode ensures structured output with schema validation via Pydantic ClassificationResponse model.
+
+    3. **Classification Response Schema**: Output must match schema from tech-spec-epic-2.md (lines 239-247):
+       - suggested_folder (string, required): Must match one of user's folder category names exactly
+       - reasoning (string, required): 1-2 sentence explanation, max 300 characters (Telegram message limit)
+       - priority_score (int, optional): 0-100 scale (used by Story 2.9 priority detection)
+       - confidence (float, optional): 0.0-1.0 scale (for future accuracy tracking)
+
+    4. **Token Optimization**: Email body must be truncated to 500 characters maximum to keep total prompt under 700 tokens. This provides sufficient context while maintaining fast response times (~2-4 seconds).
+
+    5. **Multilingual Support**: Prompt written in English, but must handle email content in Russian, Ukrainian, English, and German. No language detection required (Gemini processes natively). Reasoning should be in English for consistency.
+
+    6. **Few-Shot Learning**: Prompt template must include 5 diverse examples covering different categories (Government, Clients, Newsletters, Unclassified) and languages (2 German, 1 Russian, 1 Ukrainian, 1 English).
+
+    7. **Folder Category Validation**: suggested_folder must be one of user's folder category names. If no good match, use "Unclassified" with low confidence (<0.7).
+
+    8. **Prompt Versioning**: Prompt version must be stored in backend/app/config/prompts.yaml for future refinement tracking. Version format: MAJOR.MINOR (v1.0 for initial implementation).
+
+    9. **Test Endpoint Usage**: Use POST /api/v1/test/gemini endpoint extensively during prompt iteration (Task 7) before integrating with classification service (Story 2.3).
+
+    10. **No New Dependencies**: All required packages (google-generativeai, pydantic, pytest) already installed from Story 1.2 and Story 2.1. Do NOT add new dependencies.
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>LLMClient.send_prompt</name>
+      <kind>function</kind>
+      <signature>send_prompt(prompt: str, response_format: str = "text", operation: str = "general") -> str</signature>
+      <path>backend/app/core/llm_client.py</path>
+      <usage>Use with response_format="json" and operation="classification" for classification prompts. Returns JSON string that should be parsed with json.loads().</usage>
+    </interface>
+
+    <interface>
+      <name>LLMClient.receive_completion</name>
+      <kind>function</kind>
+      <signature>receive_completion(prompt: str, operation: str = "general") -> Dict</signature>
+      <path>backend/app/core/llm_client.py</path>
+      <usage>Convenience wrapper for JSON responses. Automatically calls send_prompt() with response_format="json" and parses result. Preferred method for classification.</usage>
+    </interface>
+
+    <interface>
+      <name>build_classification_prompt</name>
+      <kind>function</kind>
+      <signature>build_classification_prompt(email_data: dict, user_folders: list) -> str</signature>
+      <path>backend/app/prompts/classification_prompt.py</path>
+      <usage>Function to implement in Task 5. Takes email_data dict (sender, subject, body, message_id) and user_folders list (FolderCategory objects), returns complete prompt string ready for LLMClient.</usage>
+    </interface>
+
+    <interface>
+      <name>ClassificationResponse</name>
+      <kind>pydantic_model</kind>
+      <signature>ClassificationResponse(BaseModel): suggested_folder: str, reasoning: str, priority_score: int | None, confidence: float | None</signature>
+      <path>backend/app/models/classification_response.py</path>
+      <usage>Pydantic model to define in Task 2. Used for JSON schema validation of Gemini responses. Include Field constraints for validation (reasoning max_length=300, priority_score range 0-100, confidence range 0.0-1.0).</usage>
+    </interface>
+
+    <interface>
+      <name>POST /api/v1/test/gemini</name>
+      <kind>REST endpoint</kind>
+      <signature>Request: {"prompt": str, "response_format": "json"}, Response: {"success": bool, "data": {"response": dict, "tokens_used": int, "latency_ms": int}}</signature>
+      <path>backend/app/api/v1/test.py</path>
+      <usage>Use for testing classification prompts during development. Send constructed prompt with response_format="json", verify response structure matches ClassificationResponse schema.</usage>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing framework: pytest with pytest-asyncio for async support. Unit tests use mocked Gemini API (no real API calls), integration tests marked with @pytest.mark.integration use real Gemini API (optional, run with --integration flag). All tests follow AAA pattern (Arrange, Act, Assert) with clear test names describing what is being tested. Pydantic models used for schema validation testing. Token usage tracking validated via Prometheus metrics. Test coverage target: 80%+ for prompt construction logic, 100% for schema validation.
+    </standards>
+
+    <locations>
+      - backend/tests/test_classification_prompt.py (unit tests for prompt construction)
+      - backend/tests/integration/test_classification_integration.py (integration tests with real Gemini API)
+      - backend/tests/data/multilingual_emails.json (test dataset for multilingual validation)
+    </locations>
+
+    <ideas>
+      <test id="AC1" criteria="Classification prompt template created">
+        Test prompt template structure contains all required sections (system role, task description, examples, schema definition). Verify placeholders are correctly substituted with email data and user folders.
+      </test>
+
+      <test id="AC2" criteria="Prompt includes email metadata and user categories">
+        Test prompt construction with various email data (different senders, subjects, body lengths). Verify HTML tags stripped, body truncated to 500 chars, user folder categories formatted as list in prompt.
+      </test>
+
+      <test id="AC3" criteria="Prompt instructs LLM to output structured JSON">
+        Test ClassificationResponse Pydantic model validation. Verify valid JSON parses successfully, invalid JSON (missing required fields, out-of-range values) raises ValidationError.
+      </test>
+
+      <test id="AC4" criteria="Prompt examples created">
+        Verify prompt template includes 5 few-shot examples covering Government, Clients, Newsletters, Unclassified categories and multiple languages (German, Russian, Ukrainian, English).
+      </test>
+
+      <test id="AC5" criteria="Testing with sample emails across categories">
+        Integration test: Send classification prompts for government, client, and newsletter emails to real Gemini API. Verify suggested_folder matches expected category, reasoning is concise, priority_score appropriate.
+      </test>
+
+      <test id="AC6" criteria="Multilingual capability validated">
+        Integration test: Create multilingual test dataset (5 emails per language: RU, UK, EN, DE). Test classification accuracy >= 85% per language. Verify reasoning in English regardless of input language.
+      </test>
+
+      <test id="AC7" criteria="Edge cases handled">
+        Test edge cases: email with no body (only subject), multiple possible categories, unsupported language, very short email, special characters (emojis, unicode), unknown sender domain. Verify no crashes, appropriate fallback to "Unclassified" when unclear.
+      </test>
+
+      <test id="AC8" criteria="Prompt version stored in config">
+        Verify backend/app/config/prompts.yaml exists with version metadata (version: "1.0", created date, changelog). Test prompt version logged with each classification call in structured logs.
+      </test>
+    </ideas>
+  </tests>
+</story-context>

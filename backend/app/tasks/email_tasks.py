@@ -5,6 +5,7 @@ and queuing them for processing. Tasks run on a configurable schedule via Celery
 """
 
 import asyncio
+import os
 import time
 from typing import List
 
@@ -15,9 +16,11 @@ from googleapiclient.errors import HttpError
 from sqlmodel import select
 
 from app.core.gmail_client import GmailClient
+from app.core.llm_client import LLMClient
 from app.models.user import User
 from app.models.email import EmailProcessingQueue
 from app.services.database import database_service
+from app.services.workflow_tracker import WorkflowInstanceTracker
 
 logger = structlog.get_logger(__name__)
 
@@ -169,16 +172,59 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                 status="pending",
             )
             session.add(new_email)
+            await session.flush()  # Flush to get email ID before commit
             new_count += 1
 
             logger.info(
                 "email_persisted",
                 user_id=user_id,
+                email_id=new_email.id,
                 message_id=message_id,
                 sender=email.get("sender"),
                 subject=email.get("subject"),
                 received_at=email.get("received_at"),
             )
+
+            # Story 2.3: Start email classification workflow
+            # Workflow will run: extract_context → classify → send_telegram → await_approval (PAUSE)
+            try:
+                # Initialize workflow tracker with dependencies
+                llm_client = LLMClient()
+                database_url = os.getenv("DATABASE_URL")
+
+                workflow_tracker = WorkflowInstanceTracker(
+                    db=session,
+                    gmail_client=gmail_client,
+                    llm_client=llm_client,
+                    database_url=database_url,
+                )
+
+                # Start workflow - returns thread_id for checkpoint tracking
+                thread_id = await workflow_tracker.start_workflow(
+                    email_id=new_email.id,
+                    user_id=user_id,
+                )
+
+                logger.info(
+                    "workflow_started",
+                    email_id=new_email.id,
+                    user_id=user_id,
+                    thread_id=thread_id,
+                    note="Workflow paused at await_approval, awaiting Telegram response",
+                )
+
+            except Exception as workflow_error:
+                # Log workflow initialization errors but don't fail email polling
+                # Email is already saved, workflow can be retried later if needed
+                logger.error(
+                    "workflow_initialization_failed",
+                    email_id=new_email.id,
+                    user_id=user_id,
+                    error=str(workflow_error),
+                    error_type=type(workflow_error).__name__,
+                    note="Email saved successfully, workflow can be retried",
+                    exc_info=True,
+                )
 
         # Commit all new emails in batch
         await session.commit()

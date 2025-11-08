@@ -1,0 +1,221 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>11</storyId>
+    <title>Error Handling and Recovery</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/Users/hdv_1987/Desktop/Прроекты/Mail Agent/docs/stories/2-11-error-handling-and-recovery.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>the system to handle errors gracefully and allow me to retry failed actions</iWant>
+    <soThat>temporary failures don't result in lost emails or stuck processing</soThat>
+    <tasks>
+      <task id="1" ac="3">Implement Retry Utility with Exponential Backoff (backend/app/utils/retry.py)</task>
+      <task id="2" ac="1,3">Wrap Gmail API Calls with Retry Logic (backend/app/core/gmail_client.py)</task>
+      <task id="3" ac="2,3">Wrap Telegram API Calls with Retry Logic (backend/app/core/telegram_bot.py)</task>
+      <task id="4" ac="4,5">Add Error Status to Email Processing Queue (backend/app/models/email.py + migration)</task>
+      <task id="5" ac="4,5">Update Workflow Nodes to Handle Errors (backend/app/workflows/nodes.py)</task>
+      <task id="6" ac="6">Implement Manual Retry Command (backend/app/api/telegram_handlers.py)</task>
+      <task id="7" ac="7">Create Admin Dashboard Endpoint (backend/app/api/v1/admin.py)</task>
+      <task id="8" ac="8">Implement Dead Letter Queue (backend/app/services/dead_letter_queue.py)</task>
+      <task id="9" ac="9">Configure Health Monitoring Alerts (backend/app/core/metrics.py + Prometheus rules)</task>
+      <task id="10" ac="1-9">Create Integration Tests (backend/tests/integration/test_error_handling_integration.py)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Gmail API errors caught and logged with context (email_id, user_id, error type)</criterion>
+    <criterion id="2">Telegram API errors caught and logged (message send failures, button callback failures)</criterion>
+    <criterion id="3">Retry mechanism implemented for transient failures (max 3 retries with exponential backoff)</criterion>
+    <criterion id="4">Failed emails moved to "error" status after max retries</criterion>
+    <criterion id="5">Error notification sent to user via Telegram for persistent failures</criterion>
+    <criterion id="6">Manual retry command implemented in Telegram (/retry [email_id])</criterion>
+    <criterion id="7">Admin dashboard endpoint shows emails in error state (GET /admin/errors)</criterion>
+    <criterion id="8">Dead letter queue implemented for emails that repeatedly fail processing</criterion>
+    <criterion id="9">Health monitoring alerts configured for high error rates</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Reliability/Availability (lines 743-821)</section>
+        <snippet>Defines retry configuration (MAX_RETRIES=3, exponential backoff 2s→4s→8s→16s), error recovery strategies for Gmail/Gemini/Telegram APIs, dead letter queue pattern for failed emails, and workflow checkpointing for zero data loss.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Observability (lines 822-975)</section>
+        <snippet>Structured JSON logging format with key events (workflow_started, error_occurred), Prometheus metrics for error rates, and alerting rules for high error rates (>5% Gmail, >10% Telegram) and stuck workflows.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Error Handling Flow (lines 510-570)</section>
+        <snippet>Error handling scenarios for Gmail API: 409 Conflict (idempotent label creation), 404 Not Found, 401 Unauthorized (token refresh), 429 Rate Limit (exponential backoff retry), and separation of concerns across API/Service/Client layers.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Non-Functional Requirements - NFR002</section>
+        <snippet>NFR002: Reliability - System shall maintain 99.5% uptime during MVP phase with zero data loss or incorrect email sending (99.9%+ sending reliability).</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-10-approval-history-tracking.md</path>
+        <title>Story 2.10: Approval History Tracking</title>
+        <section>Dev Notes - Service Layer Pattern</section>
+        <snippet>ApprovalHistoryService demonstrates async service pattern with __init__(db: AsyncSession), structured logging, and error handling. Workflow node integration pattern shows how execute_action node was modified to call service methods.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>service</kind>
+        <symbol>GmailClient</symbol>
+        <lines>66-100</lines>
+        <reason>Gmail API client class that needs retry logic wrapper for apply_label() method. Already has structured logging and error handling foundation.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>service</kind>
+        <symbol>TelegramBotClient</symbol>
+        <lines>19-100</lines>
+        <reason>Telegram bot client with send_message() method that needs retry logic and error handling for NetworkError, TimedOut, and Forbidden (user blocked) scenarios.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/nodes.py</path>
+        <kind>workflow</kind>
+        <symbol>execute_action</symbol>
+        <lines>504+</lines>
+        <reason>Workflow node that applies Gmail labels - needs try/except wrapper around Gmail API calls with error notification logic (AC #4, #5).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/nodes.py</path>
+        <kind>workflow</kind>
+        <symbol>send_telegram</symbol>
+        <lines>297-316</lines>
+        <reason>Workflow node that sends Telegram messages - needs try/except wrapper around Telegram API calls with retry logic.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>17-84</lines>
+        <reason>Email queue model that needs new error fields: error_type, error_message, error_timestamp, retry_count, dlq_reason. Status field needs "error" and "dead_letter" enum values.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/metrics.py</path>
+        <kind>service</kind>
+        <symbol>metrics</symbol>
+        <lines>1-57</lines>
+        <reason>Prometheus metrics setup - needs error_rate_total Counter for tracking Gmail/Telegram/Workflow error rates (AC #9).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/approval_history.py</path>
+        <kind>service</kind>
+        <symbol>ApprovalHistoryService</symbol>
+        <lines>55-80</lines>
+        <reason>Reference pattern for async service with __init__(db: AsyncSession), structured logging, and proper error handling. DeadLetterQueueService will follow same pattern.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/telegram_handlers.py</path>
+        <kind>api</kind>
+        <symbol>telegram_handlers</symbol>
+        <lines>1-80</lines>
+        <reason>Telegram command handlers module where /retry command handler will be added. Shows pattern for command registration and workflow resumption.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/utils/errors.py</path>
+        <kind>util</kind>
+        <symbol>error_classes</symbol>
+        <lines>1-287</lines>
+        <reason>Custom exception classes: GmailAPIError, GeminiAPIError, TelegramBotError, TelegramSendError, TelegramUserBlockedError. Retry utility will catch these exception types.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="fastapi" version=">=0.115.12">FastAPI framework for admin API endpoint (GET /admin/errors)</package>
+        <package name="sqlmodel" version=">=0.0.24">Database models for error fields in EmailProcessingQueue</package>
+        <package name="alembic" version=">=1.13.3">Database migrations for adding error fields and DLQ status</package>
+        <package name="structlog" version=">=25.2.0">Structured logging for error events with context (email_id, user_id, error_type)</package>
+        <package name="prometheus-client" version=">=0.19.0">Metrics tracking for error rates (error_rate_total counter)</package>
+        <package name="python-telegram-bot" version=">=21.0">Telegram API for retry command handler and error notifications</package>
+        <package name="google-api-python-client" version=">=2.146.0">Gmail API client for retry logic on label operations</package>
+        <package name="tenacity" version=">=8.2.3">Optional retry library (can use custom implementation instead)</package>
+      </python>
+      <note>All dependencies already installed from previous stories. No new packages required for Story 2.11.</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint id="1" type="architecture">Follow async service pattern with __init__(db: AsyncSession) for DeadLetterQueueService (reference: ApprovalHistoryService)</constraint>
+    <constraint id="2" type="error-handling">Retry configuration must match tech-spec: MAX_RETRIES=3, BASE_DELAY=2s, MAX_DELAY=16s, exponential backoff formula: min(BASE_DELAY * 2^attempt, MAX_DELAY)</constraint>
+    <constraint id="3" type="error-handling">Gmail API 401 Unauthorized requires token refresh before retry. 403 Forbidden (user blocked bot) is permanent - no retry.</constraint>
+    <constraint id="4" type="error-handling">Telegram message truncation at 4000 chars (not 4096) to leave buffer for "..." indicator</constraint>
+    <constraint id="5" type="database">Error fields added to existing EmailProcessingQueue table (not new table). Migration must preserve existing data.</constraint>
+    <constraint id="6" type="database">Status enum must include both "error" (retriable) and "dead_letter" (requires manual investigation)</constraint>
+    <constraint id="7" type="logging">Structured logging must include: event name, email_id, user_id, error_type, operation, retry_attempt, delay_seconds</constraint>
+    <constraint id="8" type="security">Admin API key authentication via X-Admin-Api-Key header (MVP: static key from env var ADMIN_API_KEY)</constraint>
+    <constraint id="9" type="workflow">Workflow node modifications must preserve LangGraph checkpoint compatibility for resume-from-error scenarios</constraint>
+    <constraint id="10" type="testing">Testing standard: 4 unit tests (retry utility, DLQ service) + 6 integration tests (API retries, manual retry, DLQ, admin endpoint)</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>execute_with_retry</name>
+      <kind>function</kind>
+      <signature>async def execute_with_retry(func: Callable, *args, **kwargs) -> Any</signature>
+      <path>backend/app/utils/retry.py</path>
+      <description>Core retry utility with exponential backoff. Catches RequestException, TimeoutError, HttpError. Returns function result or raises exception after max retries.</description>
+    </interface>
+    <interface>
+      <name>DeadLetterQueueService.move_to_dlq</name>
+      <kind>method</kind>
+      <signature>async def move_to_dlq(self, email_id: int, reason: str) -> None</signature>
+      <path>backend/app/services/dead_letter_queue.py</path>
+      <description>Moves email to dead_letter status with reason. Called after retry_count >= MAX_RETRIES.</description>
+    </interface>
+    <interface>
+      <name>GET /api/v1/admin/errors</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/admin/errors?user_id=&error_type=&from_date=&to_date=&status=&limit=</signature>
+      <path>backend/app/api/v1/admin.py</path>
+      <description>Admin dashboard endpoint. Returns list of emails in error/dead_letter status with filters. Requires X-Admin-Api-Key header.</description>
+    </interface>
+    <interface>
+      <name>/retry [email_id]</name>
+      <kind>Telegram command</kind>
+      <signature>/retry {email_id}</signature>
+      <path>backend/app/api/telegram_handlers.py</path>
+      <description>Telegram command to manually retry failed email. Resets email status from error to pending and re-triggers workflow.</description>
+    </interface>
+    <interface>
+      <name>error_rate_total</name>
+      <kind>Prometheus metric</kind>
+      <signature>Counter("error_rate_total", "Total errors by type", ["error_type", "service"])</signature>
+      <path>backend/app/core/metrics.py</path>
+      <description>Prometheus counter for tracking error rates. Labels: error_type (gmail_api, telegram_api, workflow_error), service (gmail, telegram, langgraph).</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Testing framework: pytest>=8.3.5 with pytest-asyncio>=0.25.2 for async test support. Database: PostgreSQL (no SQLite - uses ARRAY types). Test database URL from DATABASE_URL env var. Fixtures: db_session (creates/drops tables per test), test_user, test_user_2 defined in tests/conftest.py. Mocking: Use unittest.mock for external API calls (Gmail, Telegram, Gemini). Coverage target: 100% AC coverage = 4 unit tests + 6 integration tests. Run command: DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" uv run pytest -v</standards>
+    <locations>
+      <location>backend/tests/</location>
+      <location>backend/tests/integration/</location>
+    </locations>
+    <ideas>
+      <test ac="3" type="unit">test_retry_utility.py - Test execute_with_retry(): (1) Success on first attempt, (2) Success after 2 retries, (3) All retries exhausted raises exception, (4) Exponential backoff delay calculation (2s, 4s, 8s, 16s cap)</test>
+      <test ac="8" type="unit">test_dead_letter_queue_service.py - Test DeadLetterQueueService.move_to_dlq(): (1) Email moved to dead_letter status after retry_count >= 3, (2) dlq_reason field populated, (3) DLQ emails excluded from normal processing</test>
+      <test ac="1,3" type="integration">test_error_handling_integration.py::test_gmail_api_retry_and_recovery - Mock Gmail API 503 error for first 2 attempts, then success. Verify 3 total calls, exponential backoff applied, email status = completed</test>
+      <test ac="4,5" type="integration">test_error_handling_integration.py::test_gmail_api_persistent_failure - Mock Gmail API to fail all 3 retries. Verify email status = error, error_type = gmail_api_failure, error notification sent to Telegram, structured log event workflow_node_error</test>
+      <test ac="2" type="integration">test_error_handling_integration.py::test_telegram_api_user_blocked_bot - Mock Telegram API 403 Forbidden. Verify NO retries (permanent error), user marked inactive, log event user_blocked_bot</test>
+      <test ac="6" type="integration">test_error_handling_integration.py::test_manual_retry_command - Create email with status=error, send /retry command via Telegram, verify status reset to pending, workflow re-triggered, confirmation message sent</test>
+      <test ac="7" type="integration">test_error_handling_integration.py::test_admin_errors_endpoint - Create 5 emails in error status, call GET /admin/errors with admin API key, verify response includes all errors, test filters (user_id, error_type), test auth (missing API key returns 401)</test>
+      <test ac="8" type="integration">test_error_handling_integration.py::test_dead_letter_queue_after_max_retries - Mock Gmail API to fail indefinitely, trigger workflow with 3 retries, verify email moved to dead_letter status, dlq_reason populated, DLQ emails excluded from auto-retry</test>
+    </ideas>
+  </tests>
+</story-context>

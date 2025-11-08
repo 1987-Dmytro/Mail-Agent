@@ -9,7 +9,10 @@ from fastapi import APIRouter
 from app.api.v1.auth import router as auth_router
 from app.api.v1.health import router as health_router
 from app.api.v1.folders import router as folders_router
+from app.api.v1.telegram import router as telegram_router
 from app.api.v1.test import router as test_router
+from app.api.v1.stats import router as stats_router
+from app.api.v1.admin import router as admin_router
 # NOTE: Chatbot router includes LangGraph components, deferred to Epic 2
 # from app.api.v1.chatbot import router as chatbot_router
 from app.core.logging import logger
@@ -20,7 +23,10 @@ api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(health_router, prefix="/health", tags=["health"])
 api_router.include_router(folders_router, prefix="/folders", tags=["folders"])
+api_router.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
 api_router.include_router(test_router, prefix="/test", tags=["test"])
+api_router.include_router(stats_router, prefix="/stats", tags=["stats"])
+api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
 # NOTE: Chatbot router deferred to Epic 2 (LangGraph workflows for AI email classification)
 # api_router.include_router(chatbot_router, prefix="/chatbot", tags=["chatbot"])
 

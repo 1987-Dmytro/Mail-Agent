@@ -1,0 +1,252 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>8</storyId>
+    <title>Batch Notification System</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-8-batch-notification-system.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to receive daily batch notifications summarizing emails that need my review</iWant>
+    <soThat>I'm not interrupted constantly throughout the day</soThat>
+    <tasks>
+- Task 1: Create NotificationPreferences Database Model (AC: #7)
+- Task 2: Create Batch Notification Service (AC: #2, #3, #4, #8)
+- Task 3: Implement Celery Scheduled Task (AC: #1)
+- Task 4: Implement Priority Email Bypass Logic (AC: #6)
+- Task 5: Add Individual Proposal Sending (AC: #5)
+- Task 6: Create Unit Tests (AC: #1-9)
+- Task 7: Create Integration Tests (AC: #1-9)
+- Task 8: Update Documentation (AC: #1-9)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Batch notification scheduling implemented (configurable time, default: end of day)
+2. Batch job retrieves all pending emails (status="awaiting_approval") for each user
+3. Summary message created showing count of emails needing review
+4. Summary includes breakdown by proposed category (e.g., "3 to Government, 2 to Clients")
+5. Individual proposal messages sent after summary (one message per email)
+6. High-priority emails bypass batching and notify immediately
+7. User preference stored for batch timing (NotificationPreferences table)
+8. Empty batch handling (no message sent if no pending emails)
+9. Batch completion logged for monitoring
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Technical Specification - Epic 2</title>
+        <section>Batch Notification Flow</section>
+        <snippet>Defines Celery Beat scheduled task execution (daily at 6 PM per user), NotificationPreferences model with batch_enabled, batch_time, quiet_hours fields. Includes detailed flow for querying pending emails (status="awaiting_approval", is_priority=False), creating summary messages with category breakdown, and sending individual proposal messages with 100ms rate limiting.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Technical Specification - Epic 2</title>
+        <section>NotificationPreferences Table Schema</section>
+        <snippet>Database schema: user_id (FK to users, unique), batch_enabled (default True), batch_time (default 18:00), priority_immediate (default True), quiet_hours_start/end (optional), timezone (default UTC). Relationship: User.notification_prefs.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 2.8: Batch Notification System</section>
+        <snippet>User story: receive daily batch notifications summarizing emails needing review to avoid constant interruptions. 9 acceptance criteria including configurable scheduling, summary with category breakdown, individual proposal messages, priority bypass, and logging.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR012 - Batch Notifications</section>
+        <snippet>System shall send batch notifications summarizing daily email processing activity. User scenario: At end of day (or configured interval), user receives Telegram batch notification showing count of emails processed and proposals needing review.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Task Queue Infrastructure</section>
+        <snippet>Celery + Redis for production-grade background task processing. Used for email polling and scheduled notifications. Task queue configured with separate queues (notifications queue for batch tasks). Redis broker for task coordination.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-6-email-sorting-proposal-messages.md</path>
+        <title>Story 2.6: Email Sorting Proposal Messages</title>
+        <section>Completed Story - Message Formatting</section>
+        <snippet>Implements TelegramMessageFormatter service with format_sorting_proposal() method for creating email preview messages and create_inline_keyboard() for approval buttons. Reuse these methods for batch individual proposals.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-7-approval-button-handling.md</path>
+        <title>Story 2.7: Approval Button Handling</title>
+        <section>Completed Story - WorkflowMapping</section>
+        <snippet>WorkflowMapping table operational for tracking email_id → thread_id → telegram_message_id. Use update_workflow_mapping() method from workflow_tracker.py when sending individual batch proposals.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/services/telegram_message_formatter.py</path>
+        <kind>service</kind>
+        <symbol>format_sorting_proposal_message</symbol>
+        <lines>10-64</lines>
+        <reason>REUSE for formatting individual proposal messages in batch. Accepts sender, subject, body_preview, proposed_folder, reasoning, is_priority. Returns formatted Markdown message with visual hierarchy.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/telegram_message_formatter.py</path>
+        <kind>service</kind>
+        <symbol>create_inline_keyboard</symbol>
+        <lines>67-104</lines>
+        <reason>REUSE for creating approval buttons on individual batch proposals. Accepts email_id, returns 2D list of InlineKeyboardButton objects with callback_data format.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>client</kind>
+        <symbol>TelegramBotClient.send_message_with_buttons</symbol>
+        <lines>153-229</lines>
+        <reason>REUSE for sending both summary and individual proposal messages. Accepts telegram_id, text, buttons. Returns message_id. Handles rate limiting, user blocking, network errors.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>client</kind>
+        <symbol>TelegramBotClient.send_message</symbol>
+        <lines>85-151</lines>
+        <reason>REUSE for sending summary message without buttons. Accepts telegram_id, text. Returns message_id. Validates format and message length.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/workflow_tracker.py</path>
+        <kind>service</kind>
+        <symbol>WorkflowInstanceTracker._create_workflow_mapping</symbol>
+        <lines>378-410</lines>
+        <reason>REFERENCE pattern for creating WorkflowMapping entries. Batch service needs similar logic to update telegram_message_id after sending individual proposals.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>32-90</lines>
+        <reason>MODIFY to add notification_prefs relationship (back_populates). Currently has relationships for sessions, emails, folders, linking_codes, workflow_mappings. Add similar pattern for NotificationPreferences.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>17-89</lines>
+        <reason>REFERENCE for querying pending emails. Use status="awaiting_approval" and is_priority=False filters. Has fields: proposed_folder_id, classification_reasoning, priority_score, is_priority.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/nodes.py</path>
+        <kind>workflow</kind>
+        <symbol>send_telegram</symbol>
+        <lines>1-17</lines>
+        <reason>MODIFY to add priority bypass logic (AC #6). Check state["is_priority"], if True send immediately, else mark as awaiting_approval and skip Telegram send (will be sent in batch).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/celery.py</path>
+        <kind>config</kind>
+        <symbol>celery_app.conf.beat_schedule</symbol>
+        <lines>36-43</lines>
+        <reason>MODIFY to add batch notification scheduled task. Current has poll-all-users. Add send-batch-notifications-daily with crontab(hour=18, minute=0) schedule and notifications queue.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/conftest.py</path>
+        <kind>test-fixture</kind>
+        <symbol>conftest</symbol>
+        <lines>all</lines>
+        <reason>REFERENCE for test fixtures and AsyncMock patterns. Use same patterns for mocking database, Telegram client, and Celery tasks in batch notification tests.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="celery" version="5.4.0" usage="Task scheduling and Celery Beat for daily batch notifications" />
+        <package name="redis" version="5.0.1" usage="Celery broker and backend for task queue coordination" />
+        <package name="python-telegram-bot" version="21.0" usage="Telegram Bot API client for sending batch summary and individual proposals" />
+        <package name="sqlmodel" version="0.0.24" usage="Database ORM for NotificationPreferences model and queries" />
+        <package name="structlog" version="25.2.0" usage="Structured logging for batch processing events and metrics" />
+        <package name="alembic" version="1.13.3" usage="Database migrations for NotificationPreferences table" />
+        <package name="pytest" version="8.3.5" usage="Test framework for unit and integration tests" />
+        <package name="pytest-asyncio" version="0.25.2" usage="Async test support for batch service testing" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="architecture">All Telegram message sending MUST go through TelegramBotClient abstraction - never call python-telegram-bot Bot directly</constraint>
+    <constraint type="reuse">MUST reuse existing TelegramMessageFormatter functions (format_sorting_proposal_message, create_inline_keyboard) for individual batch proposals - do NOT recreate message formatting logic</constraint>
+    <constraint type="data-model">NotificationPreferences model MUST use SQLModel pattern matching User, EmailProcessingQueue (inherit from BaseModel, use Field for columns, Relationship for FK)</constraint>
+    <constraint type="logging">All batch processing events MUST use structlog with structured context (user_id, email_count, batch_status, etc.)</constraint>
+    <constraint type="rate-limiting">Individual proposal messages MUST implement 100ms delay between sends (asyncio.sleep(0.1)) to avoid Telegram rate limits (30 msgs/sec, 20 msgs/min per chat)</constraint>
+    <constraint type="priority-bypass">Priority emails (is_priority=True) MUST bypass batch notification - modify send_telegram node to send immediately if is_priority, else mark awaiting_approval without sending</constraint>
+    <constraint type="scheduling">Celery Beat schedule MUST default to 18:00 UTC (crontab(hour=18, minute=0)) with notifications queue routing</constraint>
+    <constraint type="database">Alembic migration MUST include NotificationPreferences table creation with proper FK cascade (ondelete="CASCADE" for user_id)</constraint>
+    <constraint type="testing">Test fixtures MUST follow patterns from conftest.py - use AsyncMock for database session, TelegramBotClient, and Celery tasks</constraint>
+    <constraint type="workflow-mapping">MUST update WorkflowMapping.telegram_message_id after sending each individual proposal to enable callback reconnection</constraint>
+    <constraint type="empty-batch">MUST skip users with no pending emails (status="awaiting_approval", is_priority=False) - no summary or individual messages sent (AC #8)</constraint>
+    <constraint type="error-handling">Batch processing MUST continue for remaining users even if one user's batch fails - catch exceptions per user and log errors</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>TelegramMessageFormatter.format_sorting_proposal_message</name>
+      <kind>function</kind>
+      <signature>format_sorting_proposal_message(sender: str, subject: str, body_preview: str, proposed_folder: str, reasoning: str, is_priority: bool = False) -> str</signature>
+      <path>backend/app/services/telegram_message_formatter.py:10-64</path>
+    </interface>
+    <interface>
+      <name>TelegramMessageFormatter.create_inline_keyboard</name>
+      <kind>function</kind>
+      <signature>create_inline_keyboard(email_id: int) -> list[list[InlineKeyboardButton]]</signature>
+      <path>backend/app/services/telegram_message_formatter.py:67-104</path>
+    </interface>
+    <interface>
+      <name>TelegramBotClient.send_message_with_buttons</name>
+      <kind>async method</kind>
+      <signature>async send_message_with_buttons(telegram_id: str, text: str, buttons: list[list[InlineKeyboardButton]]) -> str</signature>
+      <path>backend/app/core/telegram_bot.py:153-229</path>
+    </interface>
+    <interface>
+      <name>TelegramBotClient.send_message</name>
+      <kind>async method</kind>
+      <signature>async send_message(telegram_id: str, text: str) -> str</signature>
+      <path>backend/app/core/telegram_bot.py:85-151</path>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue Query Pattern</name>
+      <kind>sqlalchemy query</kind>
+      <signature>select(EmailProcessingQueue).where(EmailProcessingQueue.user_id == user_id, EmailProcessingQueue.status == "awaiting_approval", EmailProcessingQueue.is_priority == False).order_by(EmailProcessingQueue.received_at.asc())</signature>
+      <path>Reference pattern for querying pending emails in batch service</path>
+    </interface>
+    <interface>
+      <name>WorkflowMapping Update Pattern</name>
+      <kind>database update</kind>
+      <signature>workflow_mapping = await db.execute(select(WorkflowMapping).where(WorkflowMapping.email_id == email_id)); mapping.telegram_message_id = message_id; await db.commit()</signature>
+      <path>Reference pattern from workflow_tracker.py for storing telegram_message_id</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Project uses pytest with async support (pytest-asyncio). Test patterns:
+- Unit tests: Mock external dependencies (AsyncMock for database, TelegramBotClient, Celery tasks)
+- Integration tests: Use real database with test data, mock external APIs (Telegram, Gmail)
+- Test structure: Arrange-Act-Assert pattern with descriptive test names (test_feature_scenario)
+- Fixtures: Defined in conftest.py for database session, clients, test data
+- Assertions: Verify database state changes, function call counts, log messages
+- Coverage: Each AC should have corresponding unit test, critical flows need integration tests
+    </standards>
+    <locations>
+      <location>backend/tests/test_batch_notification_service.py</location>
+      <location>backend/tests/integration/test_batch_notification_integration.py</location>
+      <location>backend/tests/conftest.py (shared fixtures)</location>
+    </locations>
+    <ideas>
+      <idea ac="1">Test Celery Beat schedule configuration - verify task registered with correct crontab(hour=18, minute=0) and notifications queue</idea>
+      <idea ac="2">Test get_pending_emails() filters correctly - query returns only status="awaiting_approval" AND is_priority=False, ordered by received_at ASC</idea>
+      <idea ac="3,4">Test create_summary_message() format - verify total count display, category breakdown sorted by count descending, message structure</idea>
+      <idea ac="5">Test send_individual_proposals() - verify TelegramMessageFormatter.format_sorting_proposal_message called for each email, buttons created, rate limiting (100ms delay)</idea>
+      <idea ac="6">Test priority bypass logic in send_telegram node - if is_priority=True send immediately, else mark awaiting_approval and skip Telegram send</idea>
+      <idea ac="7">Test NotificationPreferences model - verify default values (batch_enabled=True, batch_time=18:00, priority_immediate=True), FK relationship to User</idea>
+      <idea ac="8">Test empty batch handling - user with no pending emails returns {"status": "no_emails", "emails_sent": 0}, no Telegram messages sent</idea>
+      <idea ac="9">Test batch completion logging - verify structlog events include user_id, emails_sent count, pending_count, timestamp</idea>
+      <idea ac="all">Integration test: Complete batch flow - create user with 5 pending emails, trigger batch task, verify summary + 5 individual messages sent, WorkflowMapping updated</idea>
+      <idea ac="all">Integration test: Quiet hours check - user with quiet_hours_start=22:00, quiet_hours_end=08:00, test at 23:00 (no batch), test at 10:00 (batch sent)</idea>
+      <idea ac="all">Integration test: Batch disabled user - user with batch_enabled=False skipped in batch processing</idea>
+    </ideas>
+  </tests>
+</story-context>

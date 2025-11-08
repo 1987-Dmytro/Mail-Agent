@@ -1,0 +1,359 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>7</storyId>
+    <title>Approval Button Handling</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-07</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-7-approval-button-handling.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to interact with approval buttons in Telegram</iWant>
+    <soThat>I can approve, reject, or modify AI sorting suggestions</soThat>
+    <tasks>
+      <task id="1" acs="1,7,8">
+        <title>Implement Telegram Callback Query Handler</title>
+        <subtasks>
+          <subtask>Create file: backend/app/api/telegram_handlers.py</subtask>
+          <subtask>Implement callback query handler with routing logic for approve/reject/change/folder actions</subtask>
+          <subtask>Implement parse_callback_data() function to extract action and email_id</subtask>
+          <subtask>Implement validate_user_owns_email() function for security validation</subtask>
+          <subtask>Register callback_query_handler in TelegramBotClient</subtask>
+          <subtask>Add structured logging for all callback interactions</subtask>
+        </subtasks>
+      </task>
+      <task id="2" acs="2,6,9">
+        <title>Implement Approve Callback Handler</title>
+        <subtasks>
+          <subtask>Implement handle_approve() function to resume LangGraph workflow with user_decision="approve"</subtask>
+          <subtask>Create execute_action workflow node in backend/app/workflows/nodes.py</subtask>
+          <subtask>Implement Gmail label application logic with error handling</subtask>
+          <subtask>Update EmailProcessingQueue status to "completed"</subtask>
+          <subtask>Create send_confirmation workflow node</subtask>
+          <subtask>Update EmailWorkflow graph to include new edges: await_approval → execute_action → send_confirmation</subtask>
+          <subtask>Test approve flow end-to-end</subtask>
+          <subtask>Test Gmail API error handling</subtask>
+        </subtasks>
+      </task>
+      <task id="3" acs="3,6">
+        <title>Implement Reject Callback Handler</title>
+        <subtasks>
+          <subtask>Implement handle_reject() function to resume workflow with user_decision="reject"</subtask>
+          <subtask>Update execute_action_node to handle reject logic (update status, no Gmail call)</subtask>
+          <subtask>Test reject flow: email stays in inbox, status = "rejected"</subtask>
+          <subtask>Verify confirmation message sent</subtask>
+        </subtasks>
+      </task>
+      <task id="4" acs="4,5,6">
+        <title>Implement Change Folder Callback Handler</title>
+        <subtasks>
+          <subtask>Implement handle_change_folder() function to display folder selection menu</subtask>
+          <subtask>Create inline keyboard with user's folder options</subtask>
+          <subtask>Implement handle_folder_selection() function to resume workflow with selected_folder_id</subtask>
+          <subtask>Update execute_action_node to handle "change_folder" decision</subtask>
+          <subtask>Test change folder flow: folder list displayed, correct label applied</subtask>
+          <subtask>Verify confirmation message shows selected folder name</subtask>
+        </subtasks>
+      </task>
+      <task id="5" acs="1">
+        <title>Add Callback Query Handler to TelegramBotClient</title>
+        <subtasks>
+          <subtask>Update backend/app/core/telegram_bot.py</subtask>
+          <subtask>Register CallbackQueryHandler in application setup</subtask>
+          <subtask>Call setup_handlers() during bot initialization</subtask>
+          <subtask>Test callback handler registration</subtask>
+        </subtasks>
+      </task>
+      <task id="6" acs="1,2,3,4,5,6,7,8,9">
+        <title>Create Unit Tests for Callback Handlers</title>
+        <subtasks>
+          <subtask>Create file: backend/tests/test_telegram_callbacks.py</subtask>
+          <subtask>Test approve callback handler: workflow resumed, label applied, status updated, confirmation sent</subtask>
+          <subtask>Test reject callback handler: workflow resumed, status updated, no Gmail call, confirmation sent</subtask>
+          <subtask>Test change folder callback: folder list displayed with inline keyboard</subtask>
+          <subtask>Test folder selection callback: selected label applied, confirmation message correct</subtask>
+          <subtask>Test callback validation for unauthorized user</subtask>
+          <subtask>Test Gmail API error handling</subtask>
+          <subtask>Run tests: uv run pytest backend/tests/test_telegram_callbacks.py -v</subtask>
+        </subtasks>
+      </task>
+      <task id="7" acs="1,2,3,4,5,6,7,8,9">
+        <title>Create Integration Tests</title>
+        <subtasks>
+          <subtask>Create file: backend/tests/integration/test_approval_workflow_integration.py</subtask>
+          <subtask>Test complete approve workflow: initialization → classification → send_telegram → callback → execute_action → confirmation</subtask>
+          <subtask>Test complete reject workflow: verify no Gmail API calls, correct status</subtask>
+          <subtask>Test complete change folder workflow: menu display → selection → correct folder applied</subtask>
+          <subtask>Run integration tests: uv run pytest backend/tests/integration/test_approval_workflow_integration.py -v</subtask>
+        </subtasks>
+      </task>
+      <task id="8" acs="1,2,3,4,5,6,7,8,9">
+        <title>Update Documentation</title>
+        <subtasks>
+          <subtask>Update backend/README.md section: "Email Workflow Architecture"</subtask>
+          <subtask>Document callback handler flow with 10-step process</subtask>
+          <subtask>Document callback data format for all button types</subtask>
+          <subtask>Document execute_action node logic with decision tree</subtask>
+          <subtask>Document send_confirmation node message templates</subtask>
+          <subtask>Add sequence diagram for complete approval workflow</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Button callback handlers implemented for [Approve], [Change Folder], [Reject]</criterion>
+    <criterion id="2">[Approve] callback applies suggested Gmail label and updates status to "completed"</criterion>
+    <criterion id="3">[Reject] callback updates status to "rejected" and leaves email in inbox</criterion>
+    <criterion id="4">[Change Folder] callback presents list of available folders as inline keyboard</criterion>
+    <criterion id="5">Folder selection callback applies selected label to email</criterion>
+    <criterion id="6">Confirmation message sent after each action ("✅ Email sorted to [Folder]")</criterion>
+    <criterion id="7">Button callback includes email queue ID for tracking</criterion>
+    <criterion id="8">Callback data validated (user owns the email being processed)</criterion>
+    <criterion id="9">Error handling for Gmail API failures during label application</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic Technical Specification: AI Sorting Engine & Telegram Approval</title>
+        <section>EmailWorkflow State Machine</section>
+        <snippet>LangGraph workflow with nodes: extract_context → classify → send_telegram → await_approval → execute_action → send_confirmation. Workflow pauses at await_approval node, waiting for Telegram callback. Resume pattern: Load config with thread_id, call workflow.aget_state(), update state, call workflow.ainvoke().</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic Technical Specification: AI Sorting Engine & Telegram Approval</title>
+        <section>WorkflowMapping Table</section>
+        <snippet>Maps email_id → thread_id (LangGraph) → telegram_message_id for callback reconnection. Critical for resuming correct workflow instance when user clicks Telegram button. Indexed on thread_id and (user_id, workflow_state) for fast lookups.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic Technical Specification: AI Sorting Engine & Telegram Approval</title>
+        <section>Telegram Callback Handlers</section>
+        <snippet>Callback data format: approve_{email_id}, reject_{email_id}, change_{email_id}, folder_{folder_id}_{email_id}. Security validation: User ownership check before resuming workflow. Error handling: Gmail API failures with retry logic and user notification.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic Technical Specification: AI Sorting Engine & Telegram Approval</title>
+        <section>Cross-Channel Workflow Resumption</section>
+        <snippet>TelegramHITLWorkflow Pattern: Workflow pauses in backend, user responds hours later in Telegram. LangGraph PostgreSQL Checkpointer loads saved state from checkpoints table using thread_id, reconstructs state with all context, continues from await_approval node.</snippet>
+      </doc>
+      <doc>
+        <path>docs/preparation/langgraph-learning-guide.md</path>
+        <title>LangGraph Learning Guide for Epic 2</title>
+        <section>Checkpointing = Pause & Resume</section>
+        <snippet>Checkpointers save workflow state to PostgreSQL so workflows can pause execution, resume from last checkpoint when external event happens, and survive server restarts. Pattern: interrupt() in node pauses workflow, workflow.ainvoke() with config resumes from checkpoint.</snippet>
+      </doc>
+      <doc>
+        <path>docs/preparation/langgraph-learning-guide.md</path>
+        <title>LangGraph Learning Guide for Epic 2</title>
+        <section>Thread ID = Workflow Instance</section>
+        <snippet>Each email workflow gets unique thread_id. Config = {"configurable": {"thread_id": thread_id}}. Thread ID reconnects Telegram callbacks to correct workflow instance. Store in workflow_mapping table for callback routing.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-6-email-sorting-proposal-messages.md</path>
+        <title>Story 2.6: Email Sorting Proposal Messages</title>
+        <section>Dev Notes - WorkflowMapping Pattern</section>
+        <snippet>WorkflowMapping table ready at backend/app/models/workflow_mapping.py. Methods: get_workflow_by_email_id(), get_workflow_by_thread_id() in workflow_tracker.py. Critical pattern: Use email_id from callback → lookup WorkflowMapping → get thread_id → resume workflow.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-6-email-sorting-proposal-messages.md</path>
+        <title>Story 2.6: Email Sorting Proposal Messages</title>
+        <section>Dev Notes - Telegram Message Formatter</section>
+        <snippet>TelegramMessageFormatter at backend/app/services/telegram_message_formatter.py. Method: create_inline_keyboard(email_id) creates buttons with callback_data format: {action}_{email_id}. Buttons: [✅ Approve] [📁 Change Folder] [❌ Reject]. Reuse this pattern.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-6-email-sorting-proposal-messages.md</path>
+        <title>Story 2.6: Email Sorting Proposal Messages</title>
+        <section>Dev Notes - LangGraph Workflow Pausing</section>
+        <snippet>EmailWorkflow at backend/app/workflows/email_workflow.py. Current nodes: extract_context → classify → send_telegram → await_approval → END. This story extends workflow: Add execute_action and send_confirmation nodes. PostgreSQL checkpointing: State persisted after each node execution.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/workflows/email_workflow.py</path>
+        <kind>workflow</kind>
+        <symbol>create_email_workflow</symbol>
+        <lines>71-171</lines>
+        <reason>Workflow factory function that compiles EmailWorkflow with PostgreSQL checkpointer. Current graph includes: extract_context → classify → send_telegram → await_approval → execute_action → send_confirmation. This story implements execute_action and send_confirmation nodes.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/nodes.py</path>
+        <kind>workflow-nodes</kind>
+        <symbol>execute_action</symbol>
+        <lines>369-409</lines>
+        <reason>Stub node for executing user-approved actions (applying Gmail labels). This story implements full functionality: load user_decision from state, apply appropriate label via GmailClient, update EmailProcessingQueue status.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/nodes.py</path>
+        <kind>workflow-nodes</kind>
+        <symbol>send_confirmation</symbol>
+        <lines>412-449</lines>
+        <reason>Stub node for sending Telegram confirmation after action execution. This story implements full functionality: format confirmation message, edit original Telegram message with result, handle errors.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/states.py</path>
+        <kind>schema</kind>
+        <symbol>EmailWorkflowState</symbol>
+        <lines>14-81</lines>
+        <reason>TypedDict state definition for workflow. Critical fields for Story 2.7: user_decision (approve/reject/change_folder), selected_folder, selected_folder_id, final_action. Must use existing schema, no modifications allowed.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/workflow_mapping.py</path>
+        <kind>model</kind>
+        <symbol>WorkflowMapping</symbol>
+        <lines>16-89</lines>
+        <reason>Database model mapping email_id → thread_id → telegram_message_id. Critical for callback reconnection: Telegram callback provides email_id → lookup WorkflowMapping → get thread_id → resume workflow from checkpoint.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/workflow_tracker.py</path>
+        <kind>service</kind>
+        <symbol>WorkflowInstanceTracker</symbol>
+        <lines>37-399</lines>
+        <reason>Service for workflow lifecycle management with dependency injection. start_workflow() method initializes workflow, creates WorkflowMapping, invokes workflow until await_approval pause. Pattern to follow for workflow resumption.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>client</kind>
+        <symbol>TelegramBotClient</symbol>
+        <lines>unknown</lines>
+        <reason>Telegram Bot API wrapper with methods: send_message_with_buttons(), edit_message_text(). Used by send_telegram node (Story 2.6) and will be used by send_confirmation node (Story 2.7) to edit original message.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>client</kind>
+        <symbol>GmailClient.add_label_to_message</symbol>
+        <lines>unknown</lines>
+        <reason>Gmail API method for applying labels to messages. Will be called by execute_action node to apply approved folder label. Must handle errors (404, 401, rate limits) with retry logic.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/telegram_message_formatter.py</path>
+        <kind>service</kind>
+        <symbol>create_inline_keyboard</symbol>
+        <lines>unknown</lines>
+        <reason>Creates inline keyboard buttons with callback_data format: {action}_{email_id}. Already implemented in Story 2.6. Pattern established for callback data parsing.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="langgraph" version=">=0.4.1">LangGraph workflow engine with state machine and checkpointing</package>
+        <package name="langgraph-checkpoint-postgres" version=">=2.0.19">PostgreSQL checkpointer for persistent workflow state</package>
+        <package name="python-telegram-bot" version=">=21.0">Telegram Bot API library with CallbackQueryHandler support</package>
+        <package name="google-api-python-client" version=">=2.146.0">Gmail API client for label operations</package>
+        <package name="google-auth" version=">=2.34.0">Google OAuth authentication for Gmail</package>
+        <package name="sqlmodel" version=">=0.0.24">SQLModel ORM for database operations</package>
+        <package name="structlog" version=">=25.2.0">Structured logging for error tracking</package>
+      </python>
+      <database>
+        <table name="workflow_mappings">Maps email_id → thread_id for workflow resumption (Story 2.6)</table>
+        <table name="email_processing_queue">Stores email metadata and status (Epic 1)</table>
+        <table name="folder_categories">User folder definitions with gmail_label_id (Epic 1)</table>
+        <table name="users">User accounts with telegram_id linkage (Story 2.5)</table>
+        <table name="checkpoints">LangGraph checkpoint storage (auto-created by PostgresSaver)</table>
+      </database>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Must use existing EmailWorkflowState schema from backend/app/workflows/states.py without modifications</constraint>
+    <constraint>Must maintain workflow pause/resume pattern: workflow pauses at await_approval, resumes via Telegram callback with thread_id lookup</constraint>
+    <constraint>Must validate user ownership before resuming workflow: Telegram callback user must own the email_id being processed</constraint>
+    <constraint>Must handle Gmail API errors with structured logging and retry logic (exponential backoff, max 3 attempts)</constraint>
+    <constraint>Must update EmailProcessingQueue status to "completed" or "rejected" after action execution</constraint>
+    <constraint>Must use TelegramBotClient.edit_message_text() to update original message with confirmation (not send new message)</constraint>
+    <constraint>Must use existing callback_data format from Story 2.6: {action}_{email_id} (e.g., approve_123, reject_456)</constraint>
+    <constraint>Must create CallbackQueryHandler registration in TelegramBotClient.setup_handlers() method</constraint>
+    <constraint>Must implement execute_action and send_confirmation nodes as async functions matching existing node signature pattern</constraint>
+    <constraint>Must use WorkflowMapping.thread_id to call workflow.aget_state() for loading checkpoint, then workflow.ainvoke() to resume</constraint>
+    <constraint>Folder selection callback must use extended format: folder_{folder_id}_{email_id} for two-step change folder flow</constraint>
+    <constraint>Must log all callback interactions with structured logging (event, email_id, user_id, action, thread_id)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>EmailWorkflow Resumption</name>
+      <kind>LangGraph workflow API</kind>
+      <signature>workflow.aget_state(config) → state, workflow.ainvoke(updated_state, config) → result</signature>
+      <path>backend/app/workflows/email_workflow.py</path>
+    </interface>
+    <interface>
+      <name>WorkflowMapping Lookup</name>
+      <kind>Database query</kind>
+      <signature>db.execute(select(WorkflowMapping).where(WorkflowMapping.email_id == email_id)) → workflow_mapping</signature>
+      <path>backend/app/models/workflow_mapping.py</path>
+    </interface>
+    <interface>
+      <name>TelegramBotClient.edit_message_text</name>
+      <kind>Telegram API method</kind>
+      <signature>await telegram_bot.edit_message_text(telegram_id, message_id, text) → None</signature>
+      <path>backend/app/core/telegram_bot.py</path>
+    </interface>
+    <interface>
+      <name>GmailClient.add_label_to_message</name>
+      <kind>Gmail API method</kind>
+      <signature>await gmail_client.add_label_to_message(message_id, label_id) → None</signature>
+      <path>backend/app/core/gmail_client.py</path>
+    </interface>
+    <interface>
+      <name>CallbackQueryHandler</name>
+      <kind>Telegram callback handler</kind>
+      <signature>async def handle_callback_query(update: Update, context: CallbackContext) → None</signature>
+      <path>backend/app/api/telegram_handlers.py</path>
+    </interface>
+    <interface>
+      <name>FolderCategory Query</name>
+      <kind>Database query</kind>
+      <signature>db.execute(select(FolderCategory).where(FolderCategory.id == folder_id)) → folder</signature>
+      <path>backend/app/models/folder_category.py</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Project uses pytest with pytest-asyncio for async testing. Mock external APIs (Gmail, Gemini, Telegram) using unittest.mock.AsyncMock. Database fixtures create/drop tables for test isolation. Integration tests verify complete flows with real database (test DB). Unit tests focus on individual functions with mocked dependencies. Structured logging captured in tests for verification. Test coverage target: 80%+ for new code.</standards>
+    <locations>
+      <location>backend/tests/ - Unit tests for individual components</location>
+      <location>backend/tests/integration/ - Integration tests for complete workflows</location>
+      <location>backend/tests/conftest.py - Shared fixtures (db_session, test_user, test_email)</location>
+      <location>backend/tests/test_telegram_callbacks.py - NEW: Unit tests for callback handlers</location>
+      <location>backend/tests/integration/test_approval_workflow_integration.py - NEW: Integration tests for approval flow</location>
+    </locations>
+    <ideas>
+      <test id="test_approve_callback" acs="1,2,6">
+        <description>Mock CallbackQuery with approve_{email_id} data. Verify workflow resumed with user_decision="approve". Verify Gmail label applied via GmailClient.add_label_to_message(). Verify EmailProcessingQueue status updated to "completed". Verify confirmation message sent via TelegramBotClient.edit_message_text().</description>
+      </test>
+      <test id="test_reject_callback" acs="1,3,6">
+        <description>Mock CallbackQuery with reject_{email_id} data. Verify workflow resumed with user_decision="reject". Verify email status updated to "rejected". Verify NO Gmail API calls made. Verify confirmation message sent.</description>
+      </test>
+      <test id="test_change_folder_callback" acs="4,5,6">
+        <description>Mock CallbackQuery with change_{email_id} data. Verify folder selection menu displayed with InlineKeyboardMarkup. Mock folder selection callback with folder_{folder_id}_{email_id}. Verify selected label applied (not original proposed label). Verify confirmation message shows correct folder name.</description>
+      </test>
+      <test id="test_callback_validation_unauthorized" acs="8">
+        <description>Mock CallbackQuery with email_id owned by different user (telegram_id mismatch). Verify "Unauthorized" error returned. Verify workflow NOT resumed. Verify unauthorized attempt logged.</description>
+      </test>
+      <test id="test_gmail_api_error_handling" acs="9">
+        <description>Mock GmailClient.add_label_to_message() to raise exception (rate limit, timeout). Verify error logged with structured logging. Verify error_message set in workflow state. Verify user notified of failure via Telegram.</description>
+      </test>
+      <test id="test_workflow_resumption_from_checkpoint" acs="1,7">
+        <description>Start workflow → pause at await_approval → save checkpoint. Simulate Telegram callback with email_id. Lookup WorkflowMapping by email_id → get thread_id. Resume workflow using workflow.aget_state() + workflow.ainvoke(). Verify workflow continues from await_approval → execute_action → send_confirmation.</description>
+      </test>
+      <test id="test_execute_action_node_approve" acs="2">
+        <description>Test execute_action node with user_decision="approve". Mock GmailClient. Verify proposed_folder_id label applied. Verify EmailProcessingQueue status = "completed". Verify final_action set in state.</description>
+      </test>
+      <test id="test_execute_action_node_change" acs="5">
+        <description>Test execute_action node with user_decision="change_folder" and selected_folder_id. Mock GmailClient. Verify selected_folder_id label applied (not proposed_folder_id). Verify final_action reflects change.</description>
+      </test>
+      <test id="test_send_confirmation_node" acs="6">
+        <description>Test send_confirmation node with final_action set. Mock TelegramBotClient.edit_message_text(). Verify confirmation message formatted correctly ("✅ Email sorted to [Folder]"). Verify original telegram_message_id used for editing.</description>
+      </test>
+      <test id="test_callback_data_parsing" acs="1,7">
+        <description>Test parse_callback_data() function with various formats: approve_{email_id}, reject_{email_id}, change_{email_id}, folder_{folder_id}_{email_id}. Verify correct action and email_id extraction. Test malformed data handling.</description>
+      </test>
+      <test id="test_integration_complete_approve_flow" acs="1,2,3,4,5,6,7,8,9">
+        <description>End-to-end integration test: Create email → start workflow → classify → send_telegram → pause. Simulate Telegram approve callback. Verify workflow resumes → execute_action applies label → send_confirmation edits message. Verify EmailProcessingQueue status = "completed". Verify ApprovalHistory record created (if implemented).</description>
+      </test>
+    </ideas>
+  </tests>
+</story-context>

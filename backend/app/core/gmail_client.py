@@ -43,7 +43,8 @@ from googleapiclient.errors import HttpError
 
 from app.core.gmail_auth import get_valid_gmail_credentials
 from app.services.database import DatabaseService, database_service
-from app.utils.errors import InvalidRecipientError, MessageTooLargeError, QuotaExceededError
+from app.utils.errors import InvalidRecipientError, MessageTooLargeError, QuotaExceededError, GmailAPIError
+from app.utils.retry import execute_with_retry
 
 
 class HTMLStripper(HTMLParser):
@@ -607,6 +608,9 @@ class GmailClient:
     async def apply_label(self, message_id: str, label_id: str) -> bool:
         """Apply label to email message (moves email to folder in Gmail UI).
 
+        Uses retry utility with exponential backoff for transient Gmail API errors.
+        Handles token refresh for 401 Unauthorized errors before retrying.
+
         Args:
             message_id: Gmail message ID (e.g., from EmailProcessingQueue.gmail_message_id)
             label_id: Gmail label ID (e.g., from FolderCategory.gmail_label_id)
@@ -616,6 +620,7 @@ class GmailClient:
 
         Raises:
             HttpError: If message_id or label_id is invalid (404)
+            GmailAPIError: If all retries exhausted after transient failures
 
         Example:
             success = await client.apply_label("18abc123def", "Label_456")
@@ -624,18 +629,39 @@ class GmailClient:
         """
         service = await self._get_gmail_service()
 
-        def _apply_label():
+        async def _apply_label():
             modify_body = {"addLabelIds": [label_id]}
             return service.users().messages().modify(userId="me", id=message_id, body=modify_body).execute()
 
         try:
-            await self._execute_with_retry(_apply_label)
+            # Check for 401 token refresh scenario first
+            try:
+                await execute_with_retry(_apply_label)
+            except HttpError as e:
+                if e.resp.status == 401:
+                    # Token expired - refresh credentials and retry
+                    self.logger.info(
+                        "gmail_token_refresh_triggered",
+                        user_id=self.user_id,
+                        email_id=message_id,
+                        operation="apply_label",
+                    )
+                    # Clear cached service to force re-auth
+                    self.service = None
+                    service = await self._get_gmail_service()
+
+                    # Retry after token refresh
+                    await execute_with_retry(_apply_label)
+                else:
+                    raise
 
             self.logger.info(
                 "gmail_label_applied",
                 user_id=self.user_id,
+                email_id=message_id,
                 message_id=message_id,
                 label_id=label_id,
+                operation="apply_label",
                 success=True,
             )
 
@@ -643,8 +669,22 @@ class GmailClient:
 
         except HttpError as e:
             status = e.resp.status
+            error_type = f"{status}"
 
-            # 404: Invalid message_id or label_id
+            # Structured logging with all required fields (AC #1)
+            self.logger.error(
+                "gmail_api_error",
+                user_id=self.user_id,
+                email_id=message_id,
+                error_type=error_type,
+                error_message=str(e),
+                operation="apply_label",
+                label_id=label_id,
+                status=status,
+                exc_info=True,
+            )
+
+            # 404: Invalid message_id or label_id - permanent error, don't retry
             if status == 404:
                 self.logger.error(
                     "gmail_label_apply_not_found",
@@ -653,17 +693,21 @@ class GmailClient:
                     label_id=label_id,
                     error=str(e),
                 )
-            else:
-                self.logger.error(
-                    "gmail_label_apply_failed",
-                    user_id=self.user_id,
-                    message_id=message_id,
-                    label_id=label_id,
-                    status=status,
-                    error=str(e),
-                    exc_info=True,
-                )
 
+            return False
+
+        except Exception as e:
+            # Catch any other exceptions (e.g., from retry exhaustion)
+            self.logger.error(
+                "gmail_api_error",
+                user_id=self.user_id,
+                email_id=message_id,
+                error_type=type(e).__name__,
+                error_message=str(e),
+                operation="apply_label",
+                label_id=label_id,
+                exc_info=True,
+            )
             return False
 
     async def remove_label(self, message_id: str, label_id: str) -> bool:

@@ -25,6 +25,10 @@ if TYPE_CHECKING:
     from app.models.session import Session
     from app.models.email import EmailProcessingQueue
     from app.models.folder_category import FolderCategory
+    from app.models.linking_codes import LinkingCode
+    from app.models.workflow_mapping import WorkflowMapping
+    from app.models.notification_preferences import NotificationPreferences
+    from app.models.approval_history import ApprovalHistory
 
 
 class User(BaseModel, table=True):
@@ -57,6 +61,7 @@ class User(BaseModel, table=True):
     token_expiry: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     telegram_id: Optional[str] = Field(default=None, max_length=100, unique=True, index=True)
     telegram_username: Optional[str] = Field(default=None, max_length=100)
+    telegram_linked_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     is_active: bool = Field(default=True)
     onboarding_completed: bool = Field(default=False)
     updated_at: datetime = Field(sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()})
@@ -66,6 +71,18 @@ class User(BaseModel, table=True):
         back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     folders: List["FolderCategory"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    linking_codes: List["LinkingCode"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    workflow_mappings: List["WorkflowMapping"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    notification_prefs: Optional["NotificationPreferences"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    approval_history: List["ApprovalHistory"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
@@ -84,3 +101,7 @@ class User(BaseModel, table=True):
 from app.models.session import Session  # noqa: E402
 from app.models.email import EmailProcessingQueue  # noqa: E402
 from app.models.folder_category import FolderCategory  # noqa: E402
+from app.models.linking_codes import LinkingCode  # noqa: E402
+from app.models.workflow_mapping import WorkflowMapping  # noqa: E402
+from app.models.notification_preferences import NotificationPreferences  # noqa: E402
+from app.models.approval_history import ApprovalHistory  # noqa: E402

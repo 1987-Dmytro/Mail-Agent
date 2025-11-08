@@ -374,3 +374,84 @@ async def test_email_polling_invalid_sender_email(
     email = result.scalar_one()
 
     assert email.sender == "not_an_email"  # Original value preserved
+
+
+@pytest.mark.asyncio
+async def test_email_polling_workflow_integration(
+    test_user_with_tokens: User,
+    db_session: AsyncSession,
+):
+    """Integration test: Email polling triggers classification workflow.
+
+    Tests Story 2.3 Task 8: Email Polling Integration
+    - New email detected and saved to EmailProcessingQueue
+    - WorkflowInstanceTracker.start_workflow() called automatically
+    - Classification workflow executes (extract_context → classify → send_telegram → await_approval)
+    - EmailProcessingQueue status updated to "awaiting_approval"
+    - Thread ID returned for checkpoint tracking
+
+    AC Coverage: Story 2.3 AC#1, AC#8
+    """
+    # Mock Gmail client get_messages to return 1 new email
+    mock_emails = [
+        {
+            "message_id": "msg_workflow_test",
+            "thread_id": "thread_workflow",
+            "sender": "workflow_test@example.com",
+            "subject": "Test Email for Workflow",
+            "received_at": datetime(2025, 11, 7, 12, 0, 0, tzinfo=timezone.utc),
+        }
+    ]
+
+    # Mock Gmail client get_message_detail (for workflow's extract_context node)
+    mock_email_detail = {
+        "sender": "workflow_test@example.com",
+        "subject": "Test Email for Workflow",
+        "body": "This is a test email to verify workflow integration with email polling.",
+        "received_at": "2025-11-07T12:00:00Z",
+    }
+
+    # Mock LLM classification response (for workflow's classify node)
+    mock_classification = {
+        "suggested_folder": "Work",
+        "reasoning": "Email from work domain with project keywords",
+        "priority_score": 75,
+        "confidence": 0.92,
+    }
+
+    with (
+        patch.object(GmailClient, "get_messages", new=AsyncMock(return_value=mock_emails)),
+        patch.object(GmailClient, "get_message_detail", new=AsyncMock(return_value=mock_email_detail)),
+        patch("app.core.llm_client.LLMClient.receive_completion", new=AsyncMock(return_value=mock_classification)),
+        patch("app.services.workflow_tracker.WorkflowInstanceTracker.start_workflow") as mock_start_workflow,
+    ):
+        # Configure mock to return a thread_id
+        mock_start_workflow.return_value = "email_123_abc-def-ghi"
+
+        # Execute polling task
+        new_count, skip_count = await _poll_user_emails_async(test_user_with_tokens.id)
+
+    # Assert: 1 new email detected
+    assert new_count == 1
+    assert skip_count == 0
+
+    # Verify: Email persisted with status="pending" initially
+    statement = select(EmailProcessingQueue).where(
+        EmailProcessingQueue.user_id == test_user_with_tokens.id,
+        EmailProcessingQueue.gmail_message_id == "msg_workflow_test",
+    )
+    result = await db_session.execute(statement)
+    email = result.scalar_one()
+
+    assert email is not None
+    assert email.sender == "workflow_test@example.com"
+    assert email.subject == "Test Email for Workflow"
+
+    # Verify: WorkflowInstanceTracker.start_workflow() was called
+    mock_start_workflow.assert_called_once()
+    call_args = mock_start_workflow.call_args
+    assert call_args.kwargs["email_id"] == email.id
+    assert call_args.kwargs["user_id"] == test_user_with_tokens.id
+
+    # Note: Actual workflow execution (status → "awaiting_approval") is mocked
+    # Full workflow state changes tested in test_email_workflow_integration.py

@@ -3,13 +3,15 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, Index, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlmodel import Column, Field, Relationship
 
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
+    from app.models.folder_category import FolderCategory
     from app.models.user import User
+    from app.models.workflow_mapping import WorkflowMapping
 
 
 class EmailProcessingQueue(BaseModel, table=True):
@@ -29,14 +31,17 @@ class EmailProcessingQueue(BaseModel, table=True):
         subject: Email subject line
         received_at: When the email was received (from Gmail API)
         status: Processing status (pending, processing, approved, rejected, completed)
-        classification: AI-determined email category (Epic 2)
-        proposed_folder_id: Suggested folder for sorting (Epic 2)
+        classification: AI-determined email category ("sort_only" or "needs_response")
+        proposed_folder_id: Foreign key to folder_categories (suggested folder for sorting)
+        classification_reasoning: AI reasoning for transparency (max 300 chars)
+        priority_score: Email priority score 0-100 (Epic 2)
+        is_priority: Boolean flag for priority_score >= 70 (triggers immediate notification)
         draft_response: AI-generated response draft (Epic 3)
         language: Detected language of email (Epic 3)
-        priority_score: Email priority score (Epic 2)
         created_at: When record was created (inherited from BaseModel)
         updated_at: When record was last updated
         user: Relationship to User model
+        proposed_folder: Relationship to FolderCategory model (suggested folder)
     """
 
     __tablename__ = "email_processing_queue"
@@ -56,18 +61,35 @@ class EmailProcessingQueue(BaseModel, table=True):
     received_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     status: str = Field(default="pending", sa_column=Column(String(50), nullable=False))
 
-    # Future fields for Epic 2 and Epic 3 (nullable until those epics are implemented)
-    classification: Optional[str] = Field(default=None, max_length=50)
-    proposed_folder_id: Optional[int] = Field(default=None)  # Will add FK in Epic 2 when folder_categories table exists
+    # Epic 2: AI Classification fields
+    classification: Optional[str] = Field(default=None, sa_column=Column(String(50)))  # "sort_only" or "needs_response"
+    proposed_folder_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(Integer, ForeignKey("folder_categories.id", ondelete="SET NULL"), nullable=True)
+    )
+    classification_reasoning: Optional[str] = Field(default=None, sa_column=Column(Text))
+    priority_score: int = Field(default=0)
+    is_priority: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
+
+    # Epic 3: RAG Response fields
     draft_response: Optional[str] = Field(default=None, sa_column=Column(Text))
     language: Optional[str] = Field(default=None, max_length=10)
-    priority_score: int = Field(default=0)
+
+    # Story 2.11: Error handling and recovery fields
+    error_type: Optional[str] = Field(default=None, sa_column=Column(String(100)))  # e.g., "gmail_api_failure", "telegram_send_failure"
+    error_message: Optional[str] = Field(default=None, sa_column=Column(Text))  # Full error message from last failed attempt
+    error_timestamp: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))  # When error status was set
+    retry_count: int = Field(default=0)  # Number of retry attempts made
+    dlq_reason: Optional[str] = Field(default=None, sa_column=Column(Text))  # Reason for moving to dead letter queue (after MAX_RETRIES exhausted)
 
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()))
 
     # Relationships
     user: "User" = Relationship(back_populates="emails")
+    proposed_folder: Optional["FolderCategory"] = Relationship()
+    workflow_mappings: Optional["WorkflowMapping"] = Relationship(back_populates="email")
 
 
 # Avoid circular imports
 from app.models.user import User  # noqa: E402
+from app.models.workflow_mapping import WorkflowMapping  # noqa: E402

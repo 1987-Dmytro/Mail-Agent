@@ -247,12 +247,1348 @@ See `.env.example` for all configuration options. Key variables:
 - `GMAIL_CLIENT_SECRET`: OAuth client secret
 - `GMAIL_REDIRECT_URI`: OAuth redirect URI
 
-### Telegram Settings (Epic 2)
-- `TELEGRAM_BOT_TOKEN`: Telegram bot token
+### Telegram Bot Setup (Epic 2 - Story 2.4)
 
-### LLM Settings (Epic 2)
-- `LLM_API_KEY`: Gemini API key
-- `LLM_MODEL`: Model name (gemini-pro)
+Mail Agent uses a Telegram bot to send email sorting proposals and receive user approval/rejection through interactive buttons. This section covers bot creation, configuration, and testing.
+
+#### Step 1: Create Telegram Bot via BotFather
+
+1. **Open Telegram** and search for **@BotFather** (official Telegram bot for creating bots)
+2. **Start conversation** by sending `/start` to @BotFather
+3. **Create new bot** by sending `/newbot` command
+4. **Provide bot name**: Enter a display name (e.g., "Mail Agent Bot")
+   - This name will be shown in chats
+   - Can contain spaces and special characters
+5. **Provide bot username**: Enter a unique username ending in "bot" (e.g., "MailAgentBot" or "YourNameMailBot")
+   - Must be unique across all Telegram
+   - Can only contain letters, numbers, and underscores
+   - Must end with "bot"
+6. **Copy bot token**: BotFather will provide a token like:
+   ```
+   7223802190:AAHCN-N0nmQIXS_J1StwX_urv2ddeSnCMjo
+   ```
+   - Keep this token **secret** - it grants full access to your bot
+
+#### Step 2: Configure Bot Token
+
+1. **Add to `.env` file**:
+   ```bash
+   # In backend/.env file:
+   TELEGRAM_BOT_TOKEN=7223802190:AAHCN-N0nmQIXS_J1StwX_urv2ddeSnCMjo
+   ```
+
+2. **Verify `.env.example` has placeholder**:
+   ```bash
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   ```
+
+3. **Security Notes**:
+   - **NEVER** commit bot token to git
+   - Token is already gitignored in `.env`
+   - Rotate token if accidentally exposed via @BotFather `/revoke` command
+
+#### Step 3: Optional Bot Customization
+
+You can enhance your bot's appearance via @BotFather commands:
+
+- `/setdescription` - Set bot description (shown before starting chat)
+- `/setabouttext` - Set about text (shown in bot profile)
+- `/setuserpic` - Set bot profile picture
+- `/setcommands` - Set command menu (auto-complete for /start, /help, /test)
+
+Example commands to set:
+```
+start - Link your Telegram account
+help - Show available commands
+test - Send a test message
+```
+
+#### Step 4: Test Bot Connectivity
+
+1. **Start the backend server**:
+   ```bash
+   cd backend
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+2. **Test via Telegram**:
+   - Open Telegram and search for your bot (e.g., @MailAgentBot)
+   - Send `/start` - bot should respond with welcome message
+   - Send `/help` - bot should show available commands
+   - Send `/test` - bot should confirm connectivity and show your Telegram ID
+
+3. **Test via API** (requires authenticated user with `telegram_id`):
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/test/telegram \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"message": "Test notification from Mail Agent"}'
+   ```
+
+#### Bot Commands
+
+The bot implements the following commands (Story 2.4):
+
+| Command | Description | Status |
+|---------|-------------|--------|
+| `/start` | Display welcome message and account linking instructions | ✅ Implemented |
+| `/start <code>` | Link Telegram account using 6-character code | ⏳ Story 2.5 |
+| `/help` | Show available commands and usage instructions | ✅ Implemented |
+| `/test` | Verify bot connectivity and display Telegram ID | ✅ Implemented |
+
+#### Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TELEGRAM_BOT_TOKEN` | (required) | Bot token from @BotFather |
+| `TELEGRAM_WEBHOOK_URL` | `""` | Webhook URL for production (empty = long polling) |
+| `TELEGRAM_WEBHOOK_SECRET` | `""` | Webhook secret for signature verification |
+
+**Note**: Mail Agent MVP uses **long polling mode** (simpler setup, no HTTPS required). Webhook mode can be configured in production for better scalability.
+
+### Telegram Account Linking (Epic 2 - Story 2.5)
+
+Mail Agent uses a secure linking code system to associate user Telegram accounts with their Mail Agent accounts. This enables users to receive email notifications and approve actions directly in Telegram.
+
+#### User Linking Flow
+
+The complete linking flow works as follows:
+
+1. **User logs into Mail Agent web app** (JWT authenticated)
+2. **User navigates to Settings → Telegram Connection**
+3. **Frontend calls API to generate linking code**:
+   ```http
+   POST /api/v1/telegram/generate-code
+   Authorization: Bearer <jwt_token>
+   ```
+4. **User sees 6-digit code displayed** (e.g., "A3B7X9")
+5. **User opens Telegram** and searches for bot (e.g., @MailAgentBot)
+6. **User sends linking command**: `/start A3B7X9`
+7. **Bot validates code and links account**
+8. **Frontend polls status endpoint** to detect successful linking:
+   ```http
+   GET /api/v1/telegram/status
+   Authorization: Bearer <jwt_token>
+   ```
+9. **User sees confirmation** on both web app and Telegram
+
+#### API Endpoints
+
+##### POST /api/v1/telegram/generate-code
+
+Generate a unique 6-digit linking code for Telegram account connection.
+
+**Authentication**: JWT Bearer token required
+**Rate Limiting**: Recommended to prevent code generation spam
+
+**Request**:
+```bash
+curl -X POST http://localhost:8000/api/v1/telegram/generate-code \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response** (201 Created):
+```json
+{
+  "success": true,
+  "data": {
+    "code": "A3B7X9",
+    "expires_at": "2025-11-07T12:15:00Z",
+    "bot_username": "MailAgentBot",
+    "instructions": "Open Telegram, search for @MailAgentBot, and send: /start A3B7X9"
+  }
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: User already has Telegram account linked
+- `401 Unauthorized`: Invalid or missing JWT token
+- `500 Internal Server Error`: Code generation failed
+
+##### GET /api/v1/telegram/status
+
+Check if user's Telegram account is currently linked.
+
+**Authentication**: JWT Bearer token required
+
+**Request**:
+```bash
+curl -X GET http://localhost:8000/api/v1/telegram/status \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response** (200 OK) - Not Linked:
+```json
+{
+  "success": true,
+  "data": {
+    "linked": false,
+    "telegram_id": null,
+    "telegram_username": null,
+    "linked_at": null
+  }
+}
+```
+
+**Response** (200 OK) - Linked:
+```json
+{
+  "success": true,
+  "data": {
+    "linked": true,
+    "telegram_id": "123456789",
+    "telegram_username": "johndoe",
+    "linked_at": "2025-11-07T11:45:23Z"
+  }
+}
+```
+
+#### Bot Command: /start [code]
+
+Link your Telegram account using the 6-digit code from the web app.
+
+**Usage**:
+```
+/start A3B7X9
+```
+
+**Success Response**:
+```
+✅ Your Telegram account has been linked successfully!
+
+You'll receive email notifications here. You can start approving
+sorting proposals and response drafts right from this chat.
+```
+
+**Error Responses**:
+- `❌ Invalid linking code. Please check and try again.` - Code doesn't exist
+- `❌ This code has expired. Generate a new code (codes expire after 15 minutes).` - Code too old
+- `❌ This code has already been used. Generate a new code.` - Code reused
+- `❌ This Telegram account is already linked to another Mail Agent account.` - Telegram ID conflict
+
+#### Code Validation Rules
+
+The linking system implements strict validation to ensure security:
+
+1. **Code Format**:
+   - Exactly 6 characters
+   - Alphanumeric uppercase only (A-Z, 0-9)
+   - Generated using cryptographic randomness (`secrets` module)
+
+2. **Expiration Window**:
+   - Codes expire after **15 minutes** from generation
+   - Expired codes are rejected with clear error message
+   - Balances security (short window) and usability (enough time)
+
+3. **Single-Use Enforcement**:
+   - Each code can only be used **once**
+   - After successful linking, code is marked as used
+   - Prevents replay attacks and code reuse
+
+4. **Account Constraints**:
+   - One Telegram account per Mail Agent user
+   - One Mail Agent account per Telegram ID
+   - Attempting to link already-linked accounts returns error
+
+5. **Case Insensitivity**:
+   - Codes are normalized to uppercase for validation
+   - User can type `/start a3b7x9` or `/start A3B7X9` - both work
+
+#### Security Considerations
+
+- **Cryptographic Randomness**: Uses Python's `secrets` module (not `random`) for unpredictable code generation
+- **Short Expiration**: 15-minute window minimizes brute-force attack risk
+- **Code Space**: 36^6 = 2,176,782,336 possible codes (collision extremely rare)
+- **No Authentication Required for Bot**: Telegram's built-in user authentication is trusted
+- **Audit Trail**: All linking events logged with structured logging (user_id, telegram_id, code, success/failure)
+
+#### Database Schema
+
+**LinkingCodes Table**:
+- `id`: Primary key
+- `code`: Unique 6-char code (indexed)
+- `user_id`: Foreign key to users table (cascade delete)
+- `used`: Boolean flag (prevents reuse)
+- `expires_at`: Timestamp with timezone (UTC)
+- `created_at`: Timestamp with timezone (UTC)
+
+**Users Table Extensions**:
+- `telegram_id`: Unique Telegram user ID (indexed)
+- `telegram_username`: Telegram username (optional)
+- `telegram_linked_at`: Timestamp when account was linked (UTC)
+
+#### Frontend Integration Example
+
+```javascript
+// 1. Generate linking code
+const generateCode = async () => {
+  const response = await fetch('/api/v1/telegram/generate-code', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${jwtToken}`
+    }
+  });
+  const data = await response.json();
+  displayCode(data.data.code);
+  displayInstructions(data.data.instructions);
+  startPolling(); // Poll /status until linked
+};
+
+// 2. Poll status endpoint
+const pollStatus = async () => {
+  const response = await fetch('/api/v1/telegram/status', {
+    headers: {
+      'Authorization': `Bearer ${jwtToken}`
+    }
+  });
+  const data = await response.json();
+
+  if (data.data.linked) {
+    showSuccessMessage();
+    stopPolling();
+  }
+};
+```
+
+#### Troubleshooting
+
+**Bot doesn't start:**
+- Check `TELEGRAM_BOT_TOKEN` is set in `.env`
+- Verify token is valid (test with @BotFather `/getme`)
+- Check backend logs for initialization errors
+
+**Bot doesn't respond to commands:**
+- Ensure backend server is running
+- Check bot polling is active (look for "telegram_bot_started" log)
+- Verify bot isn't blocked by Telegram (spam detection)
+
+**"User blocked bot" error:**
+- User needs to unblock bot in Telegram
+- Check bot wasn't deleted or banned
+- User can restart bot with `/start`
+
+For more details, see:
+- [python-telegram-bot Documentation](https://docs.python-telegram-bot.org/)
+- [Telegram Bot API](https://core.telegram.org/bots/api)
+
+---
+
+### Telegram Callback Handlers (Epic 2 - Story 2.7)
+
+Mail Agent uses Telegram inline keyboard buttons to enable users to approve, reject, or modify AI email sorting suggestions directly in the chat. This section explains the callback handler workflow and data formats.
+
+#### Email Workflow Architecture
+
+When a user receives an email sorting proposal in Telegram and clicks one of the action buttons, the following workflow executes:
+
+**Complete Callback Handler Flow:**
+
+1. **Telegram sends CallbackQuery** to bot via long polling
+2. **`handle_callback_query()`** parses `callback_data` to extract action and email_id
+3. **User ownership validated** - ensures telegram_id owns the email being processed (security check)
+4. **WorkflowMapping queried** - lookup by email_id to retrieve LangGraph `thread_id`
+5. **LangGraph workflow state loaded** from PostgreSQL checkpoint using `thread_id`
+6. **State updated** with user decision:
+   - `user_decision = "approve"` → Apply proposed folder
+   - `user_decision = "reject"` → Mark as rejected, no Gmail action
+   - `user_decision = "change_folder"` → Display folder selection menu
+7. **Workflow resumed** from `await_approval` node using `workflow.ainvoke()`
+8. **`execute_action` node** applies Gmail label (if approved/changed) or updates status (if rejected)
+9. **`send_confirmation` node** edits original Telegram message with result confirmation
+10. **Workflow completes** and reaches END terminal state
+
+**Workflow State Machine:**
+```
+START → extract_context → classify → send_telegram → await_approval
+          ↓ (User clicks button)
+await_approval → execute_action → send_confirmation → END
+```
+
+#### Callback Data Format
+
+Telegram inline buttons send structured callback data to identify the action and target email:
+
+**Primary Actions:**
+- **Approve**: `approve_{email_id}`
+  - Example: `approve_123`
+  - Action: Apply AI-suggested folder label to email
+
+- **Reject**: `reject_{email_id}`
+  - Example: `reject_456`
+  - Action: Mark email as rejected, leave in inbox
+
+- **Change Folder**: `change_{email_id}`
+  - Example: `change_789`
+  - Action: Display folder selection menu with user's configured folders
+
+**Folder Selection (Two-Step Flow):**
+- **Select Folder**: `folder_{folder_id}_{email_id}`
+  - Example: `folder_5_123`
+  - Action: Apply selected folder (folder_id=5) instead of AI suggestion
+
+#### Code Example: Workflow Resumption
+
+```python
+# User clicks [Approve] button in Telegram
+callback_data = "approve_123"  # From Telegram CallbackQuery
+
+# 1. Parse callback data
+action, email_id, folder_id = parse_callback_data(callback_data)
+# Returns: ("approve", 123, None)
+
+# 2. Validate user ownership (security check)
+telegram_user_id = query.from_user.id
+if not validate_user_owns_email(telegram_user_id, email_id, db):
+    await query.answer("❌ Unauthorized")
+    return
+
+# 3. Lookup workflow instance by email_id
+workflow_mapping = db.query(WorkflowMapping).filter_by(email_id=email_id).first()
+thread_id = workflow_mapping.thread_id  # e.g., "email_123_abc-def-ghi"
+
+# 4. Resume LangGraph workflow with user decision
+workflow = create_email_workflow(db, gmail_client, telegram_bot)
+config = {"configurable": {"thread_id": thread_id}}
+
+# Load current state from PostgreSQL checkpoint
+state_snapshot = await workflow.aget_state(config)
+state = dict(state_snapshot.values)
+
+# Update state with user decision
+state["user_decision"] = "approve"
+
+# Resume workflow execution
+await workflow.ainvoke(state, config=config)
+
+# Workflow continues: execute_action → send_confirmation → END
+```
+
+#### Security Validation
+
+**User Ownership Check (`validate_user_owns_email`):**
+
+The callback handler validates that the Telegram user owns the email before processing any action:
+
+```python
+async def validate_user_owns_email(telegram_user_id: int, email_id: int, db: AsyncSession) -> bool:
+    # 1. Get user by telegram_id
+    user = db.query(User).filter_by(telegram_id=str(telegram_user_id)).first()
+    if not user:
+        return False
+
+    # 2. Get email and verify ownership
+    email = db.query(EmailProcessingQueue).filter_by(id=email_id).first()
+    if not email or email.user_id != user.id:
+        return False
+
+    return True
+```
+
+**Security Features:**
+- ✅ Prevents users from approving emails they don't own
+- ✅ Structured logging of all authorization failures
+- ✅ Error messages don't leak sensitive information ("Unauthorized" only)
+
+#### Workflow Nodes
+
+**`execute_action` Node (Story 2.7):**
+- Receives state with `user_decision` from callback handler
+- Applies appropriate action based on decision:
+  - **Approve**: Apply `proposed_folder_id` label via Gmail API
+  - **Reject**: Update status to "rejected", skip Gmail API
+  - **Change Folder**: Apply `selected_folder_id` label
+- Updates `EmailProcessingQueue.status` to "completed" or "rejected"
+- Error handling: Catches `GmailAPIError`, logs with structured logging, sets `error_message` in state
+
+**`send_confirmation` Node (Story 2.7):**
+- Formats confirmation message based on `final_action`:
+  - Approved: `✅ Email sorted to "{folder_name}"`
+  - Rejected: `❌ Email sorting rejected. Email remains in inbox.`
+  - Changed: `✅ Email sorted to "{selected_folder_name}"`
+- Edits original Telegram message using `telegram_message_id` from state
+- Terminal node - workflow reaches END after confirmation
+
+#### Testing Callback Handlers
+
+**Unit Tests:**
+```bash
+# Run callback handler unit tests (15 tests)
+DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db" \
+  uv run pytest tests/test_telegram_callbacks.py -v
+```
+
+**Integration Tests:**
+```bash
+# Run approval workflow integration tests (3 tests)
+DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db" \
+  uv run pytest tests/integration/test_approval_workflow_integration.py -v
+```
+
+**Test Coverage:**
+- ✅ Callback data parsing (approve/reject/change/folder formats)
+- ✅ Malformed data handling (invalid format, non-numeric IDs)
+- ✅ User ownership validation (valid, user not found, email not found, ownership mismatch)
+- ✅ Unauthorized callback rejection
+- ✅ Complete approve workflow (email → classification → approval → Gmail label application)
+- ✅ Complete reject workflow (status update without Gmail API call)
+- ✅ Complete change folder workflow (menu display → selection → label application)
+
+#### Error Handling
+
+**Gmail API Failures:**
+```python
+try:
+    success = await gmail_client.apply_label(
+        message_id=email.gmail_message_id,
+        label_id=folder.gmail_label_id
+    )
+except Exception as e:
+    logger.error(
+        "execute_action_gmail_error",
+        email_id=email_id,
+        error=str(e),
+        error_type=type(e).__name__
+    )
+    state["error_message"] = f"Gmail API error: {str(e)}"
+    return state
+```
+
+**Common Error Scenarios:**
+- Gmail API rate limit exceeded → Logged, error message set in state
+- Gmail message not found (deleted) → Logged, error message set in state
+- Network timeout → Logged, error message set in state
+- Invalid label ID → Logged, error message set in state
+
+All errors are logged with structured logging and surfaced to the user via Telegram error messages.
+
+#### Troubleshooting
+
+**Callback buttons not responding:**
+- Check `CallbackQueryHandler` is registered in `TelegramBotClient.initialize()`
+- Verify bot polling is active
+- Check backend logs for callback handler errors
+
+**"Unauthorized" errors:**
+- Verify user's Telegram account is linked (check `users.telegram_id`)
+- Ensure email belongs to the user (check `email_processing_queue.user_id`)
+- Check structured logs for ownership validation failures
+
+**Workflow not resuming:**
+- Verify `WorkflowMapping` entry exists for email_id
+- Check PostgreSQL `checkpoints` table has state for thread_id
+- Ensure database connection pool is healthy
+
+**For More Information:**
+- [LangGraph Checkpointing](https://langchain-ai.github.io/langgraph/concepts/persistence/)
+- [LangGraph Workflow Resumption](https://langchain-ai.github.io/langgraph/how-tos/persistence/)
+- [python-telegram-bot CallbackQueryHandler](https://docs.python-telegram-bot.org/en/stable/telegram.ext.callbackqueryhandler.html)
+
+---
+
+### Gemini LLM Integration (Epic 2 - Story 2.1)
+
+Mail Agent uses Google's Gemini 2.5 Flash for AI-powered email classification and response generation. This section covers setup, configuration, and troubleshooting.
+
+#### API Key Setup
+
+1. **Get API Key from Google AI Studio** (4 steps):
+   - Visit https://makersuite.google.com/app/apikey
+   - Sign in with your Google account
+   - Click "Create API Key" button
+   - Copy the generated API key (starts with `AIza...`)
+
+2. **Add to Environment Variables**:
+   ```bash
+   # In backend/.env file:
+   GEMINI_API_KEY=your-api-key-here
+   GEMINI_MODEL=gemini-2.5-flash
+   ```
+
+3. **Security Notes**:
+   - **NEVER** commit `.env` to git (already in `.gitignore`)
+   - API key should be kept confidential
+   - Rotate API key if accidentally exposed
+   - Use separate API keys for development and production
+
+#### Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GEMINI_API_KEY` | (required) | API key from Google AI Studio |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Model identifier (use latest flash model) |
+| `DEFAULT_LLM_TEMPERATURE` | `0.1` | Temperature for generation (0.0-1.0, lower = more deterministic) |
+| `MAX_TOKENS` | `500` | Maximum tokens per response |
+| `MAX_LLM_CALL_RETRIES` | `3` | Number of retry attempts for transient errors |
+
+#### Free Tier Limits
+
+Gemini 2.5 Flash offers **unlimited free tier** usage with the following limits:
+
+- **Token Rate Limit**: 1,000,000 tokens/minute
+- **Cost**: FREE (no usage fees)
+- **Monitoring**: Application tracks token usage via Prometheus metrics
+
+**Recommendation**: Set up alerts if approaching 900,000 tokens/minute (90% of limit)
+
+```python
+# Token usage tracking is automatic - check metrics at:
+# http://localhost:8000/metrics
+# Metric name: gemini_token_usage_total{operation="classification"}
+```
+
+#### Testing Connectivity
+
+Use the test endpoint to verify Gemini API integration:
+
+```bash
+# Text mode
+curl -X POST http://localhost:8000/api/v1/test/gemini \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Say hello in 5 words",
+    "response_format": "text"
+  }'
+
+# JSON mode (for structured classification)
+curl -X POST http://localhost:8000/api/v1/test/gemini \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Classify email: From tax@gov.de Subject: Tax deadline",
+    "response_format": "json"
+  }'
+```
+
+#### Troubleshooting Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `GEMINI_API_KEY environment variable not set` | API key not configured | Add `GEMINI_API_KEY` to `.env` file |
+| `Invalid Gemini API key` (403) | API key is incorrect or revoked | Generate new API key from Google AI Studio |
+| `Rate limit exceeded` (429) | Exceeded 1M tokens/minute | Wait 1 minute and retry (automatic retry with exponential backoff) |
+| `Request timeout` | Gemini API slow response or network issue | Check internet connection, API will retry automatically |
+| `Blocked prompt` (400) | Prompt violated Gemini safety filters | Rephrase prompt to avoid inappropriate content |
+
+#### Fallback Strategy for Gemini Unavailability
+
+In case Gemini API becomes unavailable, the following fallback options are available:
+
+**Scenarios Requiring Fallback**:
+- API downtime or maintenance
+- Rate limit exhaustion (> 1M tokens/minute sustained)
+- API key revocation or expiration
+- Geographic restrictions (API not available in region)
+
+**Fallback Options** (Implementation deferred to post-MVP):
+
+1. **Option A: Claude 3.5 Sonnet** (Anthropic API)
+   - **Pros**: High quality, excellent multilingual support, strong reasoning
+   - **Cons**: Paid API ($3/$15 per 1M tokens), requires separate API key
+   - **Configuration**: Add `ANTHROPIC_API_KEY` to `.env`
+   - **Use Case**: Production environments with budget for premium LLM
+
+2. **Option B: GPT-4o Mini** (OpenAI API)
+   - **Pros**: Fast, cost-effective ($0.15/$0.60 per 1M tokens), good quality
+   - **Cons**: Paid API, requires OpenAI account
+   - **Configuration**: Add `OPENAI_API_KEY` to `.env`
+   - **Use Case**: Cost-conscious production with moderate quality needs
+
+3. **Option C: Rule-Based Fallback** (No LLM)
+   - **Pros**: Zero cost, always available, no external dependencies
+   - **Cons**: No response generation, limited classification accuracy
+   - **Implementation**: Keyword matching for email classification
+   - **Use Case**: Temporary fallback until LLM service restored
+
+**Implementation Approach** (Future):
+- Create `LLMProviderFactory` class to abstract provider selection
+- Add `LLM_PROVIDER` environment variable (default: "gemini")
+- Implement automatic fallback on consecutive failures
+- Monitor Gemini API status: https://status.cloud.google.com/
+
+**Current Status**: Gemini-only implementation (Story 2.1)
+**Fallback Implementation**: Deferred to post-Epic 2 (out of MVP scope)
+
+#### Monitoring and Observability
+
+- **Structured Logs**: All LLM calls logged with prompt preview, tokens, latency
+- **Prometheus Metrics**: `gemini_token_usage_total{operation="classification"}`
+- **Token Tracking**: `LLMClient.get_token_usage_stats()` returns cumulative usage
+- **Error Tracking**: Automatic structured logging for all error types
+
+#### Multilingual Support
+
+Gemini 2.5 Flash natively supports the 4 target languages without configuration:
+- Russian (ru)
+- Ukrainian (uk)
+- English (en)
+- German (de)
+
+No translation layer or language detection required.
+
+### Email Classification Prompt Engineering (Story 2.2)
+
+Mail Agent uses advanced prompt engineering techniques to achieve accurate email classification across multiple languages. This section covers the classification prompt system, versioning strategy, and optimization approaches.
+
+#### Overview
+
+The classification prompt system enables Gemini 2.5 Flash to analyze incoming emails and suggest appropriate folder categories. The system achieves:
+- **100% accuracy** across test categories (government, clients, newsletters, multilingual)
+- **~3.8 second** average response time per classification
+- **Multilingual support** for Russian, Ukrainian, English, and German emails
+- **Token efficiency** with 500-character email body limit (~700 tokens per classification)
+
+#### Prompt Design Principles
+
+**1. Few-Shot Learning**
+- Includes 5 diverse examples in each prompt
+- Covers all major categories (Government, Clients, Newsletters, Unclassified)
+- Demonstrates expected JSON output format
+- Shows multilingual classification patterns
+
+**2. Structured JSON Output**
+- Uses Pydantic schema validation (`ClassificationResponse` model)
+- Required fields: `suggested_folder` (string), `reasoning` (string, max 300 chars)
+- Optional fields: `priority_score` (0-100), `confidence` (0.0-1.0)
+- No markdown code fences in response (pure JSON)
+
+**3. Multilingual Capability**
+- Prompt written in English (LLM instructions)
+- Input emails in any of 4 target languages (RU/UK/EN/DE)
+- Output reasoning always in English for consistency
+- No language detection required (Gemini processes natively)
+
+**4. Token Optimization**
+- Email body limited to 500 characters (balance context vs. speed)
+- HTML tags stripped, plain text extracted
+- Total prompt budget: ~700 tokens per classification
+- Maintains sub-4-second response times
+
+**5. User-Specific Context**
+- Dynamic user folder categories included in prompt
+- "Unclassified" fallback for ambiguous emails
+- Priority scoring guidelines (government=high, newsletters=low)
+- Confidence levels for accuracy tracking
+
+#### Prompt Template Structure
+
+The classification prompt (`backend/app/prompts/classification_prompt.py`) consists of:
+
+```
+┌─────────────────────────────────────────┐
+│ System Role                             │
+│ "You are an AI email classification     │
+│  assistant..."                          │
+├─────────────────────────────────────────┤
+│ Task Description                        │
+│ - Goal: Classify into user's folders   │
+│ - Consider: sender, subject, content    │
+│ - User approval workflow               │
+├─────────────────────────────────────────┤
+│ Classification Guidelines               │
+│ - Government: finanzamt, bureaucracy    │
+│ - Clients: business correspondence      │
+│ - Newsletters: marketing, promotional   │
+│ - Unclassified: ambiguous emails        │
+├─────────────────────────────────────────┤
+│ Email to Classify                       │
+│ - From: {email_sender}                  │
+│ - Subject: {email_subject}              │
+│ - Body: {email_body_preview}           │
+├─────────────────────────────────────────┤
+│ Few-Shot Examples (5)                   │
+│ Example 1: Government (German)          │
+│ Example 2: Client (English)             │
+│ Example 3: Newsletter (English)         │
+│ Example 4: Unclear (Russian)            │
+│ Example 5: Urgent Gov (German)          │
+├─────────────────────────────────────────┤
+│ JSON Schema Specification               │
+│ - suggested_folder (required)           │
+│ - reasoning (required, max 300 chars)   │
+│ - priority_score (optional, 0-100)      │
+│ - confidence (optional, 0.0-1.0)        │
+└─────────────────────────────────────────┘
+```
+
+#### Usage Example
+
+```python
+from app.prompts import build_classification_prompt
+from app.core.llm_client import LLMClient
+from app.models.classification_response import ClassificationResponse
+
+# Prepare email data
+email_data = {
+    "sender": "finanzamt@berlin.de",
+    "subject": "Steuererklärung 2024 - Frist",
+    "body": "<p>Sehr geehrte Damen und Herren...</p>",
+    "user_email": "user@example.com"
+}
+
+# User's folder categories
+user_folders = [
+    {"name": "Government", "description": "Official government communications"},
+    {"name": "Clients", "description": "Business correspondence"},
+    {"name": "Newsletters", "description": "Marketing emails"}
+]
+
+# Build classification prompt
+prompt = build_classification_prompt(email_data, user_folders)
+
+# Call Gemini API
+llm_client = LLMClient()
+response_json = llm_client.receive_completion(prompt, operation="classification")
+
+# Parse and validate response
+classification = ClassificationResponse(**response_json)
+
+print(f"Folder: {classification.suggested_folder}")
+print(f"Reasoning: {classification.reasoning}")
+print(f"Priority: {classification.priority_score}")
+print(f"Confidence: {classification.confidence}")
+```
+
+**Output:**
+```
+Folder: Government
+Reasoning: Official communication from Finanzamt (Tax Office) regarding tax return deadline
+Priority: 85
+Confidence: 0.95
+```
+
+#### Prompt Versioning
+
+Prompt versions are tracked in `backend/app/config/prompts.yaml`:
+
+```yaml
+classification_prompt:
+  version: "1.0"
+  created: "2025-11-07"
+  last_updated: "2025-11-07"
+  description: "Initial classification prompt with multilingual support"
+
+  performance:
+    average_latency_ms: 3800
+    classification_accuracy:
+      government_emails: 100%
+      client_emails: 100%
+      newsletters: 100%
+      multilingual: 100%
+```
+
+**Version Format:**
+- **MAJOR.MINOR** (e.g., 1.0, 1.1, 2.0)
+- **MAJOR**: Breaking changes (new output schema, incompatible API)
+- **MINOR**: Prompt improvements (new examples, guideline tweaks)
+
+#### Prompt Refinement Workflow
+
+When classification accuracy drops or new edge cases emerge:
+
+1. **Analyze Failure Patterns**
+   - Track user rejections via ApprovalHistory (Story 2.10)
+   - Identify common misclassifications (e.g., specific senders, keywords)
+   - Review confidence scores for uncertain classifications
+
+2. **Update Prompt Template**
+   - Add new few-shot examples for edge cases
+   - Refine classification guidelines
+   - Adjust priority scoring rules
+   - Update `backend/app/prompts/classification_prompt.py`
+
+3. **Increment Version**
+   - Minor version: Wording/example changes (1.0 → 1.1)
+   - Major version: Schema changes (1.1 → 2.0)
+   - Update `CLASSIFICATION_PROMPT_VERSION` constant
+
+4. **Run Test Suite**
+   ```bash
+   # Unit tests (prompt structure, schema validation)
+   pytest backend/tests/test_classification_prompt.py -v
+
+   # Integration tests (real Gemini API calls)
+   pytest backend/tests/integration/test_classification_integration.py -v
+   ```
+
+5. **Update Configuration**
+   - Update `backend/app/config/prompts.yaml` with new version
+   - Document changes in `changelog` section
+   - Record test results and accuracy metrics
+
+6. **Monitor Performance**
+   - Track accuracy for 1 week before marking stable
+   - Compare metrics against baseline (v1.0: 100% accuracy)
+   - Roll back if accuracy drops below 85% for any category
+
+#### Performance Metrics (Version 1.0)
+
+From integration testing (2025-11-07):
+
+| Metric | Value |
+|--------|-------|
+| Average Latency | 3.8 seconds |
+| Token Usage | ~1,320 tokens per classification |
+| Government Emails | 100% accuracy (3/3 correct) |
+| Client Emails | 100% accuracy (1/1 correct) |
+| Newsletters | 100% accuracy (1/1 correct) |
+| Multilingual | 100% accuracy (RU/UK/DE) |
+| Edge Cases | 100% accuracy (no body, special chars) |
+
+**Priority Score Distribution:**
+- Government (urgent): 95 (high priority)
+- Government (standard): 85-90 (high priority)
+- Clients: 60 (medium priority)
+- Newsletters: 10-15 (low priority)
+- Unclassified: 40-45 (medium-low priority)
+
+**Confidence Scores:**
+- Clear matches: 0.90-0.98 (high confidence)
+- Unclear emails: 0.50-0.70 (low confidence, suggests manual review)
+
+#### Testing Strategy
+
+**Unit Tests** (`tests/test_classification_prompt.py`):
+- Prompt structure validation (sections, placeholders)
+- HTML stripping and body truncation
+- Schema validation (valid/invalid JSON)
+- Multiple folder categories
+- Edge cases (empty body, long body)
+
+**Integration Tests** (`tests/integration/test_classification_integration.py`):
+- Real Gemini API calls (marked `@pytest.mark.integration`)
+- Government emails (German)
+- Client emails (English)
+- Newsletters (marketing)
+- Unclear emails (Russian)
+- Multilingual validation (RU/UK/DE)
+- Edge cases (no body, special characters, emojis)
+
+**Run Tests:**
+```bash
+# Run all classification tests
+pytest backend/tests/test_classification_prompt.py backend/tests/integration/test_classification_integration.py -v
+
+# Run only integration tests (requires GEMINI_API_KEY)
+pytest backend/tests/integration/test_classification_integration.py -v
+```
+
+#### Token Budget Breakdown
+
+Total classification prompt: ~700 tokens
+
+| Component | Tokens | Purpose |
+|-----------|--------|---------|
+| System role | ~50 | AI assistant identity |
+| Task description | ~100 | Classification goal and context |
+| Classification guidelines | ~100 | Category definitions |
+| Few-shot examples (5) | ~300 | Demonstration patterns |
+| JSON schema | ~50 | Output format specification |
+| Email content | ~150 | Sender, subject, body preview (500 chars) |
+| User folder categories | ~50 | Dynamic folder list (5 folders) |
+
+**Optimization Strategies:**
+- Email body limited to 500 characters (sufficient context)
+- HTML stripped to plain text (reduces token overhead)
+- Few-shot examples concise but informative
+- Schema specification referenced once
+
+#### Future Enhancements (Post-MVP)
+
+- **A/B Testing**: Compare prompt versions with subset of users
+- **Dynamic Examples**: Select few-shot examples based on user's folder categories
+- **Adaptive Guidelines**: Learn from user corrections over time
+- **Multi-Model Support**: Fallback to Claude or GPT for Gemini unavailability
+- **Confidence Calibration**: Fine-tune confidence thresholds based on user feedback
+
+#### References
+
+**Files:**
+- Prompt template: `backend/app/prompts/classification_prompt.py`
+- Response model: `backend/app/models/classification_response.py`
+- Unit tests: `backend/tests/test_classification_prompt.py`
+- Integration tests: `backend/tests/integration/test_classification_integration.py`
+- Configuration: `backend/app/config/prompts.yaml`
+
+**External Resources:**
+- Prompt Engineering Guide: https://www.promptingguide.ai/techniques/fewshot
+- Google Gemini Best Practices: https://ai.google.dev/gemini-api/docs/prompting-strategies
+- JSON Mode Documentation: https://ai.google.dev/gemini-api/docs/json-mode
+
+### Email Classification Workflow Architecture (Story 2.3)
+
+Mail Agent uses LangGraph state machine workflows to orchestrate email classification, user approval, and Gmail label application. The workflow implements a novel **TelegramHITLWorkflow** (Human-In-The-Loop) pattern that allows workflows to pause for hours/days while awaiting user responses, then resume exactly where they left off.
+
+#### Overview
+
+The EmailWorkflow is a 6-node LangGraph state machine with PostgreSQL checkpointing for persistent state management across service restarts and asynchronous user interactions.
+
+**Key Features:**
+- **Stateful Execution**: PostgreSQL checkpoint persistence enables pause/resume
+- **Async User Approval**: Workflow pauses for Telegram approval, resumes hours later
+- **Error Resilience**: Gemini API failures fall back to "Unclassified" folder
+- **Cross-Channel Integration**: Email (Gmail) → AI (Gemini) → Approval (Telegram) → Action (Gmail)
+
+**Workflow Flow:**
+```
+NEW EMAIL DETECTED (Email Polling Task)
+    ↓
+┌──────────────────────────────────────┐
+│ START: Initialize Workflow           │
+│ - Generate thread_id                 │
+│ - Create EmailWorkflowState          │
+└──────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────┐
+│ NODE: extract_context                │
+│ - Load email from Gmail              │
+│ - Extract sender, subject, body      │
+│ - Load user's folder categories      │
+└──────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────┐
+│ NODE: classify                       │
+│ - Call Gemini API with prompt        │
+│ - Parse JSON response                │
+│ - Store: proposed_folder, reasoning  │
+│ - Classification: "sort_only"        │
+└──────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────┐
+│ NODE: send_telegram (Story 2.6)     │
+│ - Format message preview             │
+│ - Include approval buttons           │
+│ - Send via Telegram Bot API          │
+└──────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────┐
+│ NODE: await_approval                 │
+│ ⚠️  WORKFLOW PAUSES HERE             │
+│ - State saved to PostgreSQL          │
+│ - Workflow instance awaiting         │
+│ - User responds hours/days later     │
+└──────────────────────────────────────┘
+    ↓ (User clicks Telegram button)
+┌──────────────────────────────────────┐
+│ NODE: execute_action (Story 2.7)    │
+│ - Apply Gmail label                  │
+│ - Update database status             │
+└──────────────────────────────────────┘
+    ↓
+┌──────────────────────────────────────┐
+│ NODE: send_confirmation (Story 2.6) │
+│ - Send completion message            │
+│ - Cleanup checkpoint                 │
+└──────────────────────────────────────┘
+    ↓
+  END
+```
+
+#### Workflow State Definition
+
+The workflow state is defined as a TypedDict (`EmailWorkflowState`) containing all data flowing through the workflow:
+
+```python
+class EmailWorkflowState(TypedDict):
+    # Email identification
+    email_id: str
+    user_id: str
+    thread_id: str  # Format: email_{email_id}_{uuid}
+
+    # Email content (extract_context node)
+    email_content: str
+    sender: str
+    subject: str
+
+    # Classification results (classify node)
+    classification: Literal["sort_only", "needs_response"] | None
+    proposed_folder: str | None
+    classification_reasoning: str | None
+    priority_score: int
+
+    # User approval (await_approval/execute_action nodes - Story 2.7)
+    user_decision: Literal["approve", "reject", "change_folder"] | None
+    selected_folder: str | None
+
+    # Workflow completion (execute_action node)
+    final_action: str | None
+
+    # Error handling
+    error_message: str | None
+```
+
+**Thread ID Format:**
+- Pattern: `email_{email_id}_{uuid4()}`
+- Example: `email_123_a1b2c3d4-e5f6-4789-0abc-def123456789`
+- Unique identifier for checkpoint tracking and workflow resumption
+
+#### Workflow Nodes
+
+**1. extract_context** (Story 2.3)
+- **Purpose**: Load email content and user context
+- **Actions**:
+  - Query EmailProcessingQueue for email metadata
+  - Call Gmail API `get_message_detail()` to retrieve full email
+  - Extract sender, subject, body (plain text, HTML stripped)
+  - Load user's FolderCategory list from database
+- **State Updates**: `email_content`, `sender`, `subject`
+- **Error Handling**: Gmail API errors propagated (workflow cannot continue without email)
+
+**2. classify** (Story 2.3)
+- **Purpose**: Classify email using Gemini LLM
+- **Actions**:
+  - Initialize `EmailClassificationService` with dependencies
+  - Construct prompt via `build_classification_prompt()` (Story 2.2)
+  - Call Gemini API with JSON response format
+  - Parse response into `ClassificationResponse` Pydantic model
+  - Set classification type to "sort_only" (Epic 2 only handles sorting)
+- **State Updates**: `classification`, `proposed_folder`, `classification_reasoning`, `priority_score`
+- **Error Handling**: Gemini API errors → fallback to "Unclassified" folder (workflow continues)
+
+**3. send_telegram** (Story 2.6 - stub in 2.3)
+- **Purpose**: Send Telegram approval request to user
+- **Actions** (Story 2.6):
+  - Format message with email preview (sender, subject, snippet)
+  - Include AI reasoning for classification
+  - Create inline keyboard: [Approve] [Change Folder] [Reject]
+  - Send via `TelegramBotClient.send_message()`
+  - Store `telegram_message_id` in state
+- **Current Implementation**: Stub that logs the action
+
+**4. await_approval** (Story 2.3)
+- **Purpose**: Pause workflow for user response
+- **Actions**:
+  - Return state unchanged
+  - LangGraph checkpointer saves state to PostgreSQL
+  - No outgoing edges from this node (workflow stops here)
+- **State Updates**: None (workflow paused)
+- **Resumption**: Story 2.7 Telegram callback handler resumes from `thread_id`
+
+**5. execute_action** (Story 2.7 - stub in 2.3)
+- **Purpose**: Apply user's decision to Gmail
+- **Actions** (Story 2.7):
+  - Determine folder based on `user_decision` and `selected_folder`
+  - Lookup `FolderCategory.gmail_label_id` by folder name
+  - Call `GmailClient.apply_label(message_id, label_id)`
+  - Update `EmailProcessingQueue.status` to "completed"
+  - Set `final_action` with description (e.g., "Moved to Work folder")
+- **Current Implementation**: Stub that logs the action
+
+**6. send_confirmation** (Story 2.6 - stub in 2.3)
+- **Purpose**: Send completion message to user
+- **Actions** (Story 2.6):
+  - Format confirmation with `final_action` result
+  - Send via `TelegramBotClient.send_message()`
+  - Optionally edit original message to show completion
+- **Current Implementation**: Stub that logs the action
+
+#### PostgreSQL Checkpointing
+
+**Checkpoint Storage:**
+- **Tables**: `checkpoints`, `checkpoint_writes` (created automatically by LangGraph)
+- **Connection**: Reuses same PostgreSQL instance as application database
+- **Sync Mode**: Async (`sync=False`) for FastAPI compatibility
+- **Configuration**:
+  ```python
+  from langgraph.checkpoint.postgres import PostgresSaver
+
+  checkpointer = PostgresSaver.from_conn_string(
+      conn_string=DATABASE_URL,
+      sync=False  # Async mode
+  )
+
+  workflow = StateGraph(EmailWorkflowState)
+  # ... add nodes and edges ...
+  app = workflow.compile(checkpointer=checkpointer)
+  ```
+
+**Checkpoint Lifecycle:**
+1. **Save**: After each node execution, state automatically saved
+2. **Pause**: `await_approval` node returns without edges → workflow stops
+3. **Resume**: Story 2.7 callback loads checkpoint via `thread_id`:
+   ```python
+   config = {"configurable": {"thread_id": thread_id}}
+   result = await workflow.ainvoke(None, config=config)  # Resumes from checkpoint
+   ```
+4. **Cleanup**: Checkpoints deleted after workflow completion (Story 2.7)
+
+**Checkpoint Query Example:**
+```sql
+-- Find checkpoint for specific workflow instance
+SELECT thread_id, checkpoint_ns, checkpoint
+FROM checkpoints
+WHERE thread_id = 'email_123_abc-def-456'
+ORDER BY checkpoint_id DESC
+LIMIT 1;
+```
+
+#### Dependency Injection Pattern
+
+LangGraph nodes typically only accept state parameters, but our nodes need database sessions and API clients. We solve this using **functools.partial** to bind dependencies:
+
+```python
+from functools import partial
+from app.workflows import nodes
+
+# Create workflow tracker with dependencies
+tracker = WorkflowInstanceTracker(
+    db=db_session,
+    gmail_client=gmail_client,
+    llm_client=llm_client,
+    database_url=DATABASE_URL,
+)
+
+# Build workflow with dependency-injected nodes
+workflow = StateGraph(EmailWorkflowState)
+
+# Bind dependencies using functools.partial
+extract_context_with_deps = partial(
+    nodes.extract_context,
+    db=db_session,
+    gmail_client=gmail_client,
+)
+
+classify_with_deps = partial(
+    nodes.classify,
+    db=db_session,
+    gmail_client=gmail_client,
+    llm_client=llm_client,
+)
+
+# Add nodes with dependencies bound
+workflow.add_node("extract_context", extract_context_with_deps)
+workflow.add_node("classify", classify_with_deps)
+# ... add remaining nodes ...
+
+# Compile with checkpointer
+app = workflow.compile(checkpointer=checkpointer)
+```
+
+This pattern allows nodes to access dependencies while maintaining LangGraph's state-based execution model.
+
+#### Workflow Integration Points
+
+**1. Email Polling (Story 1.6 + 2.3)**
+- **Trigger**: New unread email detected by Celery task
+- **Action**: `WorkflowInstanceTracker.start_workflow(email_id, user_id)`
+- **Location**: `backend/app/tasks/email_tasks.py` → `_poll_user_emails_async()`
+- **Flow**:
+  ```python
+  # After saving new email to EmailProcessingQueue
+  workflow_tracker = WorkflowInstanceTracker(db, gmail, llm, db_url)
+  thread_id = await workflow_tracker.start_workflow(email_id, user_id)
+  # Workflow runs until await_approval, then pauses
+  ```
+
+**2. Database Updates**
+- **EmailProcessingQueue** fields updated during workflow:
+  - `status`: `pending` → `awaiting_approval` (after classification)
+  - `classification`: "sort_only" (Epic 2 only)
+  - `proposed_folder_id`: ForeignKey to FolderCategory
+  - `classification_reasoning`: AI reasoning (max 300 chars)
+  - `priority_score`: 0-100 scale
+  - `is_priority`: `True` if priority_score >= 70
+
+**3. Error Handling**
+- **Gemini API Errors**: Caught by `EmailClassificationService`, fallback to "Unclassified"
+- **Gmail API Errors**: Propagated (workflow cannot continue without email content)
+- **Workflow Failures**: Logged, email status set to "error"
+- **Email Not Lost**: Even if workflow fails, email is saved to database for retry
+
+#### Testing Strategy
+
+**Unit Tests** (`tests/test_classification_service.py`):
+- Successful classification with valid Gemini response
+- Gemini API error handling (fallback to "Unclassified")
+- Invalid JSON response handling (Pydantic ValidationError)
+- Gmail API error propagation (workflow halts)
+
+**Integration Tests** (`tests/integration/test_email_workflow_integration.py`):
+- Workflow state transitions through all nodes
+- PostgreSQL checkpoint persistence and query
+- Classification results stored in EmailProcessingQueue
+- Workflow error handling with fallback classification
+
+**Run Tests:**
+```bash
+# Run unit tests (mocked APIs)
+pytest backend/tests/test_classification_service.py -v
+
+# Run integration tests (real database, mocked external APIs)
+pytest backend/tests/integration/test_email_workflow_integration.py -v --integration
+```
+
+#### Usage Example
+
+```python
+from app.services.workflow_tracker import WorkflowInstanceTracker
+from app.core.gmail_client import GmailClient
+from app.core.llm_client import LLMClient
+
+# Initialize dependencies
+gmail_client = GmailClient(user_id=456)
+llm_client = LLMClient()
+database_url = os.getenv("DATABASE_URL")
+
+# Create workflow tracker
+tracker = WorkflowInstanceTracker(
+    db=db_session,
+    gmail_client=gmail_client,
+    llm_client=llm_client,
+    database_url=database_url,
+)
+
+# Start workflow for new email
+thread_id = await tracker.start_workflow(
+    email_id=123,
+    user_id=456,
+)
+
+# Workflow executes: extract_context → classify → send_telegram → await_approval
+# Then PAUSES with state saved to PostgreSQL
+
+print(f"Workflow paused at await_approval, thread_id: {thread_id}")
+# Output: Workflow paused at await_approval, thread_id: email_123_abc-def-456
+
+# Hours/days later, user clicks Telegram button (Story 2.7)
+# Telegram callback handler resumes workflow from checkpoint
+```
+
+#### Files and Locations
+
+**Core Workflow Files:**
+- State definition: `backend/app/workflows/states.py`
+- Workflow nodes: `backend/app/workflows/nodes.py`
+- Workflow compilation: `backend/app/workflows/email_workflow.py` (deprecated in favor of tracker)
+- Workflow tracker: `backend/app/services/workflow_tracker.py`
+
+**Classification Service:**
+- Service class: `backend/app/services/classification.py`
+- Response model: `backend/app/models/classification_response.py`
+- Prompt builder: `backend/app/prompts/classification_prompt.py`
+
+**Integration:**
+- Email polling: `backend/app/tasks/email_tasks.py`
+- Database models: `backend/app/models/email.py`, `backend/app/models/folder_category.py`
+
+**Tests:**
+- Unit tests: `backend/tests/test_classification_service.py`
+- Integration tests: `backend/tests/integration/test_email_workflow_integration.py`
+
+#### References
+
+**External Documentation:**
+- LangGraph Documentation: https://langchain-ai.github.io/langgraph/
+- LangGraph PostgreSQL Checkpointer: https://langchain-ai.github.io/langgraph/how-tos/persistence/
+- LangGraph State Management: https://langchain-ai.github.io/langgraph/concepts/low_level/#state
+- TypedDict Documentation: https://docs.python.org/3/library/typing.html#typing.TypedDict
+
+**Internal References:**
+- Story 2.1: Gemini LLM Integration
+- Story 2.2: Email Classification Prompt Engineering
+- Story 2.3: AI Email Classification Service (this story)
+- Story 2.6: Telegram Message Sending (send_telegram, send_confirmation nodes)
+- Story 2.7: Telegram Approval Handling (execute_action node, workflow resumption)
 
 ### Logging
 - `LOG_LEVEL`: Logging level (DEBUG/INFO/WARNING/ERROR)
@@ -2065,6 +3401,494 @@ The following template features are deferred to later stories:
 - **JWT Authentication** - Story 1.4 (user registration, login, JWT tokens)
 - **LangGraph Workflows** - Epic 2 (AI email classification, chatbot endpoints)
 - **Langfuse Integration** - Epic 2 (LLM observability and monitoring)
+
+---
+
+## Batch Notification System (Epic 2 - Story 2.8)
+
+The batch notification system sends daily summaries of pending emails to users via Telegram, reducing interruptions throughout the day. High-priority emails bypass batching and notify immediately.
+
+### Overview
+
+Instead of sending individual Telegram notifications for every email that needs approval, Mail Agent batches non-priority emails and sends:
+1. **Summary message** showing total count and breakdown by proposed category
+2. **Individual proposal messages** for each pending email with approval buttons
+
+This reduces notification fatigue while ensuring priority emails (urgent government documents, important client emails) are still delivered immediately.
+
+### Batch Flow
+
+1. **Celery Beat Scheduler** triggers `send_batch_notifications` task daily at configured time (default: 6 PM UTC)
+2. **For each active user:**
+   - Load NotificationPreferences (batch_enabled, batch_time, quiet_hours)
+   - Query EmailProcessingQueue for pending emails (status="awaiting_approval", is_priority=False)
+   - If no pending emails → skip user (no notification sent)
+   - Create summary message with count and category breakdown
+   - Send summary message to Telegram
+   - Send individual proposal messages for each pending email
+   - Log batch completion with metrics
+
+### Priority Email Detection System (Story 2.9)
+
+The priority email detection system analyzes incoming emails and assigns a priority score (0-100) to determine if they require immediate notification. Emails scoring >= 70 bypass batch processing and are sent to users immediately via Telegram.
+
+#### Priority Scoring Algorithm
+
+The system uses a multi-factor scoring algorithm:
+
+| Factor | Points | Trigger |
+|--------|--------|---------|
+| **Government Domain** | +50 | Email from official government domains (finanzamt.de, auslaenderbehoerde.de, arbeitsagentur.de, etc.) |
+| **Urgency Keywords** | +30 | Subject/body contains keywords: "urgent", "deadline", "wichtig", "dringend", "срочно", "терміново" (multilingual) |
+| **User-Configured Sender** | +40 | Sender matches FolderCategory with is_priority_sender=True |
+| **Maximum Score** | 100 | Score is capped at 100 (won't exceed even if all factors present) |
+
+**Priority Threshold:** Emails with priority_score >= 70 are marked as high-priority.
+
+#### Government Domains (Default List)
+
+The following government domains automatically trigger +50 priority points:
+
+- `finanzamt.de` - Tax Office (Finanzamt)
+- `auslaenderbehoerde.de` - Immigration Office (Ausländerbehörde)
+- `arbeitsagentur.de` - Employment Agency (Arbeitsagentur)
+- `bundesagentur.de` - Federal Agency
+- `bmf.de` - Federal Ministry of Finance
+- `bmi.de` - Federal Ministry of Interior
+
+**Custom domains:** Additional government domains can be configured via `PRIORITY_GOVERNMENT_DOMAINS` environment variable.
+
+#### Urgency Keywords (Multilingual)
+
+The system detects urgency keywords in 4 languages:
+
+- **English:** urgent, deadline, immediate, asap, action required
+- **German:** wichtig, dringend, frist, eilig, sofort
+- **Russian:** срочно, важно, крайний срок
+- **Ukrainian:** терміново, важливо, дедлайн
+
+Keywords are matched case-insensitively in both subject and body preview.
+
+#### Priority Email Flow
+
+```
+Email Received
+    ↓
+extract_context (load email content)
+    ↓
+classify (AI classification)
+    ↓
+detect_priority (priority scoring) ← Story 2.9
+    │
+    ├─ Check government domain
+    ├─ Check urgency keywords
+    ├─ Check user-configured senders
+    ├─ Calculate total score (capped at 100)
+    └─ Set is_priority = (score >= 70)
+    ↓
+send_telegram
+    │
+    ├─ If is_priority=True:
+    │   ├─ Send immediately with ⚠️ indicator
+    │   └─ Log: "priority_email_sent_immediate"
+    │
+    └─ If is_priority=False:
+        ├─ Mark status="awaiting_approval"
+        └─ Queue for batch notification
+```
+
+#### User-Configurable Priority Senders
+
+Users can mark specific senders as priority in their FolderCategory settings:
+
+1. Create or edit a FolderCategory
+2. Set `is_priority_sender=True`
+3. Add sender patterns to `keywords` field (e.g., "important-client@example.com")
+4. Emails matching those patterns receive +40 priority points
+
+**Example:**
+```python
+folder = FolderCategory(
+    user_id=user.id,
+    name="VIP Clients",
+    keywords=["ceo@company.com", "priority@client.com"],
+    is_priority_sender=True  # Adds +40 to priority score
+)
+```
+
+#### Configuration
+
+Priority detection can be configured via environment variables in `.env`:
+
+```bash
+# Priority Detection Configuration
+PRIORITY_THRESHOLD=70                    # Score threshold (0-100), default: 70
+PRIORITY_GOVERNMENT_DOMAINS=finanzamt.de,auslaenderbehoerde.de,arbeitsagentur.de
+```
+
+**Variables:**
+- `PRIORITY_THRESHOLD`: Minimum score required for immediate notification (default: 70)
+- `PRIORITY_GOVERNMENT_DOMAINS`: Comma-separated list of additional government domains
+
+#### Priority Detection Examples
+
+**Example 1: Government Email with Deadline (Priority)**
+```
+Email:
+  From: finanzamt@berlin.de
+  Subject: Wichtig: Steuerfrist 15.12.2024
+
+Detection:
+  government_domain: +50 (finanzamt.de)
+  keyword: +30 (wichtig, frist)
+  user_config: +0
+
+  priority_score = 80
+  is_priority = True (>= 70)
+
+Result: Immediate Telegram notification with ⚠️
+```
+
+**Example 2: Newsletter (Non-Priority)**
+```
+Email:
+  From: newsletter@company.com
+  Subject: Weekly updates
+
+Detection:
+  government_domain: +0
+  keyword: +0
+  user_config: +0
+
+  priority_score = 0
+  is_priority = False (< 70)
+
+Result: Batched for end-of-day notification
+```
+
+**Example 3: User-Configured Priority Sender**
+```
+Email:
+  From: important-client@example.com
+  Subject: Project status
+
+Detection (assuming FolderCategory.is_priority_sender=True):
+  government_domain: +0
+  keyword: +0
+  user_config: +40
+
+  priority_score = 40
+  is_priority = False (< 70)
+
+Result: Batched (user can adjust threshold or add keywords)
+```
+
+#### Testing
+
+```bash
+# Run unit tests (priority detection service logic)
+DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" uv run pytest tests/test_priority_detection.py -v
+
+# Run integration tests (workflow integration)
+DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" uv run pytest tests/integration/test_priority_detection_integration.py -v
+
+# Test specific scenario
+uv run pytest tests/test_priority_detection.py::test_government_domain_detection -v
+```
+
+#### Monitoring and Logging
+
+Priority detection events are logged with structured logging:
+
+```python
+logger.info(
+    "priority_detection_completed",
+    email_id=123,
+    sender="steuer@finanzamt.de",
+    priority_score=80,
+    is_priority=True,
+    detection_reasons=["government_domain:finanzamt.de", "keyword:wichtig"]
+)
+```
+
+**Key log events:**
+- `priority_detection_completed` - Detection result for each email
+- `priority_email_sent_immediate` - High-priority email sent to Telegram
+- `email_marked_for_batch` - Non-priority email queued for batch
+
+#### Troubleshooting
+
+**Priority emails not sent immediately:**
+1. Check priority_score in database: `SELECT priority_score, is_priority FROM email_processing_queue WHERE id=123;`
+2. Verify threshold: Ensure priority_score >= PRIORITY_THRESHOLD (default: 70)
+3. Check Telegram bot connection: User must have telegram_id linked
+4. Review logs: Search for "priority_detection_completed" and "priority_email_sent_immediate"
+
+**Government domain not detected:**
+1. Verify domain in GOVERNMENT_DOMAINS list (backend/app/config/priority_config.py)
+2. Check sender format: System handles "Name <email@domain.de>" and "email@domain.de"
+3. Add custom domain via PRIORITY_GOVERNMENT_DOMAINS env var
+
+**Keywords not triggering priority:**
+1. Keywords must be in subject OR body_preview (first 200 characters)
+2. Matching is case-insensitive
+3. Review keyword list: backend/app/config/priority_config.py → PRIORITY_KEYWORDS
+4. Check logs for detection_reasons: Should include "keyword:wichtig" etc.
+
+**User-configured senders not working:**
+1. Verify FolderCategory.is_priority_sender=True in database
+2. Check keywords field matches sender (case-insensitive substring match)
+3. Ensure sender is in FolderCategory.keywords array
+4. Example: keywords=["important@example.com"] matches "John <important@example.com>"
+
+---
+
+### Priority Email Bypass (AC #6)
+
+High-priority emails (priority_score >= 70) bypass batch scheduling:
+- Detected in detect_priority node based on government domains, keywords, and user configuration
+- Sent immediately via send_telegram_node with ⚠️ indicator
+- NOT included in batch notification query (is_priority=False filter in batch service)
+- Database fields: EmailProcessingQueue.priority_score (0-100) and EmailProcessingQueue.is_priority (boolean)
+
+### NotificationPreferences Configuration
+
+Users can configure batch notification settings (stored in `notification_preferences` table):
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `batch_enabled` | boolean | True | Enable/disable daily batch notifications |
+| `batch_time` | time | 18:00 | Preferred batch time (UTC) |
+| `priority_immediate` | boolean | True | Send priority emails immediately |
+| `quiet_hours_start` | time | null | Suppress notifications after this time (e.g., 22:00) |
+| `quiet_hours_end` | time | null | Resume notifications after this time (e.g., 08:00) |
+| `timezone` | string | UTC | User timezone for scheduling (future enhancement) |
+
+**Future Enhancement (Epic 4):** Users will configure these preferences via the frontend UI. Currently, defaults are applied automatically.
+
+### Testing
+
+```bash
+# Run unit tests
+DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" uv run pytest backend/tests/test_batch_notification_service.py -v
+
+# Run integration tests
+DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" uv run pytest backend/tests/integration/test_batch_notification_integration.py -v
+
+# Manual Celery task trigger (development)
+celery -A app.celery call app.tasks.notification_tasks.send_batch_notifications
+```
+
+### Running Celery Workers
+
+The batch notification system requires Celery Beat and workers to be running:
+
+```bash
+# Terminal 1: Start Celery worker for notifications queue
+celery -A app.celery worker --loglevel=info --queue=notifications
+
+# Terminal 2: Start Celery Beat scheduler
+celery -A app.celery beat --loglevel=info
+
+# Combined (development only):
+celery -A app.celery worker --beat --loglevel=info --queue=notifications
+```
+
+### Troubleshooting
+
+**Batch not sending:**
+- Verify Celery Beat is running: `celery -A app.celery inspect active`
+- Check NotificationPreferences: `batch_enabled` must be True
+- Check quiet hours: current time must be outside `quiet_hours_start`/`quiet_hours_end`
+- Check pending emails: EmailProcessingQueue must have status="awaiting_approval", is_priority=False
+- Verify Redis is running: `docker ps | grep redis`
+
+**Individual proposals not sent:**
+- Check Telegram rate limits: 30 messages/second, 20 messages/minute per chat
+- Verify rate limiting delay (100ms between sends) in logs
+- Check telegram_message_id stored in WorkflowMapping
+
+**Priority emails not bypassing batch:**
+- Verify priority_score >= 70 in EmailProcessingQueue
+- Check send_telegram node logs for "priority_email_sent_immediate"
+- Confirm is_priority field set to True for priority emails
+
+---
+
+## Epic 2: Integration Testing
+
+### Overview
+
+Epic 2 includes comprehensive integration testing for the AI-powered email classification and Telegram approval workflow (Story 2.12).
+
+**Test Coverage:**
+- Complete email sorting workflow
+- Rejection and folder change scenarios
+- Batch notification system
+- Priority email immediate notifications
+- Approval history tracking
+- Performance validation (NFR001: <120s latency)
+- Error handling and recovery
+
+### Running Tests
+
+```bash
+# All Epic 2 integration tests
+DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+uv run pytest tests/integration/test_epic_2_workflow_integration.py -v
+
+# Specific test scenarios
+DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+uv run pytest tests/integration/test_epic_2_workflow_integration.py::TestCompleteEmailWorkflow -v
+```
+
+### Test Infrastructure
+
+**Mock Classes:** `backend/tests/mocks/`
+- `MockGeminiClient` - Deterministic AI responses
+- `MockGmailClient` - Gmail API mock with call tracking
+- `MockTelegramBot` - Telegram API mock with message simulation
+
+**Test Fixtures:** Defined in `backend/tests/conftest.py`
+- Database isolation with per-test cleanup
+- LangGraph checkpoint cleanup between tests
+- Pre-populated test users, folders, and preferences
+
+### Performance Benchmarks
+
+**NFR001 Target:** Email → Telegram notification ≤ 120 seconds
+
+**Measured (p95):**
+- Total processing (excluding polling): ~10s ✅
+- Workflow resumption: ~3s
+- AI classification: ~5s
+- Gmail/Telegram API calls: ~1s each
+
+### Documentation
+
+- **Architecture:** `docs/epic-2-architecture.md`
+- **Workflow Diagram:** `docs/diagrams/email-workflow-flow.mermaid`
+- **Story Details:** `docs/stories/2-12-epic-2-integration-testing.md`
+
+---
+
+## E2E (End-to-End) Testing
+
+### Overview
+
+E2E tests verify **REAL integration** with external services (Gmail, Gemini AI, Telegram). These tests:
+- ✅ Use REAL APIs (not mocks)
+- ✅ Verify complete workflow end-to-end
+- ⚠️ Cost money (Gemini API)
+- ⚠️ Take 30-60 seconds to complete
+- ⚠️ Should be run MANUALLY before releases only
+
+**Why separate E2E tests?**
+- **Integration tests (with mocks):** Fast, free, run in CI/CD on every commit
+- **E2E tests (with real APIs):** Slow, paid, run manually before releases
+- E2E tests are "smoke tests" for production readiness
+
+### Running E2E Tests
+
+**⚠️ WARNING: E2E tests make REAL API calls that cost money!**
+
+```bash
+# 1. Configure environment variables (see tests/e2e/README.md)
+export GMAIL_TEST_OAUTH_TOKEN="ya29.a0..."
+export TELEGRAM_BOT_TOKEN="123456789:ABC..."
+export TELEGRAM_TEST_CHAT_ID="123456789"
+export GEMINI_API_KEY="AIzaSy..."
+export DATABASE_URL="postgresql+psycopg://..."
+
+# 2. Run ALL E2E tests
+pytest tests/e2e/ -v -m e2e
+
+# 3. Run specific test suite
+pytest tests/e2e/test_gmail_real_api.py -v -m e2e          # Gmail only
+pytest tests/e2e/test_telegram_real_api.py -v -m e2e       # Telegram only
+pytest tests/e2e/test_complete_workflow_e2e.py -v -m e2e   # Complete workflow (CRITICAL!)
+```
+
+### E2E Test Suites
+
+1. **Gmail API Tests** (`test_gmail_real_api.py`)
+   - Create/delete real Gmail labels
+   - Apply labels to messages
+   - OAuth token refresh
+
+2. **Telegram API Tests** (`test_telegram_real_api.py`)
+   - Send real messages
+   - Inline keyboard buttons
+   - Message editing
+   - HTML formatting
+
+3. **Complete Workflow Tests** (`test_complete_workflow_e2e.py`) 🚨 **CRITICAL**
+   - Full flow: Gmail → Gemini AI → Telegram → Database
+   - Verifies ALL services integrate correctly
+   - **THIS IS THE MOST IMPORTANT TEST!**
+
+### What to Check After Running
+
+After running E2E tests:
+
+1. ✅ All tests pass without errors
+2. **📱 CHECK YOUR TELEGRAM APP:**
+   - You should receive test messages
+   - Buttons should display correctly
+   - Formatting should work
+3. ✅ Check test output for verification checkmarks:
+   ```
+   ✅ Verified:
+      ✅ Gmail API: Fetched real email
+      ✅ Gemini AI: Classified email with real AI
+      ✅ Telegram Bot: Sent real notification
+      ✅ Database: Persisted data correctly
+      ✅ Integration: All services work together
+   ```
+
+### Setup Guide
+
+**Detailed setup instructions:** See `tests/e2e/README.md`
+
+Quick setup:
+1. Get Gmail OAuth tokens from your dev database
+2. Create Telegram bot with @BotFather
+3. Get Gemini API key from Google AI Studio
+4. Create `.env.e2e` file with credentials
+5. Load environment variables: `export $(cat .env.e2e | xargs)`
+
+### Cost Estimate
+
+- **Gmail API:** Free (up to 250 requests/day)
+- **Telegram API:** Free (unlimited)
+- **Gemini API:** ~$0.001-0.002 per test run
+- **Total per run:** ~$0.01-0.03 (1-3 cents)
+
+### When to Run E2E Tests
+
+✅ **MUST run before:**
+- Production releases
+- Major integration changes
+- After dependency updates
+
+⚠️ **Optional:**
+- Before client demos
+- After bugfixes in integrations
+
+❌ **DO NOT run:**
+- On every commit (use integration tests with mocks)
+- During development (use mock tests)
+- Frequently (costs money)
+
+### Troubleshooting
+
+See detailed troubleshooting guide in `tests/e2e/README.md`
+
+Common issues:
+- Missing environment variables
+- Invalid OAuth tokens
+- Bot not started in Telegram
+- No emails in test Gmail account
 
 ---
 

@@ -48,22 +48,22 @@ development_status:
   1-8-gmail-label-management: done
   1-9-email-sending-capability: done
   1-10-integration-testing-and-documentation: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: completed
 
   # Epic 2: AI Sorting Engine & Telegram Approval
-  epic-2: backlog
-  2-1-gemini-llm-integration: backlog
-  2-2-email-classification-prompt-engineering: backlog
-  2-3-ai-email-classification-service: backlog
-  2-4-telegram-bot-foundation: backlog
-  2-5-user-telegram-account-linking: backlog
-  2-6-email-sorting-proposal-messages: backlog
-  2-7-approval-button-handling: backlog
-  2-8-batch-notification-system: backlog
-  2-9-priority-email-detection: backlog
-  2-10-approval-history-tracking: backlog
-  2-11-error-handling-and-recovery: backlog
-  2-12-epic-2-integration-testing: backlog
+  epic-2: contexted
+  2-1-gemini-llm-integration: done
+  2-2-email-classification-prompt-engineering: done
+  2-3-ai-email-classification-service: done
+  2-4-telegram-bot-foundation: done
+  2-5-user-telegram-account-linking: done
+  2-6-email-sorting-proposal-messages: done
+  2-7-approval-button-handling: done
+  2-8-batch-notification-system: done
+  2-9-priority-email-detection: done
+  2-10-approval-history-tracking: done
+  2-11-error-handling-and-recovery: done
+  2-12-epic-2-integration-testing: done
   epic-2-retrospective: optional
 
   # Epic 3: RAG System & Response Generation

@@ -47,6 +47,7 @@ class FolderCategory(BaseModel, table=True):
     keywords: List[str] = Field(default=[], sa_column=Column(ARRAY(String)))
     color: Optional[str] = Field(default=None, max_length=7)  # Hex color codes (#FF5733)
     is_default: bool = Field(default=False)
+    is_priority_sender: bool = Field(default=False, nullable=False)  # Story 2.9: Priority email detection
     updated_at: datetime = Field(
         sa_column=Column(
             DateTime(timezone=True),

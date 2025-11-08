@@ -1,0 +1,333 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>3</storyId>
+    <title>AI Email Classification Service</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-07</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/Users/hdv_1987/Desktop/Прроекты/Mail Agent/docs/stories/2-3-ai-email-classification-service.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to analyze pending emails and generate folder classification suggestions using AI within a LangGraph workflow</iWant>
+    <soThat>I can propose intelligent sorting actions to users via Telegram with full state management and workflow resumption capabilities</soThat>
+    <tasks>
+      - Task 1: Extend EmailProcessingQueue Schema (AC: #6)
+      - Task 2: Create LangGraph Workflow State Definition (AC: #9)
+      - Task 3: Implement Classification Service Core Logic (AC: #1, #2, #3, #4, #5)
+      - Task 4: Implement Classification Error Handling (AC: #7)
+      - Task 5: Create LangGraph Workflow Nodes (AC: #9)
+      - Task 6: Compile LangGraph Workflow with Checkpointer (AC: #9, #10)
+      - Task 7: Create Workflow Initialization Service (AC: #8, #9)
+      - Task 8: Integrate Classification into Email Polling (AC: #1)
+      - Task 9: Create Unit Tests for Classification Service (AC: #1-#7)
+      - Task 10: Create Integration Tests for LangGraph Workflow (AC: #9, #10)
+      - Task 11: Document Workflow Architecture (AC: #9, #10)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Email classification service created that processes emails from EmailProcessingQueue
+    2. Service retrieves email full content from Gmail using stored message_id
+    3. Service loads user's folder categories from FolderCategories table
+    4. Service constructs classification prompt with email content and categories
+    5. Service calls Gemini LLM API and parses JSON response (suggested_folder, reasoning)
+    6. Classification result stored in EmailProcessingQueue (proposed_action field added to schema)
+    7. Service handles classification errors (falls back to "Unclassified" category)
+    8. Processing status updated to "awaiting_approval" after successful classification
+    9. LangGraph workflow compiled with PostgreSQL checkpointer (PostgresSaver.from_conn_string)
+    10. Checkpoint storage configured to persist workflow state for pause/resume functionality
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>System Architecture Alignment</section>
+        <snippet>LangGraph State Machine Workflow (Novel TelegramHITLWorkflow Pattern): Implements EmailWorkflow state machine with nodes: extract_context → classify → send_telegram → await_approval → execute_action → send_confirmation. Uses PostgreSQL checkpointing (PostgresSaver.from_conn_string) for persistent workflow state across service restarts.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>EmailClassificationService (lines 96-109)</section>
+        <snippet>Service integrates Gemini LLM for classification. Inputs: Email content from Gmail, user folder categories. Processing: Constructs prompt via build_classification_prompt(), calls Gemini API, parses JSON response. Outputs: folder suggestion, reasoning, priority score (0-100), confidence score (0.0-1.0).</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Data Models - EmailWorkflowState TypedDict (lines 218-237)</section>
+        <snippet>TypedDict defines state fields: email_id, user_id, thread_id (LangGraph format: email_{email_id}_{uuid}), email_content, sender, subject, classification (sort_only/needs_response), proposed_folder, classification_reasoning, priority_score, user_decision (approve/reject/change_folder), selected_folder, final_action, error_message.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>EmailProcessingQueue Extensions (lines 203-215)</section>
+        <snippet>Epic 2 extends EmailProcessingQueue with: classification (String, nullable: "sort_only" or "needs_response"), proposed_folder_id (Integer, ForeignKey to folder_categories.id), classification_reasoning (Text, nullable), priority_score (Integer, 0-100 scale), is_priority (Boolean, priority_score >= 70).</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Mail Agent Decision Architecture</title>
+        <section>TelegramHITLWorkflow Pattern</section>
+        <snippet>Novel pattern enables LangGraph workflows to pause for user approval in Telegram and resume exactly where they left off. Workflow pauses in backend, user responds hours later in Telegram app, workflow resumes from PostgreSQL checkpoint. Critical for human-in-the-loop AI control paradigm.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Mail Agent Decision Architecture</title>
+        <section>Technology Stack</section>
+        <snippet>LangGraph 1.0+ for state machine orchestration with persistent checkpointing. FastAPI 0.120.4+ backend. PostgreSQL 18 for database and checkpoint storage. Google Gemini 2.5 Flash for LLM classification (unlimited free tier, 1M tokens/min).</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>Gemini LLM Integration (Story 2.1)</section>
+        <snippet>LLMClient wrapper provides Gemini API access. Configuration: GEMINI_API_KEY (required), GEMINI_MODEL (gemini-2.5-flash), temperature (0.1), max tokens (500), max retries (3). Free tier: 1M tokens/minute unlimited. Automatic retry with exponential backoff for transient errors.</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>Email Classification Prompt Engineering (Story 2.2)</section>
+        <snippet>Classification prompt system achieves 100% accuracy across test categories with ~3.8 second response time. Prompt template: backend/app/prompts/classification_prompt.py. Response model: backend/app/models/classification_response.py. Supports multilingual (RU/UK/EN/DE) classification with few-shot learning (5 examples).</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>EmailProcessingQueue Model (Story 1.7)</section>
+        <snippet>Table stores email metadata: gmail_message_id (unique), gmail_thread_id, sender, subject, received_at, status (pending/processing/approved/rejected/completed). Indexes on user_id, gmail_message_id, status. Cascade delete on user removal for GDPR compliance.</snippet>
+      </doc>
+      <doc>
+        <path>docs/preparation/langgraph-learning-guide.md</path>
+        <title>LangGraph Learning Guide</title>
+        <section>Core Concepts for Story 2.3</section>
+        <snippet>LangGraph workflow = Graph with nodes (steps) and edges (transitions). State = TypedDict shared data flowing through workflow. Checkpointing = PostgreSQL persistence for pause/resume capability. Email arrives → AI classifies → Checkpoint saves → PAUSES → Telegram message → User clicks → RESUMES from checkpoint.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-1-gemini-llm-integration.md</path>
+        <title>Story 2.1: Gemini LLM Integration</title>
+        <section>LLMClient Implementation</section>
+        <snippet>LLMClient class at backend/app/core/llm_client.py provides send_prompt() method with response_format="json" for structured output. Handles automatic retry (exponential backoff), token tracking, error handling (GeminiAPIError). Import: from app.core.llm_client import LLMClient</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-2-email-classification-prompt-engineering.md</path>
+        <title>Story 2.2: Email Classification Prompt Engineering</title>
+        <section>Prompt and Model Reusability</section>
+        <snippet>build_classification_prompt(email_data, user_folders) at backend/app/prompts/classification_prompt.py constructs prompts. ClassificationResponse Pydantic model at backend/app/models/classification_response.py validates JSON responses with fields: suggested_folder (str), reasoning (str, max 300 chars), priority_score (0-100), confidence (0.0-1.0).</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/llm_client.py</path>
+        <kind>service</kind>
+        <symbol>LLMClient</symbol>
+        <lines>49-322</lines>
+        <reason>Gemini API wrapper for classification. Use send_prompt(prompt, response_format="json", operation="classification") or receive_completion(prompt, operation="classification") for JSON responses. Automatic retry with exponential backoff. Token tracking built-in.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/prompts/classification_prompt.py</path>
+        <kind>module</kind>
+        <symbol>build_classification_prompt</symbol>
+        <lines>234-298</lines>
+        <reason>Prompt builder function. Takes email_data dict (sender, subject, body, user_email) and user_folders list. Returns complete prompt string ready for LLMClient. Handles HTML stripping and 500-char truncation automatically.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/classification_response.py</path>
+        <kind>model</kind>
+        <symbol>ClassificationResponse</symbol>
+        <lines>21-140</lines>
+        <reason>Pydantic model for parsing Gemini JSON responses. Fields: suggested_folder (str), reasoning (str, max 300), priority_score (int, 0-100, optional), confidence (float, 0.0-1.0, optional). Built-in validation for all fields.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>15-74</lines>
+        <reason>Database model for email queue. Current fields: gmail_message_id (unique), gmail_thread_id, sender, subject, received_at, status, classification (nullable), proposed_folder_id (nullable), priority_score (default 0). Story 2.3 will add ForeignKey to folder_categories for proposed_folder_id.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/folder_category.py</path>
+        <kind>model</kind>
+        <symbol>FolderCategory</symbol>
+        <lines>15-70</lines>
+        <reason>Folder categories model. Fields: id, user_id, name, gmail_label_id, keywords (ARRAY), color, is_default. Used to load user's folders for classification prompt. Has unique constraint (user_id, name).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>service</kind>
+        <symbol>GmailClient</symbol>
+        <lines>66-100</lines>
+        <reason>Gmail API client wrapper. Use get_message_detail(message_id) to retrieve full email content including body. Automatic OAuth token refresh. Returns dict with sender, subject, body (plain text extracted from HTML), headers, received_at.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/utils/errors.py</path>
+        <kind>module</kind>
+        <symbol>GeminiAPIError, GeminiRateLimitError, GeminiTimeoutError</symbol>
+        <lines>N/A</lines>
+        <reason>Custom exception classes for Gemini API errors. GeminiAPIError (base), GeminiRateLimitError (429), GeminiTimeoutError (timeout), GeminiInvalidRequestError (400/403). Used for error handling in classification service.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <ecosystem name="Python">
+        <package name="langgraph" version=">=0.4.1">Core framework for state machine workflows with nodes and edges</package>
+        <package name="langgraph-checkpoint-postgres" version=">=2.0.19">PostgreSQL checkpointer for workflow state persistence (PostgresSaver.from_conn_string)</package>
+        <package name="pydantic" version=">=2.11.1">Data validation and parsing for ClassificationResponse model</package>
+        <package name="sqlmodel" version=">=0.0.24">ORM for database models (EmailProcessingQueue, FolderCategory)</package>
+        <package name="alembic" version=">=1.13.3">Database migration tool for schema changes</package>
+        <package name="google-generativeai" version=">=0.8.3">Gemini LLM API client (already integrated via LLMClient)</package>
+        <package name="structlog" version=">=25.2.0">Structured logging for classification events</package>
+        <package name="tenacity" version=">=8.2.3">Retry library with exponential backoff (already used in LLMClient)</package>
+        <package name="google-api-python-client" version=">=2.146.0">Gmail API client (for email retrieval via GmailClient)</package>
+        <package name="fastapi" version=">=0.115.12">Web framework for API endpoints (if needed for testing)</package>
+        <package name="celery" version=">=5.4.0">Task queue for email polling integration</package>
+        <package name="pytest" version=">=8.3.5">Testing framework (dev dependency)</package>
+        <package name="pytest-asyncio" version=">=0.25.2">Async support for pytest (dev dependency)</package>
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Story 2.3 creates LangGraph workflow foundation but Telegram integration stubs (send_telegram, await_approval, execute_action, send_confirmation nodes) are incomplete. Full Telegram implementation deferred to Stories 2.6 and 2.7.</constraint>
+    <constraint>Classification type set to "sort_only" in this story. "needs_response" classification deferred to Epic 3 (RAG response generation).</constraint>
+    <constraint>Database migration required: Add 5 new fields to EmailProcessingQueue (classification, proposed_folder_id, classification_reasoning, priority_score, is_priority). Use Alembic: alembic revision -m "Add classification fields to EmailProcessingQueue".</constraint>
+    <constraint>PostgreSQL checkpointer configuration: Use PostgresSaver.from_conn_string(DATABASE_URL, sync=False) for async FastAPI compatibility. Checkpoints table created automatically by langgraph-checkpoint-postgres.</constraint>
+    <constraint>Thread ID format MUST be: f"email_{email_id}_{uuid4()}" for uniqueness across all workflow instances. This format is critical for callback reconnection in Story 2.7.</constraint>
+    <constraint>Workflow MUST pause at await_approval node (no further edges from this node). Resumption mechanism implemented in Story 2.7 via Telegram callbacks.</constraint>
+    <constraint>Error handling strategy: Transient Gemini API errors (rate limits, timeouts) → fallback to "Unclassified" folder, workflow continues. Gmail API errors → propagate exception, workflow cannot continue without email content.</constraint>
+    <constraint>Testing patterns from Story 2.2: Mock Gemini API for unit tests (no real API calls), mark integration tests with @pytest.mark.integration, run integration tests separately with pytest -v --integration flag.</constraint>
+    <constraint>Email polling integration: Modify backend/app/tasks/email_polling.py to call WorkflowInstanceTracker.start_workflow() after saving new email to EmailProcessingQueue. Workflow initiation must be async.</constraint>
+    <constraint>Status transitions: pending (Story 1.7) → processing (classification starts) → awaiting_approval (workflow paused) → completed (Story 2.7 after user approval). Rejected emails return to pending for retry.</constraint>
+    <constraint>Priority detection: is_priority flag set when priority_score >= 70. Priority emails bypass batch notifications (Story 2.8) and trigger immediate Telegram notification (Story 2.9).</constraint>
+    <constraint>Token budget: ~700 tokens per classification (prompt + response). Free tier: 1M tokens/minute unlimited. Email body limited to 500 characters for token efficiency.</constraint>
+    <constraint>File structure: Create new directories: backend/app/workflows/ (for states.py, nodes.py, email_workflow.py) and backend/app/services/workflow_tracker.py. Follow project conventions: use structlog for logging, Pydantic for validation.</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>LLMClient.receive_completion</name>
+      <kind>function</kind>
+      <signature>def receive_completion(self, prompt: str, operation: str = "general") -> Dict</signature>
+      <path>backend/app/core/llm_client.py</path>
+      <description>Send prompt to Gemini and return parsed JSON. Use operation="classification" for metrics tracking. Automatically retries on rate limits/timeouts. Returns dict, parse with ClassificationResponse(**result).</description>
+    </interface>
+    <interface>
+      <name>build_classification_prompt</name>
+      <kind>function</kind>
+      <signature>def build_classification_prompt(email_data: Dict, user_folders: List[Dict]) -> str</signature>
+      <path>backend/app/prompts/classification_prompt.py</path>
+      <description>Constructs classification prompt. email_data requires: sender, subject, body, user_email. user_folders: list of dicts with name, description. Returns complete prompt string ready for LLMClient.</description>
+    </interface>
+    <interface>
+      <name>GmailClient.get_message_detail</name>
+      <kind>method</kind>
+      <signature>async def get_message_detail(self, message_id: str) -> Dict</signature>
+      <path>backend/app/core/gmail_client.py</path>
+      <description>Retrieve full email content from Gmail. Returns dict with sender, subject, body (plain text), headers, received_at, message_id, thread_id. Automatically strips HTML from body.</description>
+    </interface>
+    <interface>
+      <name>PostgresSaver.from_conn_string</name>
+      <kind>class method</kind>
+      <signature>@classmethod from_conn_string(cls, conn_string: str, sync: bool = True) -> PostgresSaver</signature>
+      <path>langgraph.checkpoint.postgres</path>
+      <description>Create PostgreSQL checkpointer for LangGraph. Use sync=False for async FastAPI. conn_string format: postgresql://user:pass@host:port/dbname. Creates checkpoints and checkpoint_writes tables automatically.</description>
+    </interface>
+    <interface>
+      <name>StateGraph.compile</name>
+      <kind>method</kind>
+      <signature>def compile(self, checkpointer: BaseCheckpointSaver = None) -> CompiledGraph</signature>
+      <path>langgraph.graph</path>
+      <description>Compile StateGraph workflow with optional checkpointer for pause/resume. Returns CompiledGraph with ainvoke() method for async execution. Config format: {"configurable": {"thread_id": "unique_id"}}.</description>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue (Database Model)</name>
+      <kind>SQLModel class</kind>
+      <signature>class EmailProcessingQueue(BaseModel, table=True)</signature>
+      <path>backend/app/models/email.py</path>
+      <description>Email queue model. Story 2.3 extends with: classification (String, nullable), proposed_folder_id (Integer, ForeignKey to folder_categories.id), classification_reasoning (Text), priority_score (Integer, 0-100), is_priority (Boolean). Update via SQLAlchemy session.</description>
+    </interface>
+    <interface>
+      <name>FolderCategory (Database Model)</name>
+      <kind>SQLModel class</kind>
+      <signature>class FolderCategory(BaseModel, table=True)</signature>
+      <path>backend/app/models/folder_category.py</path>
+      <description>Folder categories model. Query by user_id to load user's folders for classification prompt. Fields: id, name, gmail_label_id, keywords, color. Has relationship to proposed_folder_id in EmailProcessingQueue.</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Testing follows patterns established in Story 2.2. Unit tests mock external APIs (Gemini, Gmail) to avoid real API calls and ensure fast execution. Integration tests marked with @pytest.mark.integration for optional execution with real APIs. All tests use pytest with async support (pytest-asyncio). Mocking: Use unittest.mock for Gemini API responses and Gmail API calls. Validation: Pydantic models automatically validate response schemas. Structured logging verified in tests. Test coverage target: 80%+ for services, 100% for error paths.</standards>
+    <locations>
+      <location>backend/tests/test_classification_service.py - Unit tests for EmailClassificationService</location>
+      <location>backend/tests/integration/test_email_workflow_integration.py - Integration tests for LangGraph workflow execution</location>
+      <location>backend/tests/integration/test_classification_integration.py - Integration tests for real Gemini API (optional, from Story 2.2)</location>
+      <location>backend/tests/ - Test configuration and fixtures</location>
+    </locations>
+    <ideas>
+      <test id="AC1" description="Verify EmailClassificationService.classify_email() successfully classifies email and returns ClassificationResponse with correct fields">
+        - Mock GmailClient.get_message_detail() to return sample email content
+        - Mock LLMClient.receive_completion() to return valid classification JSON
+        - Call classify_email(email_id, user_id)
+        - Assert ClassificationResponse returned with suggested_folder, reasoning, priority_score
+        - Verify GmailClient and LLMClient called with correct parameters
+      </test>
+      <test id="AC2,AC3,AC4,AC5" description="Test classification service integrates Gmail retrieval, folder loading, prompt construction, and Gemini API call">
+        - Mock GmailClient.get_message_detail() with full email data (sender, subject, body)
+        - Mock database query for FolderCategory (user's folders)
+        - Verify build_classification_prompt() called with email_data and user_folders
+        - Verify LLMClient.receive_completion() called with constructed prompt
+        - Assert classification result matches expected folder
+      </test>
+      <test id="AC6" description="Verify classification results stored in EmailProcessingQueue with all new fields">
+        - Run classification workflow for test email
+        - Query EmailProcessingQueue by email_id
+        - Assert proposed_folder_id matches FolderCategory.id for suggested folder
+        - Assert classification_reasoning stored correctly
+        - Assert priority_score and is_priority fields updated
+      </test>
+      <test id="AC7" description="Test error handling with fallback to Unclassified category">
+        - Mock LLMClient.receive_completion() to raise GeminiAPIError
+        - Call classify_email()
+        - Verify fallback ClassificationResponse returned with suggested_folder="Unclassified"
+        - Verify reasoning indicates "Classification failed due to API error"
+        - Assert workflow continues (no exception propagated)
+      </test>
+      <test id="AC7" description="Test Gmail API error propagation (email inaccessible)">
+        - Mock GmailClient.get_message_detail() to raise HttpError (Gmail API failure)
+        - Call classify_email()
+        - Verify exception propagated (workflow cannot continue without email)
+        - Assert EmailProcessingQueue status NOT updated to awaiting_approval
+      </test>
+      <test id="AC8" description="Verify EmailProcessingQueue status updated to awaiting_approval after successful classification">
+        - Run classification workflow end-to-end
+        - Assert EmailProcessingQueue.status = "awaiting_approval"
+        - Verify classification fields populated
+        - Assert workflow paused at await_approval node
+      </test>
+      <test id="AC9" description="Test LangGraph workflow executes nodes in correct order: extract_context → classify → send_telegram → await_approval">
+        - Create test EmailWorkflowState
+        - Mock all node functions to track execution order
+        - Run workflow.ainvoke()
+        - Assert nodes executed in sequence: extract_context, classify, send_telegram, await_approval
+        - Verify state updated after each node
+      </test>
+      <test id="AC9" description="Verify workflow pauses at await_approval node (no further execution)">
+        - Run workflow with all nodes
+        - Assert workflow stops after await_approval
+        - Verify execute_action node NOT called
+        - Verify send_confirmation node NOT called
+      </test>
+      <test id="AC10" description="Test PostgreSQL checkpoint persistence after classification">
+        - Start workflow with valid email_id and thread_id
+        - Run until await_approval pause
+        - Query PostgreSQL checkpoints table for thread_id
+        - Assert checkpoint record exists with serialized EmailWorkflowState
+        - Verify checkpoint contains classification results
+      </test>
+      <test id="AC10" description="Verify checkpoint storage enables workflow resumption">
+        - Start workflow, pause at await_approval
+        - Verify checkpoint saved with thread_id
+        - Simulate service restart (clear in-memory state)
+        - Load checkpoint from database using thread_id
+        - Verify EmailWorkflowState restored with all classification data
+      </test>
+    </ideas>
+  </tests>
+</story-context>

@@ -28,7 +28,9 @@ from app.core.limiter import limiter
 from app.core.logging import logger
 from app.core.metrics import setup_metrics
 from app.core.middleware import MetricsMiddleware
+from app.core.telegram_bot import TelegramBotClient
 from app.services.database import database_service
+from app.utils.errors import TelegramBotError
 
 # Load environment variables
 load_dotenv()
@@ -41,6 +43,9 @@ load_dotenv()
 #     host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
 # )
 
+# Global Telegram bot instance
+telegram_bot = TelegramBotClient()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -51,7 +56,36 @@ async def lifespan(app: FastAPI):
         version=settings.VERSION,
         api_prefix=settings.API_V1_STR,
     )
+
+    # Initialize and start Telegram bot
+    if settings.TELEGRAM_BOT_TOKEN:
+        try:
+            await telegram_bot.initialize()
+            await telegram_bot.start_polling()
+            logger.info("application_startup", telegram_bot="started")
+        except TelegramBotError as e:
+            logger.error(
+                "telegram_bot_startup_failed",
+                error=str(e),
+                note="Application will continue without Telegram bot",
+            )
+            # Allow app to start in degraded mode without bot
+    else:
+        logger.warning(
+            "telegram_bot_not_configured",
+            note="TELEGRAM_BOT_TOKEN not set - bot will not start",
+        )
+
     yield
+
+    # Stop Telegram bot gracefully
+    if settings.TELEGRAM_BOT_TOKEN:
+        try:
+            await telegram_bot.stop_polling()
+            logger.info("application_shutdown", telegram_bot="stopped")
+        except Exception as e:
+            logger.error("telegram_bot_shutdown_failed", error=str(e))
+
     logger.info("application_shutdown")
 
 

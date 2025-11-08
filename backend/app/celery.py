@@ -39,6 +39,11 @@ celery_app.conf.update(
             "task": "app.tasks.email_tasks.poll_all_users",
             "schedule": float(os.getenv("POLLING_INTERVAL_SECONDS", "120")),  # Every 2 minutes by default
         },
+        "send-batch-notifications-daily": {
+            "task": "app.tasks.notification_tasks.send_batch_notifications",
+            "schedule": crontab(hour=18, minute=0),  # Daily at 6 PM UTC
+            "options": {"queue": "notifications"},
+        },
     },
 )
 

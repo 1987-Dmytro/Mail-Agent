@@ -165,6 +165,15 @@ class Settings:
         self.GMAIL_REDIRECT_URI = os.getenv("GMAIL_REDIRECT_URI", "http://localhost:8000/api/v1/auth/gmail/callback")
         self.ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
 
+        # Telegram Bot Configuration
+        self.TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        self.TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "")
+        self.TELEGRAM_WEBHOOK_URL = os.getenv("TELEGRAM_WEBHOOK_URL", "")
+        self.TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+
+        # Admin API Configuration (Story 2.11 - AC #7)
+        self.ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+
         # Logging Configuration
         self.LOG_DIR = Path(os.getenv("LOG_DIR", "logs"))
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

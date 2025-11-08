@@ -23,6 +23,7 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "python-jose[cryptography]>=3.4.0",
     "python-multipart>=0.0.20",
+    "python-telegram-bot>=21.0",
     "sqlmodel>=0.0.24",
     "structlog>=25.2.0",
     "supabase>=2.15.0",
@@ -46,6 +47,8 @@ dependencies = [
     "cryptography>=43.0.1",
     "celery>=5.4.0",
     "redis>=5.0.1",
+    "google-generativeai>=0.8.3",
+    "tenacity>=8.2.3",
 ]
 
 [project.optional-dependencies]
@@ -56,7 +59,11 @@ test = ["httpx>=0.28.1", "pytest>=8.3.5", "pytest-asyncio>=0.25.2"]
 
 
 [tool.pytest.ini_options]
-markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests with real database",
+    "e2e: marks tests as end-to-end tests with real external APIs (Gmail, Telegram, Gemini)",
+]
 python_files = ["test_*.py", "*_test.py", "tests.py"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

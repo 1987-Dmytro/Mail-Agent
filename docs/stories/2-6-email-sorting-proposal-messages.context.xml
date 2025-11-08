@@ -1,0 +1,252 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>6</storyId>
+    <title>Email Sorting Proposal Messages</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-07</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-6-email-sorting-proposal-messages.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to receive Telegram messages showing email sorting proposals with preview and reasoning</iWant>
+    <soThat>I can review AI suggestions before they are applied</soThat>
+    <tasks>
+- Task 1: Create WorkflowMapping Database Model and Migration (AC: #10, #11, #12)
+- Task 2: Create EmailWorkflowState TypedDict Definition (AC: #1, #6)
+- Task 3: Create Message Template and Formatting Service (AC: #1, #2, #3, #4, #5, #9)
+- Task 4: Implement LangGraph EmailWorkflow State Machine (AC: #6, #13)
+- Task 5: Create Workflow Initialization Service (AC: #13)
+- Task 6: Integrate Workflow with Email Classification Service (AC: #6)
+- Task 7: Handle Message Batching Logic (AC: #8)
+- Task 8: Update TelegramBotClient with send_message_with_buttons (AC: #5)
+- Task 9: Create Unit Tests for Workflow Components (AC: #1-13)
+- Task 10: Create Integration Tests (AC: #6, #13)
+- Task 11: Update Documentation (AC: #1-13)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+AC1: Message template created for sorting proposals with email preview
+AC2: Message includes: sender name, subject line, first 100 characters of body
+AC3: Message includes AI's suggested folder and reasoning (1-2 sentences)
+AC4: Message formatted with clear visual hierarchy (bold for sender/subject)
+AC5: Inline buttons added: [Approve] [Change Folder] [Reject]
+AC6: Service created to send sorting proposal messages to users via Telegram
+AC7: Message ID stored in EmailProcessingQueue for tracking responses
+AC8: Multiple proposals batched into single Telegram message thread when possible
+AC9: Priority emails flagged with ⚠️ icon in message
+AC10: WorkflowMapping table created with schema: email_id (unique), user_id, thread_id (unique), telegram_message_id, workflow_state, created_at, updated_at
+AC11: Indexes created: idx_workflow_mappings_thread_id, idx_workflow_mappings_user_state
+AC12: Database migration applied for WorkflowMapping table
+AC13: WorkflowMapping entry created for each email workflow to enable Telegram callback reconnection
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>EmailWorkflow State Machine (lines 397-508)</section>
+        <snippet>Defines LangGraph state machine with PostgreSQL checkpointing for cross-channel workflow pause/resume. Implements TelegramHITLWorkflow pattern: workflow pauses at await_approval node, user responds in Telegram hours later, workflow resumes using thread_id from WorkflowMapping table. Critical for enabling human-in-the-loop approval workflow.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>WorkflowMapping Table Schema (lines 113-137)</section>
+        <snippet>Defines WorkflowMapping table for linking email_id → thread_id → telegram_message_id. Schema includes unique constraints on email_id and thread_id, indexes for fast lookup. Enables Telegram callback reconnection to correct LangGraph workflow instance.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Message Template Design (lines 365-385)</section>
+        <snippet>Specifies Telegram message structure: sender name (bold), subject (bold), 100-char body preview, AI suggestion, reasoning (1-2 sentences), priority indicator (⚠️ for score >= 70). Inline keyboard layout: [Approve] [Change Folder] [Reject]. Callback data format: approve_{email_id}, change_{email_id}, reject_{email_id}.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture</title>
+        <section>LangGraph Integration (line 76)</section>
+        <snippet>LangGraph chosen for state machine-based workflow orchestration with persistent checkpointing for human-in-the-loop patterns. Architecture implements TelegramHITLWorkflow pattern enabling workflows to pause indefinitely for user approval across channels.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Telegram Bot Integration (FR008, FR010)</section>
+        <snippet>FR008: System shall send email sorting proposals to users via Telegram with email preview and reasoning. FR010: System shall provide interactive approval buttons (Approve/Edit/Reject) for each proposal in Telegram.</snippet>
+      </doc>
+      <doc>
+        <path>docs/preparation/langgraph-learning-guide.md</path>
+        <title>LangGraph Learning Guide</title>
+        <section>Checkpointing for Pause & Resume (lines 70-80)</section>
+        <snippet>PostgreSQL checkpointers enable workflows to pause execution, save state to database, and resume from last checkpoint when external event occurs. Critical for Mail Agent: AI classifies email, workflow pauses, Telegram message sent, user clicks button hours later, workflow resumes from checkpoint.</snippet>
+      </doc>
+      <doc>
+        <path>docs/preparation/telegram-bot-guide.md</path>
+        <title>Telegram Bot API Guide</title>
+        <section>Inline Keyboards (lines 60-80)</section>
+        <snippet>Inline keyboards attach clickable buttons to messages. Example: InlineKeyboardButton with callback_data attribute. When user clicks, bot receives callback query event with callback_data. Critical for approval workflow buttons.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-4-telegram-bot-foundation.md</path>
+        <title>Story 2.4: Telegram Bot Foundation</title>
+        <section>Dev Agent Record</section>
+        <snippet>Completed story establishing TelegramBotClient at backend/app/core/telegram_bot.py. Bot initialized with long polling, supports send_message() method. Command handlers registered for /start and /help. Foundation ready for message sending with buttons.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-5-user-telegram-account-linking.md</path>
+        <title>Story 2.5: User-Telegram Account Linking</title>
+        <section>Dev Agent Record</section>
+        <snippet>Completed story implementing user-Telegram account linking via 6-digit codes. LinkingCodes table created with 15-minute expiration. Users table extended with telegram_id, telegram_username, telegram_linked_at fields. API endpoint POST /telegram/generate-code functional. 17/17 tests passing.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>service</kind>
+        <symbol>TelegramBotClient</symbol>
+        <lines>1-275</lines>
+        <reason>Telegram bot client wrapper with send_message_with_buttons() method already implemented (Story 2.4). Story 2.6 will use this existing method for sending sorting proposals with inline buttons.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/classification.py</path>
+        <kind>service</kind>
+        <symbol>EmailClassificationService</symbol>
+        <lines>36-271</lines>
+        <reason>AI email classification service using Gemini LLM. Returns ClassificationResponse with suggested_folder, reasoning, priority_score. Story 2.6 will integrate workflow invocation after classification completes (Task 6).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/states.py</path>
+        <kind>workflow</kind>
+        <symbol>EmailWorkflowState</symbol>
+        <lines>14-75</lines>
+        <reason>TypedDict state definition for LangGraph workflow. Already includes fields needed for Story 2.6: email_id, user_id, thread_id, sender, subject, proposed_folder, classification_reasoning, priority_score. No changes needed.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/email_workflow.py</path>
+        <kind>workflow</kind>
+        <symbol>create_email_workflow</symbol>
+        <lines>71-175</lines>
+        <reason>LangGraph workflow factory with PostgreSQL checkpointing. Already creates workflow with send_telegram and await_approval nodes as stubs. Story 2.6 will implement these node functions in workflows/nodes.py (Task 4).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/workflow_tracker.py</path>
+        <kind>service</kind>
+        <symbol>WorkflowInstanceTracker</symbol>
+        <lines>35-345</lines>
+        <reason>Workflow lifecycle management service. Generates thread_id format: email_{email_id}_{uuid}. Handles workflow invocation with dependency injection. Already saves classification results to EmailProcessingQueue. Story 2.6 will extend to create WorkflowMapping entries (Task 5).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>31-93</lines>
+        <reason>User model with telegram_id (String(100), unique, indexed), telegram_username, telegram_linked_at fields. Story 2.6 will use telegram_id to send messages via TelegramBotClient.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>16-86</lines>
+        <reason>Email processing queue model with classification, proposed_folder_id, classification_reasoning, priority_score, is_priority fields. Story 2.6 will read these fields to format sorting proposal messages.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python version=">=3.13">
+        <package name="langgraph" version=">=0.4.1" usage="State machine workflows with PostgreSQL checkpointing" />
+        <package name="langgraph-checkpoint-postgres" version=">=2.0.19" usage="PostgreSQL checkpointer for workflow persistence" />
+        <package name="python-telegram-bot" version=">=21.0" usage="Telegram Bot API client for inline keyboards and message sending" />
+        <package name="pydantic" version=">=2.11.1" usage="TypedDict validation and ClassificationResponse model" />
+        <package name="sqlmodel" version=">=0.0.24" usage="ORM for WorkflowMapping, User, EmailProcessingQueue models" />
+        <package name="structlog" version=">=25.2.0" usage="Structured logging for workflow tracking" />
+        <package name="alembic" version=">=1.13.3" usage="Database migrations for WorkflowMapping table" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+1. WorkflowMapping table MUST have unique constraints on email_id and thread_id (Task 1)
+2. Thread ID format MUST be: email_{email_id}_{uuid4()} for uniqueness (Task 5)
+3. Message body preview MUST be truncated to 100 characters (AC #2)
+4. Classification reasoning MUST be 1-2 sentences, max 300 chars (AC #3)
+5. Priority emails (score >= 70) MUST display ⚠️ icon (AC #9)
+6. Callback data format MUST be: {action}_{email_id} for button reconnection (AC #5)
+7. TelegramBotClient.send_message_with_buttons() already exists - DO NOT recreate (Task 8)
+8. Workflow MUST pause at await_approval node without outgoing edges (Task 4)
+9. PostgreSQL checkpointing MUST be enabled for cross-channel resumption (Task 4)
+10. All database paths MUST be project-relative, not absolute paths
+11. Indexes MUST be created on thread_id and (user_id, workflow_state) for fast lookups (AC #11)
+12. WorkflowMapping MUST be created BEFORE workflow invocation for callback tracking (Task 5, AC #13)
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>TelegramBotClient.send_message_with_buttons</name>
+      <kind>Method</kind>
+      <signature>async def send_message_with_buttons(telegram_id: str, text: str, buttons: List[List[InlineKeyboardButton]]) -> str</signature>
+      <path>backend/app/core/telegram_bot.py:149-225</path>
+      <usage>Use this existing method to send sorting proposals with inline buttons. Returns message_id for WorkflowMapping.telegram_message_id storage.</usage>
+    </interface>
+    <interface>
+      <name>EmailClassificationService.classify_email</name>
+      <kind>Method</kind>
+      <signature>async def classify_email(email_id: int, user_id: int) -> ClassificationResponse</signature>
+      <path>backend/app/services/classification.py:68-247</path>
+      <usage>Integrate workflow invocation after this method completes. Returns suggested_folder, reasoning, priority_score needed for Telegram message.</usage>
+    </interface>
+    <interface>
+      <name>WorkflowInstanceTracker.start_workflow</name>
+      <kind>Method</kind>
+      <signature>async def start_workflow(email_id: int, user_id: int) -> str</signature>
+      <path>backend/app/services/workflow_tracker.py:152-265</path>
+      <usage>Generates thread_id, invokes workflow, saves classification results. Extend to create WorkflowMapping entry before invocation (Task 5).</usage>
+    </interface>
+    <interface>
+      <name>EmailWorkflowState</name>
+      <kind>TypedDict</kind>
+      <signature>TypedDict with fields: email_id, user_id, thread_id, sender, subject, email_content, proposed_folder, classification_reasoning, priority_score, user_decision, telegram_message_id, etc.</signature>
+      <path>backend/app/workflows/states.py:14-75</path>
+      <usage>State container passed through all workflow nodes. No modifications needed for Story 2.6.</usage>
+    </interface>
+    <interface>
+      <name>create_email_workflow</name>
+      <kind>Function</kind>
+      <signature>def create_email_workflow() -> CompiledGraph</signature>
+      <path>backend/app/workflows/email_workflow.py:71-175</path>
+      <usage>Factory function creating compiled LangGraph workflow with PostgreSQL checkpointer. Nodes send_telegram and await_approval are stubs - implement in workflows/nodes.py (Task 4).</usage>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Use pytest with async support (pytest-asyncio). Follow AAA pattern: Arrange, Act, Assert.
+Unit tests: In-memory SQLite database, AsyncMock for API clients, test single functions/classes.
+Integration tests: Real database scenarios (or test database), mock external APIs (Gmail, Telegram, Gemini), test full workflow flows.
+Test coverage target: 100% for new code (WorkflowMapping model, message formatter, workflow nodes).
+Mock external dependencies: TelegramBotClient (AsyncMock), GmailClient (AsyncMock), LLMClient (AsyncMock).
+Test naming: test_{function_name}_{scenario} (e.g., test_workflow_mapping_creation, test_format_sorting_proposal_message_with_priority).
+Fixtures: Use pytest fixtures for db session, test user, test email data.
+Run tests: uv run pytest backend/tests/ -v
+    </standards>
+    <locations>
+backend/tests/ - Unit tests directory
+backend/tests/integration/ - Integration tests directory
+backend/tests/test_workflow_mapping.py - Unit tests for WorkflowMapping model (Task 9)
+backend/tests/test_telegram_message_formatter.py - Unit tests for message formatting (Task 9)
+backend/tests/integration/test_email_workflow_integration.py - Integration tests for workflow invocation (Task 10)
+    </locations>
+    <ideas>
+AC1-5: Test message template formatting with various inputs (long body, priority emails, special characters in sender/subject)
+AC6: Test send_telegram workflow node calls TelegramBotClient.send_message_with_buttons() with correct parameters
+AC7: Test telegram_message_id stored in WorkflowMapping after message sent
+AC10-12: Test WorkflowMapping table creation, unique constraints, foreign keys, cascade deletes
+AC11: Test indexes exist and are used (EXPLAIN ANALYZE queries)
+AC13: Test WorkflowMapping entry created before workflow invocation, thread_id matches workflow config
+Test workflow pause at await_approval node (no outgoing edges, state saved to PostgreSQL checkpoints)
+Test workflow checkpoint persistence survives service restart (query checkpoints table directly)
+Test callback data format: approve_{email_id}, reject_{email_id}, change_{email_id}
+Test priority score >= 70 triggers ⚠️ icon in message
+Test body preview truncation to exactly 100 characters
+Test integration with classification service: classify_email() -> workflow invocation -> send_telegram -> pause
+    </ideas>
+  </tests>
+</story-context>

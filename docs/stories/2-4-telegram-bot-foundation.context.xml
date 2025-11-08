@@ -1,0 +1,167 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>4</storyId>
+    <title>Telegram Bot Foundation</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-07</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-4-telegram-bot-foundation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to set up a Telegram bot that can send and receive messages</iWant>
+    <soThat>I can implement the approval workflow interface for email sorting proposals</soThat>
+    <tasks>
+      <task id="1" ac="1,2">Create Telegram Bot and Obtain Token via BotFather</task>
+      <task id="2" ac="3">Install python-telegram-bot library (>=21.0)</task>
+      <task id="3" ac="4,6,7">Create TelegramBotClient wrapper class with send_message methods</task>
+      <task id="4" ac="5,9">Implement basic bot commands (/start, /help, /test)</task>
+      <task id="5" ac="8">Set up long polling mechanism for receiving updates</task>
+      <task id="6" ac="4">Integrate bot into FastAPI startup/shutdown events</task>
+      <task id="7" ac="9">Create backend test endpoint (POST /api/v1/test/telegram)</task>
+      <task id="8" ac="6,7">Add error handling and structured logging for all bot operations</task>
+      <task id="9" ac="3,6,7">Create unit tests for TelegramBotClient and command handlers</task>
+      <task id="10" ac="9">Create integration test for bot connectivity and test endpoint</task>
+      <task id="11" ac="1,2">Update documentation (README.md, .env.example)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Telegram bot created via BotFather and bot token obtained</criterion>
+    <criterion id="2">Bot token stored securely in environment variables</criterion>
+    <criterion id="3">python-telegram-bot library integrated into backend service</criterion>
+    <criterion id="4">Bot initialized and connected on application startup</criterion>
+    <criterion id="5">Basic bot commands implemented (/start, /help)</criterion>
+    <criterion id="6">Bot can send messages to specific Telegram user IDs</criterion>
+    <criterion id="7">Bot can receive messages and button clicks from users</criterion>
+    <criterion id="8">Webhook or polling mechanism set up for receiving updates</criterion>
+    <criterion id="9">Test command created to verify bot connectivity (/test)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="Telegram Bot API (Story 2.4)" lines="1060-1084">
+        Telegram Bot API configuration using python-telegram-bot library. Long polling mode for MVP (30 messages/second rate limit). Bot token stored in TELEGRAM_BOT_TOKEN env var. Application builder pattern with CommandHandler and CallbackQueryHandler registration. Free tier with no usage limits.
+      </doc>
+      <doc path="docs/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="APIs and Interfaces - Bot Commands" lines="358-393">
+        Bot command specifications: /start [code] for account linking (Story 2.5), /help for instructions, /test for connectivity verification. Callback data format for button handling: approve_{email_id}, reject_{email_id}, change_{email_id}, select_folder_{folder_id}_{email_id}. Test endpoint: POST /api/v1/test/telegram with JWT authentication.
+      </doc>
+      <doc path="docs/preparation/telegram-bot-guide.md" title="Telegram Bot API Guide" section="Core Concepts" lines="1-50">
+        python-telegram-bot library guide for Stories 2.4-2.7. Two operation modes: Polling (simpler, for development) and Webhook (production). Epic 2 starts with polling mode using application.run_polling(). Bot token authentication credential. Updates = messages, button clicks, commands from users.
+      </doc>
+      <doc path="docs/architecture.md" title="Decision Architecture" section="Decision Summary" lines="84-88">
+        Telegram bot library decision: python-telegram-bot (latest), official library supporting long polling and inline keyboards. Architecture uses FastAPI + LangGraph template with PostgreSQL checkpointing, Prometheus + Grafana monitoring, and Langfuse for LLM observability.
+      </doc>
+      <doc path="docs/epics.md" title="Epic 2 Story Breakdown" section="Story 2.4: Telegram Bot Foundation" lines="323-341">
+        Story 2.4 acceptance criteria: Create bot via BotFather, secure token storage, integrate python-telegram-bot, initialize on startup, implement /start and /help commands, send/receive messages, setup polling, create /test command. Prerequisites: Story 1.2 (backend service foundation).
+      </doc>
+      <doc path="docs/stories/2-3-ai-email-classification-service.md" title="Story 2.3: AI Email Classification Service" section="Dev Notes - Files to Create" lines="486-508">
+        Previous story (2.3) created LangGraph workflow: EmailWorkflowState TypedDict, workflow nodes (6 nodes including send_telegram stub), email_workflow.py with checkpointer, WorkflowInstanceTracker service. Story 2.4 creates TelegramBotClient that send_telegram node will use. Workflow state includes telegram_message_id and user_decision fields.
+      </doc>
+    </docs>
+    <code>
+      <artifact path="backend/app/main.py" kind="application_entry" symbol="lifespan" lines="45-55" reason="Startup/shutdown event handler where Telegram bot initialization will be integrated">
+        FastAPI application entry point with lifespan context manager. Bot will be initialized in startup event and stopped in shutdown event using async/await pattern.
+      </artifact>
+      <artifact path="backend/app/workflows/nodes.py" kind="workflow_nodes" symbol="send_telegram" lines="186-224" reason="Stub node that will use TelegramBotClient to send approval messages">
+        LangGraph workflow node stub for sending Telegram approval requests. This story creates TelegramBotClient that this node will consume in Story 2.6.
+      </artifact>
+      <artifact path="backend/app/workflows/states.py" kind="state_definition" symbol="EmailWorkflowState" lines="14-74" reason="Workflow state includes telegram_message_id field for tracking sent messages">
+        EmailWorkflowState TypedDict with telegram_message_id and user_decision fields. Bot will populate telegram_message_id when sending messages, and user_decision when handling callbacks.
+      </artifact>
+      <artifact path="backend/app/models/user.py" kind="model" symbol="User" lines="58-59" reason="User model has telegram_id and telegram_username fields for bot integration">
+        User model with telegram_id (unique, indexed) and telegram_username fields. Bot will query users by telegram_id to route messages. Story 2.5 implements linking logic.
+      </artifact>
+      <artifact path="backend/app/core/config.py" kind="configuration" symbol="Settings" lines="1-100" reason="Configuration pattern for loading environment variables using python-dotenv">
+        Environment configuration loader. Bot token (TELEGRAM_BOT_TOKEN) will follow same pattern: load from .env, parse in Settings class, access via settings singleton.
+      </artifact>
+      <artifact path="backend/app/utils/errors.py" kind="error_handling" symbol="GmailAPIError" lines="97-116" reason="Error handling pattern for external API errors">
+        Custom exception classes for API errors. Bot will add TelegramBotError, TelegramSendError, TelegramUserBlockedError following same pattern.
+      </artifact>
+      <artifact path="backend/app/core/logging.py" kind="logging" reason="Structured logging configuration using structlog">
+        Structured logging setup for the application. Bot operations will use same logger pattern with structured context (telegram_id, message_id, event type).
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <new_dependency name="python-telegram-bot" version=">=21.0" reason="Official Telegram Bot API library with async support for FastAPI integration (Story 2.4 adds this)" />
+        <existing name="fastapi" version=">=0.115.12" reason="Web framework for REST API and test endpoint" />
+        <existing name="uvicorn" version=">=0.34.0" reason="ASGI server for running FastAPI with async support" />
+        <existing name="python-dotenv" version=">=1.1.0" reason="Environment variable loading for bot token" />
+        <existing name="pydantic" version=">=2.11.1" reason="Data validation for request/response models" />
+        <existing name="structlog" version=">=25.2.0" reason="Structured logging for bot operations" />
+        <existing name="sqlmodel" version=">=0.0.24" reason="ORM for querying User.telegram_id" />
+        <existing name="alembic" version=">=1.13.3" reason="Database migrations (if schema changes needed)" />
+      </python>
+      <frameworks>
+        <framework name="python-telegram-bot" purpose="Telegram Bot API wrapper with async handlers and inline keyboards" />
+        <framework name="FastAPI" purpose="Async web framework for backend API and bot integration" />
+      </frameworks>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use python-telegram-bot library (>=21.0) with async/await support for FastAPI integration</constraint>
+    <constraint>Long polling mode (getUpdates) for MVP - webhook mode deferred to production</constraint>
+    <constraint>Bot token must be stored in environment variable TELEGRAM_BOT_TOKEN, never logged or exposed in responses</constraint>
+    <constraint>All bot operations must use structured logging with context: telegram_id, message_id, event type</constraint>
+    <constraint>Error handling must distinguish between transient errors (network) and permanent errors (user blocked bot)</constraint>
+    <constraint>Command handlers must be async functions compatible with python-telegram-bot's Update/Context pattern</constraint>
+    <constraint>Bot must initialize on FastAPI startup and shutdown gracefully on application stop</constraint>
+    <constraint>Message format: Markdown parsing enabled, 4096 character limit per Telegram API</constraint>
+    <constraint>Rate limits: 30 messages/second per bot, 20 messages/minute per chat (Telegram API limits)</constraint>
+    <constraint>Test endpoint must require JWT authentication and check for linked telegram_id before sending</constraint>
+    <constraint>Follow existing codebase patterns: custom exceptions in utils/errors.py, configuration in core/config.py</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="TelegramBotClient.send_message" kind="method" signature="async def send_message(telegram_id: str, text: str) -> str" path="backend/app/core/telegram_bot.py">
+      Async method to send text message to specific Telegram user. Returns message_id for tracking. Raises TelegramSendError on network failures, TelegramUserBlockedError if user blocked bot.
+    </interface>
+    <interface name="TelegramBotClient.send_message_with_buttons" kind="method" signature="async def send_message_with_buttons(telegram_id: str, text: str, buttons: List[List[InlineKeyboardButton]]) -> str" path="backend/app/core/telegram_bot.py">
+      Async method to send message with inline keyboard buttons (for approval workflow). Returns message_id. Used by Story 2.6 for email approval messages.
+    </interface>
+    <interface name="TelegramBotClient.initialize" kind="method" signature="async def initialize() -> None" path="backend/app/core/telegram_bot.py">
+      Initialize bot application, build Application instance, register command handlers. Called in FastAPI startup event.
+    </interface>
+    <interface name="TelegramBotClient.start_polling" kind="method" signature="async def start_polling() -> None" path="backend/app/core/telegram_bot.py">
+      Start long polling for updates. Listens for messages and callback queries (button clicks). Called after initialize() in startup event.
+    </interface>
+    <interface name="TelegramBotClient.stop_polling" kind="method" signature="async def stop_polling() -> None" path="backend/app/core/telegram_bot.py">
+      Stop polling gracefully, shutdown application. Called in FastAPI shutdown event to clean up resources.
+    </interface>
+    <interface name="POST /api/v1/test/telegram" kind="rest_endpoint" signature="POST /api/v1/test/telegram (JWT auth required)" path="backend/app/api/v1/telegram_test.py">
+      Test endpoint for verifying Telegram bot connectivity. Requires authenticated user with linked telegram_id. Sends test message and returns message_id and timestamp.
+    </interface>
+    <interface name="handle_start_command" kind="command_handler" signature="async def handle_start_command(update: Update, context: ContextTypes.DEFAULT_TYPE)" path="backend/app/api/telegram_handlers.py">
+      Bot command handler for /start [code]. Sends welcome message. Code linking logic implemented in Story 2.5.
+    </interface>
+    <interface name="handle_help_command" kind="command_handler" signature="async def handle_help_command(update: Update, context: ContextTypes.DEFAULT_TYPE)" path="backend/app/api/telegram_handlers.py">
+      Bot command handler for /help. Displays available commands and usage instructions.
+    </interface>
+    <interface name="handle_test_command" kind="command_handler" signature="async def handle_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE)" path="backend/app/api/telegram_handlers.py">
+      Bot command handler for /test. Verifies bot connectivity and sends confirmation with user's Telegram ID.
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      Project uses pytest with pytest-asyncio for async test support. Unit tests use AsyncMock and MagicMock from unittest.mock to mock external dependencies (Telegram API, database). Integration tests use TestClient (FastAPI) for endpoint testing and can optionally make real API calls with @pytest.mark.slow and environment variable checks. Tests follow AAA pattern (Arrange, Act, Assert). Fixtures defined in conftest.py provide db_session, mock clients. Test files named test_*.py in backend/tests/ for unit tests, backend/tests/integration/ for integration tests. Run with: uv run pytest -v for all tests, uv run pytest -m integration for integration only.
+    </standards>
+    <locations>
+      <location>backend/tests/test_telegram_bot.py</location>
+      <location>backend/tests/integration/test_telegram_bot_integration.py</location>
+    </locations>
+    <ideas>
+      <test_idea ac="3,4" type="unit">test_telegram_bot_initialization - Mock Application.builder().token().build(), verify TelegramBotClient.initialize() succeeds, verify application and bot attributes set</test_idea>
+      <test_idea ac="6" type="unit">test_send_message_success - Mock bot.send_message() to return mock message with message_id, call send_message(telegram_id="123", text="Test"), verify message sent with correct chat_id and text, verify message_id returned</test_idea>
+      <test_idea ac="6" type="unit">test_send_message_user_blocked - Mock bot.send_message() to raise telegram.error.Forbidden, call send_message(), verify TelegramUserBlockedError raised, verify error logged</test_idea>
+      <test_idea ac="5" type="unit">test_start_command_handler - Mock Update object with /start command, call handle_start_command(update, context), verify welcome message sent</test_idea>
+      <test_idea ac="5" type="unit">test_help_command_handler - Mock Update object with /help command, call handle_help_command(update, context), verify help message sent with command list</test_idea>
+      <test_idea ac="9" type="unit">test_test_command_handler - Mock Update object with /test command, call handle_test_command(update, context), verify test confirmation message sent with user's Telegram ID</test_idea>
+      <test_idea ac="4,8" type="integration">test_bot_startup_and_polling - Start FastAPI app with real TelegramBotClient, verify bot initializes without errors, verify long polling starts successfully, stop bot gracefully, uses mock Telegram API (no real bot token required)</test_idea>
+      <test_idea ac="9" type="integration">test_send_test_message_endpoint - Create test user with telegram_id set, mock TelegramBotClient.send_message(), send POST request to /api/v1/test/telegram, verify 200 OK response with message_id, verify response includes sent_at timestamp</test_idea>
+      <test_idea ac="9" type="integration">test_send_message_no_telegram_linked - Create test user WITHOUT telegram_id, send POST request to /api/v1/test/telegram, verify 400 Bad Request with "not linked" error message</test_idea>
+    </ideas>
+  </tests>
+</story-context>

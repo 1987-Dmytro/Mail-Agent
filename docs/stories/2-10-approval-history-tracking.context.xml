@@ -1,0 +1,214 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>10</storyId>
+    <title>Approval History Tracking</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-10-approval-history-tracking.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to track all user approval decisions</iWant>
+    <soThat>I can monitor accuracy and potentially learn from user patterns in the future</soThat>
+    <tasks>
+      <task id="1" ac="1,7">Create ApprovalHistory Database Model - Create SQLModel class with schema (id, user_id, email_queue_id, action_type, ai_suggested_folder_id, user_selected_folder_id, approved, timestamp), add compound indexes for efficient queries, create Alembic migration</task>
+      <task id="2" ac="2,3,4,5">Create ApprovalHistory Service - Implement ApprovalHistoryService with methods: record_decision() for recording approval events, get_user_history() for querying with filters, get_approval_statistics() for calculating approval rates</task>
+      <task id="3" ac="2,3,4">Integrate ApprovalHistory Recording into Workflow - Modify execute_action node in EmailWorkflow to call ApprovalHistoryService.record_decision() after Gmail label application, handle errors gracefully</task>
+      <task id="4" ac="6">Create Statistics API Endpoint - Implement GET /api/v1/stats/approvals with JWT authentication, return total_decisions, approval_rate, top_folders aggregation</task>
+      <task id="5" ac="8">Document Privacy Considerations - Add comprehensive privacy documentation covering data retention policy, user rights (GDPR), data minimization, security measures, future enhancements</task>
+      <task id="6" ac="1,2,3,4,5,6,7,8">Create Unit Tests - Test model creation, decision recording (approve/reject/change_folder), history filtering, statistics calculation (6 tests total)</task>
+      <task id="7" ac="2,3,4,5,6,7">Create Integration Tests - Test approval recording in workflow, statistics endpoint data accuracy, database index performance (3 tests total)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">ApprovalHistory table created with schema: id, user_id, email_queue_id, action_type, ai_suggested_folder_id, user_selected_folder_id, approved, timestamp</criterion>
+    <criterion id="2">Approval event recorded when user clicks [Approve] button (approved=true, user_selected_folder_id = ai_suggested_folder_id)</criterion>
+    <criterion id="3">Rejection event recorded when user clicks [Reject] button (approved=false)</criterion>
+    <criterion id="4">Folder change event recorded with both AI suggestion and user selection (approved=true, different folder IDs)</criterion>
+    <criterion id="5">History queryable by user_id, date range (from/to), and action_type filter</criterion>
+    <criterion id="6">Statistics endpoint created: GET /api/v1/stats/approvals returns total_decisions, approved, rejected, folder_changed, approval_rate, top_folders</criterion>
+    <criterion id="7">Database indexes added for efficient queries: compound index (user_id, timestamp), index on action_type</criterion>
+    <criterion id="8">Privacy considerations documented: data retention policy, user rights (GDPR), data minimization, security measures</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="Data Models - ApprovalHistory Table">
+        Schema definition for ApprovalHistory table with fields: id, user_id, email_queue_id, action_type, ai_suggested_folder_id, user_selected_folder_id, approved, timestamp. Includes compound index (user_id, timestamp) for efficient queries. Foreign key cascades: user (CASCADE), email (SET NULL), folders (SET NULL).
+      </doc>
+      <doc path="docs/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="APIs - GET /api/v1/stats/approvals">
+        Statistics endpoint specification: Returns total_decisions, approved, rejected, folder_changed counts, approval_rate calculation ((approved + changed) / total), top_folders aggregation (top 5 folders by usage). Requires JWT authentication, supports date range filters (from/to query params).
+      </doc>
+      <doc path="docs/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="Workflows - execute_action Node Integration">
+        ApprovalHistory recording integrated into execute_action workflow node after Gmail label application. Calls ApprovalHistoryService.record_decision() with parameters: user_id, email_queue_id, action_type, ai_suggested_folder_id, user_selected_folder_id. Error handling: Log but don't block workflow if history recording fails.
+      </doc>
+      <doc path="docs/tech-spec-epic-2.md" title="Epic 2 Technical Specification" section="Security - Privacy and GDPR">
+        Privacy requirements: Data retention policy (90-day auto-delete post-MVP), user rights (access via stats endpoint, deletion via account CASCADE, data portability via JSON export), data minimization (no email content stored), multi-tenant isolation (user_id filtering). Compliance with GDPR Articles 5, 15-17, 20.
+      </doc>
+      <doc path="docs/architecture.md" title="Decision Architecture" section="Project Structure - Database Models">
+        Standard project structure places models in backend/app/models/ directory. Each model in separate file (approval_history.py). SQLAlchemy ORM with relationships, indexes defined in __table_args__. Alembic migrations in backend/alembic/versions/.
+      </doc>
+      <doc path="docs/architecture.md" title="Decision Architecture" section="Project Structure - Services">
+        Service layer pattern: Services in backend/app/services/ directory. Each service class with __init__(db: AsyncSession), async methods, structured logging. Example: PriorityDetectionService demonstrates standard pattern.
+      </doc>
+      <doc path="docs/architecture.md" title="Decision Architecture" section="Project Structure - API Endpoints">
+        FastAPI routers in backend/app/api/v1/ directory. Stats endpoints in stats.py router file. Routers included in main api.py with prefix and tags. JWT authentication via get_current_user dependency.
+      </doc>
+      <doc path="docs/stories/2-9-priority-email-detection.md" title="Story 2.9 - Priority Email Detection" section="Dev Notes - Service Layer Pattern">
+        Reference implementation: PriorityDetectionService follows standard pattern with __init__(db: AsyncSession), async methods, structured logging (self.logger.info). Located at backend/app/services/priority_detection.py. Similar pattern to be used for ApprovalHistoryService.
+      </doc>
+      <doc path="docs/stories/2-9-priority-email-detection.md" title="Story 2.9 - Priority Email Detection" section="Dev Notes - Database Migration Pattern">
+        Alembic migration pattern: Use 'alembic revision -m "description"', update migration file with table creation SQL, apply with 'alembic upgrade head'. Previous migration: f8b04f852f1f_add_is_priority_sender_to_folder_categories.py.
+      </doc>
+    </docs>
+    <code>
+      <artifact path="backend/app/models/workflow_mapping.py" kind="model" symbol="WorkflowMapping" lines="16-88" reason="Reference model pattern: SQLModel with Field(), indexes in __table_args__, relationships with TYPE_CHECKING. ApprovalHistory follows same structure.">
+        Uses BaseModel parent, Field() for columns with constraints (unique, nullable, index, foreign_key, ondelete), datetime with func.now()/onupdate, __table_args__ for compound indexes. Demonstrates standard model pattern for Story 2.10.
+      </artifact>
+      <artifact path="backend/app/services/priority_detection.py" kind="service" symbol="PriorityDetectionService" lines="43-143" reason="Reference service pattern: Class with __init__(db: AsyncSession), async methods, structured logging via structlog. ApprovalHistoryService will follow identical pattern.">
+        Standard service implementation: __init__ stores db session, async methods (detect_priority), structlog logger with context fields, comprehensive docstrings, database queries via SQLAlchemy select(), error handling with try/except and logging.
+      </artifact>
+      <artifact path="backend/app/workflows/nodes.py" kind="workflow" symbol="execute_action" lines="503-680" reason="Integration point for ApprovalHistory recording. After Gmail label application (line 579, 653), call ApprovalHistoryService.record_decision() before db.commit(). Three decision paths: approve (line 541), reject (line 602), change_folder (line 615).">
+        Workflow node handles user decisions: approve applies proposed_folder, reject skips Gmail API, change_folder applies selected_folder. ApprovalHistory recording must be added after Gmail label success, before status update commit. Handle errors gracefully (log but don't block workflow).
+      </artifact>
+      <artifact path="backend/app/api/v1/api.py" kind="api" symbol="api_router" lines="18-27" reason="Reference pattern for including stats router. Stats router will be imported (from app.api.v1.stats import router as stats_router) and included with prefix='/stats', tags=['stats'].">
+        Standard router inclusion pattern: Import router module, call api_router.include_router() with prefix and tags. All routers follow same pattern for consistency.
+      </artifact>
+      <artifact path="backend/app/models/folder_category.py" kind="model" symbol="FolderCategory" lines="1-50" reason="Referenced by ApprovalHistory foreign keys (ai_suggested_folder_id, user_selected_folder_id). Need to understand existing FolderCategory schema for relationships.">
+        FolderCategory table has: id, user_id, name, gmail_label_id, keywords, is_priority_sender (added in Story 2.9). ApprovalHistory references this twice (AI suggestion vs user selection).
+      </artifact>
+      <artifact path="backend/app/models/email.py" kind="model" symbol="EmailProcessingQueue" lines="1-80" reason="Referenced by ApprovalHistory foreign key (email_queue_id). Need to understand EmailProcessingQueue schema for relationship setup.">
+        EmailProcessingQueue table tracks email processing state. ApprovalHistory links to this via email_queue_id with ondelete='SET NULL' (preserve history even if email deleted).
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="sqlmodel" version=">=0.0.24" reason="ORM for ApprovalHistory model, already installed from Epic 1">SQLModel with SQLAlchemy 2.x async support. Used for all database models.</package>
+        <package name="fastapi" version=">=0.115.12" reason="API framework for statistics endpoint, already installed from Epic 1">FastAPI for GET /api/v1/stats/approvals endpoint with JWT authentication.</package>
+        <package name="alembic" version=">=1.13.3" reason="Database migrations for ApprovalHistory table, already installed from Epic 1">Alembic for creating and applying database schema migrations.</package>
+        <package name="structlog" version=">=25.2.0" reason="Structured logging in ApprovalHistoryService, already installed from Epic 1">Structlog for consistent logging across services with context fields.</package>
+      </python>
+      <database>
+        <dependency name="PostgreSQL" version="18" reason="Database for ApprovalHistory table storage">Already configured in Epic 1. ApprovalHistory table will be created via Alembic migration.</dependency>
+      </database>
+      <note>No new dependencies required. All packages already installed from previous stories in Epics 1-2.</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <development>
+      <constraint>Follow SQLModel pattern from WorkflowMapping: Use Field() for all columns, indexes in __table_args__, relationships with TYPE_CHECKING for circular import prevention</constraint>
+      <constraint>Follow service pattern from PriorityDetectionService: Class with __init__(db: AsyncSession), async methods, structlog logging, comprehensive docstrings, error handling with try/except</constraint>
+      <constraint>Database migration naming: Use Alembic convention 'alembic revision -m "add approval_history table"' to generate migration file with hash prefix</constraint>
+      <constraint>Foreign key cascades: user_id (CASCADE delete), email_queue_id (SET NULL), folder IDs (SET NULL). Rationale: preserve history even if email/folders deleted, but delete all history when user account deleted</constraint>
+      <constraint>Compound index required: (user_id, timestamp) for efficient date-range queries on user history. Single index on action_type for filtering by decision type</constraint>
+    </development>
+    <testing>
+      <constraint>Unit test coverage: Minimum 80% for ApprovalHistoryService methods (record_decision, get_user_history, get_approval_statistics)</constraint>
+      <constraint>Integration test database: Use real PostgreSQL test database (DATABASE_URL env var), not mocks. Verify indexes used via EXPLAIN ANALYZE</constraint>
+      <constraint>Test fixtures: Reuse existing fixtures from tests/conftest.py (db_session, test_user, test_email_queue). Create new fixtures for ApprovalHistory test data</constraint>
+      <constraint>Test isolation: Each test creates and cleans up its own ApprovalHistory records. No shared state between tests</constraint>
+    </testing>
+    <security>
+      <constraint>Multi-tenant isolation: ALL queries must filter by authenticated user's user_id. NEVER allow cross-user data access in statistics endpoint</constraint>
+      <constraint>Privacy: No email content stored in ApprovalHistory. Only metadata (email_queue_id, action_type, folder IDs, timestamp). Email body never logged</constraint>
+      <constraint>GDPR compliance: Implement CASCADE delete on user_id (user account deletion removes all approval history). Document 90-day retention policy in model docstring</constraint>
+    </security>
+    <performance>
+      <constraint>Query optimization: Use compound index (user_id, timestamp) for all date-range queries. Monitor query execution time &lt; 50ms for 1000 records</constraint>
+      <constraint>Statistics calculation: Calculate approval_rate as (approved_count + folder_changed_count) / total_decisions. Use SQL aggregation for top_folders instead of Python loops</constraint>
+      <constraint>Workflow integration: ApprovalHistory recording must NOT block workflow. Log errors but continue workflow if recording fails (error handling in execute_action node)</constraint>
+    </performance>
+  </constraints>
+
+  <interfaces>
+    <api>
+      <endpoint method="GET" path="/api/v1/stats/approvals" auth="JWT Bearer token">
+        <description>Get user's approval decision statistics with optional date range filtering</description>
+        <query_params>
+          <param name="from" type="datetime" required="false">Start date for history query (ISO 8601 format: 2025-11-01T00:00:00Z)</param>
+          <param name="to" type="datetime" required="false">End date for history query (ISO 8601 format: 2025-11-30T23:59:59Z)</param>
+        </query_params>
+        <response_200>
+          {
+            "success": true,
+            "data": {
+              "total_decisions": 150,
+              "approved": 120,
+              "rejected": 20,
+              "folder_changed": 10,
+              "approval_rate": 0.80,
+              "top_folders": [
+                {"name": "Government", "count": 45},
+                {"name": "Clients", "count": 35}
+              ]
+            }
+          }
+        </response_200>
+      </endpoint>
+    </api>
+    <database>
+      <table name="approval_history">
+        <schema>
+          id: Integer (PK, auto-increment)
+          user_id: Integer (FK users.id, CASCADE, indexed, NOT NULL)
+          email_queue_id: Integer (FK email_processing_queue.id, SET NULL, nullable)
+          action_type: String(50) (approve, reject, change_folder, NOT NULL)
+          ai_suggested_folder_id: Integer (FK folder_categories.id, SET NULL, nullable)
+          user_selected_folder_id: Integer (FK folder_categories.id, SET NULL, nullable)
+          approved: Boolean (True for approve/change, False for reject, NOT NULL)
+          timestamp: DateTime(timezone=True) (server_default=now(), indexed, NOT NULL)
+        </schema>
+        <indexes>
+          idx_approval_history_user_timestamp: Compound index (user_id, timestamp) for date-range queries
+          idx_approval_history_action_type: Single index (action_type) for filtering by decision type (optional, may be added post-MVP)
+        </indexes>
+      </table>
+    </database>
+    <service>
+      <class name="ApprovalHistoryService">
+        <method name="__init__(db: AsyncSession)">Initialize service with database session</method>
+        <method name="record_decision(user_id: int, email_queue_id: int, action_type: str, ai_suggested_folder_id: int | None, user_selected_folder_id: int | None) -> ApprovalHistory">
+          Record approval decision. Derives 'approved' flag from action_type. For 'approve', user_selected_folder_id = ai_suggested_folder_id. Returns created ApprovalHistory record.
+        </method>
+        <method name="get_user_history(user_id: int, from_date: datetime | None, to_date: datetime | None, action_type: str | None) -> List[ApprovalHistory]">
+          Query user's approval history with optional filters. Returns list ordered by timestamp descending.
+        </method>
+        <method name="get_approval_statistics(user_id: int, from_date: datetime | None, to_date: datetime | None) -> Dict[str, Any]">
+          Calculate approval statistics. Returns dict with total_decisions, approved, rejected, folder_changed, approval_rate, top_folders.
+        </method>
+      </class>
+    </service>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <framework>pytest with pytest-asyncio for async test support. Use pytest fixtures from tests/conftest.py for database session and test data. Minimum 80% code coverage for Epic 2 code measured via pytest-cov.</framework>
+      <patterns>
+        Unit tests: Test individual methods in isolation with mocked dependencies. Integration tests: Use real PostgreSQL test database with full workflow execution. Test naming: test_{method_name}_{scenario} (e.g., test_record_decision_approve_action).
+      </patterns>
+      <database>
+        Integration tests use DATABASE_URL environment variable pointing to test PostgreSQL database. Each test creates and tears down test data for isolation. Use EXPLAIN ANALYZE to verify index usage in performance tests.
+      </database>
+    </standards>
+    <locations>
+      <unit>backend/tests/test_approval_history.py - 6 unit tests covering model creation, decision recording (approve/reject/change), history filtering, statistics calculation</unit>
+      <integration>backend/tests/integration/test_approval_history_integration.py - 3 integration tests covering workflow recording, statistics endpoint, index performance</integration>
+    </locations>
+    <ideas>
+      <test id="1" ac="1">test_approval_history_model_creation - Create ApprovalHistory instance, verify all fields populated, verify timestamp auto-generated (UTC), verify foreign key relationships work</test>
+      <test id="2" ac="2">test_record_approve_decision - Call record_decision(action_type='approve'), verify approved=True, verify user_selected_folder_id equals ai_suggested_folder_id, verify record committed</test>
+      <test id="3" ac="3">test_record_reject_decision - Call record_decision(action_type='reject'), verify approved=False, verify user_selected_folder_id can be None</test>
+      <test id="4" ac="4">test_record_change_folder_decision - Call record_decision(action_type='change_folder', user_selected_folder_id=different_id), verify approved=True, verify ai_suggested != user_selected</test>
+      <test id="5" ac="5">test_get_user_history_with_filters - Create 10 test records with varying dates/action_types, test from_date/to_date/action_type filters, verify only matching records returned</test>
+      <test id="6" ac="6">test_get_approval_statistics_calculation - Create test data (10 approve, 3 reject, 2 change), call get_approval_statistics(), verify total_decisions=15, approval_rate=0.80</test>
+      <test id="7" ac="2,3,4">test_approval_recording_in_workflow - Create test user/email/folders, trigger EmailWorkflow with approve decision, verify ApprovalHistory record created with correct action_type and approved flag</test>
+      <test id="8" ac="6">test_statistics_endpoint_returns_correct_data - Create 20 test approval records, call GET /api/v1/stats/approvals with JWT token, verify HTTP 200, verify response structure and calculations</test>
+      <test id="9" ac="7">test_database_indexes_used_for_queries - Create 1000 ApprovalHistory records, query with (user_id, timestamp) filter, use EXPLAIN ANALYZE to verify idx_approval_history_user_timestamp used, assert query time &lt; 50ms</test>
+    </ideas>
+  </tests>
+</story-context>

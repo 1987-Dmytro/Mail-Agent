@@ -1,0 +1,237 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>1</storyId>
+    <title>Gemini LLM Integration</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-06</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-1-gemini-llm-integration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to integrate Google Gemini 2.5 Flash API into the backend service</iWant>
+    <soThat>I can use AI for email classification and response generation</soThat>
+    <tasks>
+      - Task 1: Obtain Gemini API Key and Configure Environment (AC: #1)
+      - Task 2: Install Gemini Python SDK (AC: #2)
+      - Task 3: Create LLM Client Wrapper (AC: #3, #4, #9)
+      - Task 4: Implement Error Handling (AC: #5)
+      - Task 5: Implement Token Usage Tracking (AC: #6)
+      - Task 6: Create Unit Tests for LLM Client (AC: #2-5, #9)
+      - Task 7: Create Test Endpoint for Gemini Connectivity (AC: #8)
+      - Task 8: Document Fallback Strategy (AC: #7)
+      - Task 9: Integration Test for Gemini API (AC: #1-9)
+      - Task 10: Update Documentation and Verify Epic 2 Readiness
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Gemini API key obtained from Google AI Studio and stored in environment variables</criterion>
+    <criterion id="AC2">Gemini Python SDK (google-generativeai) integrated into backend service</criterion>
+    <criterion id="AC3">Model configured: gemini-2.5-flash (or gemini-2.5-flash-latest alias)</criterion>
+    <criterion id="AC4">Basic prompt-response method created (send_prompt, receive_completion)</criterion>
+    <criterion id="AC5">Error handling implemented for API failures, rate limits, and timeouts</criterion>
+    <criterion id="AC6">Token usage tracking implemented for monitoring free tier usage (1M tokens/minute)</criterion>
+    <criterion id="AC7">Fallback strategy documented for Gemini unavailability (Claude/GPT-4 alternatives)</criterion>
+    <criterion id="AC8">Test endpoint created to verify Gemini connectivity (POST /test/gemini)</criterion>
+    <criterion id="AC9">Response parsing implemented to extract structured data from LLM responses (JSON mode)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Dependencies and Integrations - Google Gemini API (lines 1027-1058)</section>
+        <snippet>Gemini 2.5 Flash configuration details: Service is Google AI Studio/Vertex AI, model gemini-2.5-flash, API key authentication, 1M tokens/minute free tier. Includes JSON mode configuration with response_schema for structured classification output (suggested_folder, reasoning, priority_score, confidence).</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Goals and Background Context (lines 13-19)</section>
+        <snippet>System must deliver contextually appropriate multilingual responses across 4 languages (Russian, Ukrainian, English, German) without manual context review. Operates on zero-cost infrastructure using free-tier services (Google Gemini 2.5 Flash with unlimited free tier).</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture</title>
+        <section>Executive Summary and Decision Summary</section>
+        <snippet>LangGraph-orchestrated AI agent system with Google Gemini 2.5 Flash as LLM provider (true unlimited free tier, 1M tokens/min, excellent multilingual support). FastAPI + LangGraph template provides structured logging, Prometheus monitoring, and Langfuse for LLM observability.</snippet>
+      </doc>
+      <doc>
+        <path>docs/preparation/prompt-engineering-guide.md</path>
+        <title>Prompt Engineering Guide for Epic 2</title>
+        <section>Core Prompt Engineering Principles (lines 20-49)</section>
+        <snippet>Use Gemini's JSON mode for reliable structured output with response_mime_type="application/json". Clear instructions and few-shot examples guide classification. Critical for Story 2.2 email classification implementation.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 2.1 - Gemini LLM Integration</section>
+        <snippet>Foundation story for Epic 2 (AI Sorting Engine). Establishes Gemini API client that will be used by Story 2.2 (email classification), 2.3 (AI classification service), and Epic 3 (RAG response generation).</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/1-10-integration-testing-and-documentation.md</path>
+        <title>Story 1.10 - Integration Testing Patterns</title>
+        <section>Dev Notes - Testing Patterns Established</section>
+        <snippet>Comprehensive testing with pytest-asyncio and unittest.mock. Use AsyncMock for async API calls, mock external responses for isolation, create integration tests for optional real API validation. Test error scenarios including rate limits and timeouts.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>service</kind>
+        <symbol>GmailClient</symbol>
+        <lines>1-50</lines>
+        <reason>Reference pattern for LLMClient architecture. Shows API client wrapper structure with error handling, structured logging, and async operations. LLMClient should follow same pattern: initialization, configuration, method wrappers, custom exceptions.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/utils/errors.py</path>
+        <kind>module</kind>
+        <symbol>QuotaExceededError, InvalidRecipientError, MessageTooLargeError</symbol>
+        <lines>1-95</lines>
+        <reason>Existing custom exception patterns. Create Gemini-specific exceptions (GeminiAPIError, GeminiRateLimitError, GeminiTimeoutError, GeminiInvalidRequestError) following same structure with docstrings and attributes.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/config.py</path>
+        <kind>module</kind>
+        <symbol>load_env_file, get_environment</symbol>
+        <lines>1-80</lines>
+        <reason>Environment variable management using python-dotenv. LLMClient should load GEMINI_API_KEY and GEMINI_MODEL from environment using same patterns. Already configured in Story 1.2.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/test.py</path>
+        <kind>api</kind>
+        <symbol>router, send_test_email</symbol>
+        <lines>1-226</lines>
+        <reason>Existing test endpoint structure. Create POST /test/gemini endpoint following same pattern: Pydantic request/response models, authentication with get_current_user, structured logging, HTTP exception handling.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/logging.py</path>
+        <kind>module</kind>
+        <symbol>logger, JsonlFileHandler</symbol>
+        <lines>1-50</lines>
+        <reason>Structured logging configuration with structlog. Use logger.info() for LLM calls with fields: model_name, prompt_tokens, completion_tokens, latency_ms. Pattern established in Story 1.6.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/metrics.py</path>
+        <kind>module</kind>
+        <symbol>Counter, Histogram</symbol>
+        <lines>1-49</lines>
+        <reason>Prometheus metrics patterns. Create gemini_token_usage_total Counter with operation label following same pattern. Use Histogram for latency tracking if needed.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/pyproject.toml</path>
+        <kind>config</kind>
+        <symbol>dependencies</symbol>
+        <lines>11-49</lines>
+        <reason>Dependency management. Add google-generativeai>=0.8.3 to dependencies list. May need to add tenacity>=8.2.3 for retry logic if not present.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/test_gmail_client.py</path>
+        <kind>test</kind>
+        <symbol>test patterns</symbol>
+        <lines>-</lines>
+        <reason>Reference for unit test patterns. Create test_llm_client.py following same AsyncMock patterns for mocking Gemini API responses, testing error scenarios, and validating structured logging.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="google-generativeai" version=">=0.8.3" ecosystem="pypi">Official Gemini Python SDK for API integration</package>
+        <package name="tenacity" version=">=8.2.3" ecosystem="pypi">Retry logic with exponential backoff (if not already present)</package>
+        <package name="pydantic" version=">=2.11.1" ecosystem="pypi">Already installed - JSON schema validation</package>
+        <package name="structlog" version=">=25.2.0" ecosystem="pypi">Already installed - Structured logging</package>
+        <package name="prometheus-client" version=">=0.19.0" ecosystem="pypi">Already installed - Metrics collection</package>
+        <package name="pytest" version=">=8.3.5" ecosystem="pypi">Already installed - Unit testing</package>
+        <package name="pytest-asyncio" version=">=0.25.2" ecosystem="pypi">Already installed - Async test support</package>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Follow GmailClient pattern: Create LLMClient class in backend/app/core/llm_client.py with __init__, send_prompt(), receive_completion() methods</constraint>
+    <constraint>Error handling: Create custom exceptions in backend/app/utils/errors.py following existing pattern with docstrings and attributes</constraint>
+    <constraint>Retry logic: Use tenacity library with @retry decorator, exponential backoff (2s, 4s, 8s), retry only transient errors (rate limit, timeout), not permanent errors (invalid request)</constraint>
+    <constraint>Environment variables: Load from .env using python-dotenv (already configured), never commit API keys, document in .env.example</constraint>
+    <constraint>Structured logging: Use logger.info() with event name and key-value pairs (model, tokens, latency_ms), log all LLM calls and errors</constraint>
+    <constraint>Testing: Unit tests must mock Gemini API (no real API calls), integration tests marked as @pytest.mark.integration and @pytest.mark.slow, use AsyncMock for async operations</constraint>
+    <constraint>Authentication: Test endpoint requires JWT authentication (get_current_user dependency), following existing /test/send-email pattern</constraint>
+    <constraint>JSON mode: Use generation_config with response_mime_type="application/json" and response_schema for structured output</constraint>
+    <constraint>Token tracking: Extract from response.usage_metadata, increment Prometheus counter gemini_token_usage_total, log to structured logs</constraint>
+    <constraint>Documentation: Add comprehensive docstrings (Google style) to all classes and methods, document in backend/README.md with setup instructions</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>LLMClient.send_prompt</name>
+      <kind>method</kind>
+      <signature>async def send_prompt(self, prompt: str, response_format: str = "text") -> str</signature>
+      <path>backend/app/core/llm_client.py</path>
+    </interface>
+    <interface>
+      <name>LLMClient.receive_completion</name>
+      <kind>method</kind>
+      <signature>async def receive_completion(self, prompt: str) -> dict</signature>
+      <path>backend/app/core/llm_client.py</path>
+    </interface>
+    <interface>
+      <name>POST /api/v1/test/gemini</name>
+      <kind>REST endpoint</kind>
+      <signature>Request: {prompt: str, response_format: str}, Response: {success: bool, data: {response: dict, tokens_used: int, latency_ms: float}}</signature>
+      <path>backend/app/api/v1/test.py</path>
+    </interface>
+    <interface>
+      <name>GeminiAPIError exceptions</name>
+      <kind>exception hierarchy</kind>
+      <signature>GeminiAPIError (base), GeminiRateLimitError, GeminiTimeoutError, GeminiInvalidRequestError</signature>
+      <path>backend/app/utils/errors.py</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Testing framework: pytest with pytest-asyncio for async test support. Unit tests use unittest.mock (AsyncMock for async operations, MagicMock for sync operations) to mock external API calls. Integration tests marked with @pytest.mark.integration and @pytest.mark.slow, may make real API calls. All tests follow AAA pattern (Arrange, Act, Assert). Fixtures defined for reusable test data. Tests cover happy path, error scenarios (rate limits, timeouts, invalid requests), edge cases, and structured logging validation. Test files named test_*.py, placed in backend/tests/ (unit) or backend/tests/integration/ (integration). Run with: uv run pytest tests/test_llm_client.py -v
+    </standards>
+    <locations>
+      <location>backend/tests/test_llm_client.py</location>
+      <location>backend/tests/integration/test_gemini_integration.py</location>
+    </locations>
+    <ideas>
+      <test id="AC2-AC4" criterion="AC2, AC3, AC4">
+        <name>test_llm_client_initialization</name>
+        <description>Mock environment variables (GEMINI_API_KEY, GEMINI_MODEL). Initialize LLMClient. Verify genai.configure called with correct API key. Verify model initialized with gemini-2.5-flash. Assert model_name attribute set correctly.</description>
+      </test>
+      <test id="AC4" criterion="AC4">
+        <name>test_send_prompt_success</name>
+        <description>Mock genai.GenerativeModel.generate_content() to return sample response. Call send_prompt("Test prompt"). Verify response text extracted correctly. Verify structured logging event "llm_call_completed" with model, tokens, latency fields.</description>
+      </test>
+      <test id="AC9" criterion="AC9">
+        <name>test_send_prompt_json_mode</name>
+        <description>Mock Gemini JSON mode response with structured output. Call send_prompt("Classify email", response_format="json"). Verify generation_config includes response_mime_type="application/json". Verify JSON parsing and schema validation. Assert response is valid dict with expected keys.</description>
+      </test>
+      <test id="AC5-rate-limit" criterion="AC5">
+        <name>test_error_handling_rate_limit</name>
+        <description>Mock 429 rate limit error from Gemini API. Verify GeminiRateLimitError raised. Verify retry logic triggered (tenacity exponential backoff). Verify structured logging of error with retry attempt number.</description>
+      </test>
+      <test id="AC5-timeout" criterion="AC5">
+        <name>test_error_handling_timeout</name>
+        <description>Mock timeout exception (requests.exceptions.Timeout). Verify GeminiTimeoutError raised with correct message. Verify retry logic triggered. Assert error logged with structured logging.</description>
+      </test>
+      <test id="AC5-invalid" criterion="AC5">
+        <name>test_error_handling_invalid_request</name>
+        <description>Mock BlockedPromptException (inappropriate content). Verify GeminiInvalidRequestError raised. Verify NO retry attempted (permanent error). Assert error logged with prompt preview.</description>
+      </test>
+      <test id="AC6" criterion="AC6">
+        <name>test_token_usage_tracking</name>
+        <description>Mock Gemini response with usage_metadata (prompt_token_count, candidates_token_count). Call send_prompt(). Verify token counts extracted correctly. Verify Prometheus metric gemini_token_usage_total incremented. Verify structured log includes token counts and latency_ms.</description>
+      </test>
+      <test id="AC8" criterion="AC8">
+        <name>test_test_endpoint_integration</name>
+        <description>Use FastAPI TestClient. Mock LLMClient to avoid real API calls. POST /api/v1/test/gemini with sample request (prompt, response_format). Verify 200 response with correct schema. Verify response includes tokens_used and latency_ms. Assert authentication required (401 without JWT).</description>
+      </test>
+      <test id="AC1-AC9-integration" criterion="AC1, AC2, AC3, AC4, AC5, AC6, AC8, AC9">
+        <name>test_gemini_api_real_call</name>
+        <description>Optional integration test marked @pytest.mark.integration and @pytest.mark.slow. Skip if GEMINI_API_KEY not set in test environment. Make real API call to Gemini with simple prompt. Verify response received and valid. Validate actual API connectivity (not mocked).</description>
+      </test>
+    </ideas>
+  </tests>
+</story-context>

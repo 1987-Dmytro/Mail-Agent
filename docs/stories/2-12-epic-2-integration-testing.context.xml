@@ -1,0 +1,334 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>12</storyId>
+    <title>Epic 2 Integration Testing</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-12-epic-2-integration-testing.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to create end-to-end integration tests for the AI sorting and approval workflow</iWant>
+    <soThat>I can verify the complete user journey works as expected and validate system reliability</soThat>
+    <tasks>
+      <task id="1" name="Integration Test Infrastructure Setup" ac="#2">
+        <subtasks>
+          <item>Create file: backend/tests/integration/test_email_workflow_integration.py</item>
+          <item>Set up test database fixture using pytest-postgresql</item>
+          <item>Configure test environment with DATABASE_URL for test database</item>
+          <item>Import required models (User, EmailProcessingQueue, WorkflowMapping, ApprovalHistory, FolderCategory, NotificationPreferences)</item>
+          <item>Create test fixtures: test_user(), test_folders(), mock_gemini_client(), mock_gmail_client(), mock_telegram_bot()</item>
+          <item>Set up LangGraph checkpoint cleanup between tests</item>
+        </subtasks>
+      </task>
+      <task id="2" name="Mock External APIs" ac="#2">
+        <subtasks>
+          <item>Create MockGeminiClient class in backend/tests/mocks/gemini_mock.py</item>
+          <item>Create MockGmailClient class in backend/tests/mocks/gmail_mock.py</item>
+          <item>Create MockTelegramBot class in backend/tests/mocks/telegram_mock.py</item>
+          <item>Implement tracking for API calls and assertions</item>
+        </subtasks>
+      </task>
+      <task id="3" name="Complete Email Workflow Integration Test" ac="#1, #3, #4">
+        <subtasks>
+          <item>Implement test_complete_email_sorting_workflow() covering: pending → classification → Telegram proposal → approval → Gmail label application</item>
+          <item>Verify all workflow state transitions</item>
+          <item>Verify WorkflowMapping and ApprovalHistory records created</item>
+          <item>Verify Telegram messages sent with correct content and buttons</item>
+        </subtasks>
+      </task>
+      <task id="4" name="Rejection and Folder Change Scenarios" ac="#5">
+        <subtasks>
+          <item>Implement test_email_rejection_workflow()</item>
+          <item>Implement test_folder_change_workflow()</item>
+          <item>Verify ApprovalHistory records for each scenario</item>
+        </subtasks>
+      </task>
+      <task id="5" name="Batch Notification System Test" ac="#6">
+        <subtasks>
+          <item>Implement test_batch_notification_workflow() with 10 pending emails</item>
+          <item>Implement test_empty_batch_handling()</item>
+          <item>Verify batch summary messages and individual proposals</item>
+        </subtasks>
+      </task>
+      <task id="6" name="Priority Email Immediate Notification Test" ac="#7">
+        <subtasks>
+          <item>Implement test_priority_email_bypass_batch()</item>
+          <item>Implement test_priority_detection_government_domain()</item>
+          <item>Implement test_priority_detection_urgent_keywords()</item>
+          <item>Verify priority emails bypass batch and send immediately</item>
+        </subtasks>
+      </task>
+      <task id="7" name="Approval History Tracking Validation" ac="#4">
+        <subtasks>
+          <item>Implement test_approval_history_approval_recorded()</item>
+          <item>Implement test_approval_history_rejection_recorded()</item>
+          <item>Implement test_approval_history_folder_change_recorded()</item>
+          <item>Implement test_approval_statistics_endpoint()</item>
+        </subtasks>
+      </task>
+      <task id="8" name="Performance Testing" ac="#8, NFR001">
+        <subtasks>
+          <item>Implement test_email_processing_latency_under_2_minutes()</item>
+          <item>Implement test_workflow_resumption_latency_under_2_seconds()</item>
+          <item>Implement test_batch_processing_performance_20_emails()</item>
+          <item>Validate NFR001 targets: total processing ≤ 10 seconds (excluding polling)</item>
+        </subtasks>
+      </task>
+      <task id="9" name="Error Handling Integration Tests" ac="#3">
+        <subtasks>
+          <item>Implement test_workflow_handles_gemini_api_failure()</item>
+          <item>Implement test_workflow_handles_gmail_api_failure()</item>
+          <item>Implement test_workflow_handles_telegram_api_failure()</item>
+          <item>Implement test_workflow_checkpoint_recovery_after_crash()</item>
+        </subtasks>
+      </task>
+      <task id="10" name="Update Documentation" ac="#9">
+        <subtasks>
+          <item>Create docs/epic-2-architecture.md with EmailWorkflow state machine documentation</item>
+          <item>Document TelegramHITLWorkflow pattern</item>
+          <item>Document integration test coverage</item>
+          <item>Create docs/diagrams/email-workflow-flow.mermaid</item>
+          <item>Update backend/README.md with Epic 2 testing section</item>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Integration test simulates complete flow: new email → AI classification → Telegram proposal → user approval → Gmail label applied</criterion>
+    <criterion id="2">Test mocks Gmail API, Gemini API, and Telegram API</criterion>
+    <criterion id="3">Test verifies email moves through all status states correctly</criterion>
+    <criterion id="4">Test validates approval history is recorded accurately</criterion>
+    <criterion id="5">Test covers rejection and folder change scenarios</criterion>
+    <criterion id="6">Test validates batch notification logic</criterion>
+    <criterion id="7">Test validates priority email immediate notification</criterion>
+    <criterion id="8">Performance test ensures processing completes within 2 minutes (NFR001)</criterion>
+    <criterion id="9">Documentation updated with Epic 2 architecture and flow diagrams</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Workflows and Sequencing - EmailWorkflow State Machine</section>
+        <snippet>Implements EmailWorkflow state machine with nodes: extract_context → classify → send_telegram → await_approval → execute_action → send_confirmation. Uses PostgreSQL checkpointing for persistent workflow state across service restarts.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Test Strategy Summary</section>
+        <snippet>Integration tests should mock external APIs (Gemini, Gmail, Telegram), test complete workflows, verify state transitions and database updates. Unit tests cover individual services, integration tests verify end-to-end flows.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Performance - NFR001</section>
+        <snippet>Target: Email receipt → Telegram notification delivery ≤ 120 seconds. Breakdown: Email polling (120s) + retrieval (500ms) + AI classification (2-4s p95) + priority detection (100ms) + Telegram delivery (500-1000ms).</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>TelegramHITLWorkflow Pattern</section>
+        <snippet>Novel pattern enables LangGraph workflows to pause for user approval in Telegram and resume exactly where they left off via PostgreSQL checkpointing and WorkflowMapping table for callback reconnection.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>System Architecture - LangGraph State Machine</section>
+        <snippet>LangGraph 1.0.2 provides state machine-based workflow orchestration with persistent checkpointing for human-in-the-loop patterns. FastAPI 0.120.4 backend with PostgreSQL 18 for workflow state persistence.</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>Testing Setup</section>
+        <snippet>Backend uses pytest for testing with pytest-asyncio for async support, pytest-postgresql for test database isolation, and pytest-mock for mocking external APIs.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/workflows/email_workflow.py</path>
+        <kind>workflow</kind>
+        <symbol>create_email_workflow()</symbol>
+        <lines>1-50</lines>
+        <reason>Main EmailWorkflow state machine that needs comprehensive integration testing. Implements 7-node workflow with PostgreSQL checkpointing.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/states.py</path>
+        <kind>workflow state</kind>
+        <symbol>EmailWorkflowState</symbol>
+        <lines>14-80</lines>
+        <reason>TypedDict defining workflow state structure. Critical for understanding workflow data flow and test assertions.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/nodes.py</path>
+        <kind>workflow nodes</kind>
+        <symbol>extract_context, classify, detect_priority, send_telegram, await_approval, execute_action, send_confirmation</symbol>
+        <lines>all</lines>
+        <reason>Individual workflow node implementations to be tested in integration scenarios.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/workflow_mapping.py</path>
+        <kind>model</kind>
+        <symbol>WorkflowMapping</symbol>
+        <lines>all</lines>
+        <reason>Maps email_id → thread_id → telegram_message_id for workflow resumption testing.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>all</lines>
+        <reason>Email processing queue model with status transitions to verify in tests.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/approval_history.py</path>
+        <kind>model</kind>
+        <symbol>ApprovalHistory</symbol>
+        <lines>all</lines>
+        <reason>Tracks user approval decisions. Must verify accurate recording in all decision scenarios.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/classification.py</path>
+        <kind>service</kind>
+        <symbol>ClassificationService</symbol>
+        <lines>all</lines>
+        <reason>AI classification service to be mocked in integration tests.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/priority_detection.py</path>
+        <kind>service</kind>
+        <symbol>PriorityDetectionService</symbol>
+        <lines>all</lines>
+        <reason>Priority detection logic to test for immediate notification bypass.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/batch_notification.py</path>
+        <kind>service</kind>
+        <symbol>BatchNotificationService</symbol>
+        <lines>all</lines>
+        <reason>Batch notification logic to verify batch vs. immediate sending.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/conftest.py</path>
+        <kind>test fixtures</kind>
+        <symbol>db_session, event_loop</symbol>
+        <lines>1-80</lines>
+        <reason>Reusable test fixtures for database session management and async testing. Follow this pattern for Story 2.12 fixtures.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/integration/test_error_handling_integration.py</path>
+        <kind>integration test</kind>
+        <symbol>various test functions</symbol>
+        <lines>all</lines>
+        <reason>Reference implementation for integration test patterns from Story 2.11. Shows mock strategy and assertion patterns.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <framework name="pytest" version=">=8.3.5">Test runner for unit and integration tests</framework>
+        <framework name="pytest-asyncio" version=">=0.25.2">Async test support for testing LangGraph workflows and async services</framework>
+        <framework name="httpx" version=">=0.28.1">HTTP client for testing API endpoints and mocking external API calls</framework>
+        <framework name="fastapi" version=">=0.115.12">Backend web framework</framework>
+        <framework name="langgraph" version=">=0.4.1">State machine workflow orchestration framework</framework>
+        <framework name="langgraph-checkpoint-postgres" version=">=2.0.19">PostgreSQL checkpointing for workflow persistence</framework>
+        <framework name="sqlmodel" version=">=0.0.24">Database ORM for models and queries</framework>
+        <framework name="python-telegram-bot" version=">=21.0">Telegram bot client library</framework>
+        <framework name="google-generativeai" version=">=0.8.3">Google Gemini LLM client</framework>
+        <framework name="google-api-python-client" version=">=2.146.0">Gmail API client</framework>
+        <framework name="celery" version=">=5.4.0">Task queue for batch notifications</framework>
+        <framework name="redis" version=">=5.0.1">Message broker for Celery</framework>
+        <framework name="alembic" version=">=1.13.3">Database migration tool</framework>
+        <framework name="psycopg2-binary" version=">=2.9.10">PostgreSQL database adapter</framework>
+        <framework name="tenacity" version=">=8.2.3">Retry/backoff library for error handling</framework>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>All external APIs (Gemini, Gmail, Telegram) MUST be mocked in integration tests - no real API calls allowed</constraint>
+    <constraint>Database tests MUST use pytest-postgresql for complete isolation between test runs</constraint>
+    <constraint>Mock classes MUST track all method calls for test assertions (call counts, arguments)</constraint>
+    <constraint>All workflow state transitions MUST be verified: pending → processing → awaiting_approval → completed</constraint>
+    <constraint>Performance tests MUST validate NFR001 targets: total processing ≤ 10 seconds (excluding polling interval)</constraint>
+    <constraint>WorkflowMapping and ApprovalHistory records MUST be verified in all test scenarios</constraint>
+    <constraint>Test database schema MUST match production schema exactly (use Alembic migrations)</constraint>
+    <constraint>LangGraph checkpoint cleanup MUST occur between tests to ensure isolated workflow execution</constraint>
+    <constraint>Integration tests MUST follow patterns from Story 2.11 (test_error_handling_integration.py)</constraint>
+    <constraint>Test coverage MUST include: complete flow, rejection, folder change, batch, priority, approval history, performance, error handling</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>EmailWorkflow.ainvoke</name>
+      <kind>workflow execution</kind>
+      <signature>async ainvoke(state: EmailWorkflowState, config: dict) -> EmailWorkflowState</signature>
+      <path>backend/app/workflows/email_workflow.py</path>
+    </interface>
+    <interface>
+      <name>EmailWorkflowState</name>
+      <kind>TypedDict state</kind>
+      <signature>TypedDict with fields: email_id, user_id, thread_id, email_content, sender, subject, classification, proposed_folder, user_decision, etc.</signature>
+      <path>backend/app/workflows/states.py</path>
+    </interface>
+    <interface>
+      <name>WorkflowMapping.create / lookup</name>
+      <kind>database model</kind>
+      <signature>Maps email_id → thread_id → telegram_message_id for callback reconnection</signature>
+      <path>backend/app/models/workflow_mapping.py</path>
+    </interface>
+    <interface>
+      <name>ApprovalHistory.create</name>
+      <kind>database model</kind>
+      <signature>Records user decision: action_type, ai_suggested_folder_id, user_selected_folder_id, approved</signature>
+      <path>backend/app/models/approval_history.py</path>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue status field</name>
+      <kind>database model</kind>
+      <signature>Status enum: pending, processing, awaiting_approval, completed, rejected, error</signature>
+      <path>backend/app/models/email.py</path>
+    </interface>
+    <interface>
+      <name>MockGeminiClient.classify_email</name>
+      <kind>mock API</kind>
+      <signature>async classify_email(prompt: str) -> dict[str, Any] (returns suggested_folder, reasoning, priority_score, confidence)</signature>
+      <path>backend/tests/mocks/gemini_mock.py (to be created)</path>
+    </interface>
+    <interface>
+      <name>MockGmailClient.apply_label</name>
+      <kind>mock API</kind>
+      <signature>async apply_label(message_id: str, label_id: str) -> None (tracks calls for assertion)</signature>
+      <path>backend/tests/mocks/gmail_mock.py (to be created)</path>
+    </interface>
+    <interface>
+      <name>MockTelegramBot.send_message</name>
+      <kind>mock API</kind>
+      <signature>async send_message(chat_id: str, text: str, reply_markup: dict | None) -> str (returns message_id)</signature>
+      <path>backend/tests/mocks/telegram_mock.py (to be created)</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Integration tests use pytest (>=8.3.5) with pytest-asyncio for async workflow testing. Database isolation achieved via pytest-postgresql with per-test table creation/destruction following conftest.py patterns. All external APIs (Gemini, Gmail, Telegram) must be mocked with call tracking for assertions. Test structure follows Story 2.11 patterns: setup fixtures → execute workflow → verify state transitions → assert database records → validate API calls. Performance tests measure latency using time tracking against NFR001 targets. Each test creates isolated database session, cleans LangGraph checkpoints between runs, and verifies complete workflow state machine transitions (pending → processing → awaiting_approval → completed).</standards>
+    <locations>
+      <location>backend/tests/integration/test_email_workflow_integration.py</location>
+      <location>backend/tests/mocks/*.py (gemini_mock.py, gmail_mock.py, telegram_mock.py)</location>
+      <location>backend/tests/conftest.py (shared fixtures)</location>
+    </locations>
+    <ideas>
+      <idea ac="1">Test complete email workflow from end-to-end: Create EmailProcessingQueue entry → Start EmailWorkflow → Verify classification → Verify Telegram proposal sent → Simulate user approval → Verify Gmail label applied → Verify completion confirmation</idea>
+      <idea ac="2">Create MockGeminiClient, MockGmailClient, MockTelegramBot classes with call tracking. Verify no real API calls made during tests. Mock classes return deterministic responses for reproducible tests.</idea>
+      <idea ac="3">Test workflow state transitions: Assert EmailProcessingQueue.status changes through pending → processing → awaiting_approval → completed. Verify WorkflowMapping records created/updated at each stage.</idea>
+      <idea ac="4">Test approval history recording: For approve scenario verify ApprovalHistory records action_type="approve", approved=true. For reject verify approved=false. For folder change verify ai_suggested_folder_id != user_selected_folder_id.</idea>
+      <idea ac="5">Test rejection workflow: User clicks Reject button → Verify email status="rejected", no Gmail label applied, ApprovalHistory records rejection. Test folder change: User changes from AI suggestion to different folder → Verify correct label applied, ApprovalHistory tracks both folders.</idea>
+      <idea ac="6">Test batch notification: Create 10 pending emails → Trigger batch task → Verify batch summary message sent with email counts by folder → Verify 10 individual proposal messages sent in correct order (Government → Clients → Newsletters).</idea>
+      <idea ac="7">Test priority email immediate bypass: Create email with is_priority=true → Verify Telegram message sent immediately (not batched) → Verify message includes ⚠️ priority indicator. Test priority detection for government domains (.de/.gov) and urgent keywords.</idea>
+      <idea ac="8">Performance test: Measure total processing time from EmailWorkflow start → Telegram message sent. Assert total time ≤ 10 seconds. Test workflow resumption latency: callback received → workflow resumed → action executed ≤ 2 seconds. Test batch processing: 20 emails ≤ 30 seconds.</idea>
+      <idea ac="9">Verify docs/epic-2-architecture.md created with EmailWorkflow state machine diagram. Verify docs/diagrams/email-workflow-flow.mermaid exists. Verify backend/README.md updated with Epic 2 testing section.</idea>
+      <idea ac="3">Test error handling: Mock Gemini API to raise exception → Verify retry logic applied → Verify email status="error" after retries exhausted. Test workflow checkpoint recovery: Start workflow → pause → simulate restart → load checkpoint → resume → complete.</idea>
+    </ideas>
+  </tests>
+</story-context>

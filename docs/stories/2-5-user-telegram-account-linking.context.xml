@@ -1,0 +1,301 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>5</storyId>
+    <title>User-Telegram Account Linking</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-07</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-5-user-telegram-account-linking.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to link my Telegram account to my Mail Agent account using a simple code</iWant>
+    <soThat>I can receive email notifications and approve actions via Telegram without complex setup</soThat>
+    <tasks>
+- Task 1: Create LinkingCodes Database Model and Migration (AC: #2)
+- Task 2: Add telegram_id Field to Users Table (AC: #9)
+- Task 3: Implement Linking Code Generation Service (AC: #1, #3)
+- Task 4: Create Telegram Linking API Endpoints (AC: #3)
+- Task 5: Update Bot /start Command Handler with Linking Logic (AC: #4, #5, #6, #7, #8)
+- Task 6: Add TELEGRAM_BOT_USERNAME Configuration (AC: #3)
+- Task 7: Create Unit Tests for Linking Service (AC: #1-#9)
+- Task 8: Create Integration Tests (AC: #3, #4, #5)
+- Task 9: Update Documentation (AC: #3, #4)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+AC1: Unique linking code generation implemented (6-digit alphanumeric code)
+AC2: LinkingCodes table created (code, user_id, expires_at, used)
+AC3: API endpoint created to generate linking code for authenticated user (POST /telegram/generate-code)
+AC4: Bot command /start [code] implemented to link Telegram user with code
+AC5: Bot validates linking code and associates telegram_id with user in database
+AC6: Expired codes (>15 minutes old) rejected with error message
+AC7: Used codes cannot be reused
+AC8: Success message sent to user on Telegram after successful linking
+AC9: User's telegram_id stored in Users table
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Telegram Bot Integration - FR007</section>
+        <snippet>FR007: System shall allow users to link their Telegram account with their Gmail account. This establishes the foundation for receiving email sorting proposals and draft responses via Telegram.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>LinkingCodes Table (lines 138-153)</section>
+        <snippet>Defines the LinkingCode SQLAlchemy model with 6-character alphanumeric codes, 15-minute expiration, single-use enforcement, and foreign key relationship to Users table. Security design uses secrets module for cryptographic randomness.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic 2 Technical Specification</title>
+        <section>Telegram Linking Endpoints (lines 250-287)</section>
+        <snippet>Specifies POST /api/v1/telegram/generate-code (authenticated, returns code + expires_at + bot_username + instructions) and GET /api/v1/telegram/status (returns linking status). Includes JSON request/response schemas.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Epic 2: AI Sorting & Telegram Approval (line 219)</section>
+        <snippet>Epic 2 components include Telegram bot (app/core/telegram_bot.py), approval handlers, integration with Telegram Bot API, and PostgreSQL for state management. Links to AI classification service and LangGraph workflow.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Technology Stack - External APIs</section>
+        <snippet>Telegram Bot API integration uses python-telegram-bot library in long polling mode with inline keyboards for approval buttons. Bot API documented at core.telegram.org/bots/api.</snippet>
+      </doc>
+      <doc>
+        <path>backend/README.md</path>
+        <title>Backend Service Documentation</title>
+        <section>Testing Standards</section>
+        <snippet>Project uses pytest with coverage reporting (pytest tests/ --cov=app). Tests organized in backend/tests/ (unit) and backend/tests/integration/ (integration). Black for formatting, Ruff for linting.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-4-telegram-bot-foundation.md</path>
+        <title>Story 2.4 - Telegram Bot Foundation</title>
+        <section>Completed Implementation</section>
+        <snippet>TelegramBotClient fully implemented at backend/app/core/telegram_bot.py with send_message() and send_message_with_buttons() methods. Bot integrated into FastAPI lifespan. Command handlers in backend/app/api/telegram_handlers.py ready for enhancement.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>30-70</lines>
+        <reason>User model already has telegram_id and telegram_username fields (lines 58-59) added in earlier story. This story adds telegram_linked_at field and uses existing telegram fields for linking logic.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>service</kind>
+        <symbol>TelegramBotClient</symbol>
+        <lines>19-275</lines>
+        <reason>Existing Telegram bot client with send_message() and send_message_with_buttons() methods. Bot is already integrated into FastAPI lifespan (main.py lines 61-77). This provides infrastructure for sending linking success messages.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/telegram_handlers.py</path>
+        <kind>handler</kind>
+        <symbol>handle_start_command</symbol>
+        <lines>16-67</lines>
+        <reason>Existing /start command handler with placeholder for linking code logic (lines 36-53). This story replaces placeholder with full validation and linking implementation. Handler already extracts context.args[0] for code.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/auth.py</path>
+        <kind>api</kind>
+        <symbol>get_current_user</symbol>
+        <lines>8</lines>
+        <reason>Existing authentication dependency function for FastAPI endpoints. Used in folders.py line 57 as pattern: current_user: User = Depends(get_current_user). Required for POST /telegram/generate-code authentication.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/config.py</path>
+        <kind>config</kind>
+        <symbol>Settings</symbol>
+        <lines>120-258</lines>
+        <reason>Settings class manages all environment variables. TELEGRAM_BOT_TOKEN already configured (line 169). This story adds TELEGRAM_BOT_USERNAME field to Settings class for linking instructions.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/api.py</path>
+        <kind>router</kind>
+        <symbol>api_router</symbol>
+        <lines>17-26</lines>
+        <reason>Main API router configuration. Shows pattern for including new routers: api_router.include_router(telegram_router, prefix="/telegram", tags=["telegram"]). New telegram.py router will be registered here.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/base.py</path>
+        <kind>model</kind>
+        <symbol>BaseModel</symbol>
+        <lines>9-12</lines>
+        <reason>Base SQLModel class with created_at field using func.now() server default. LinkingCode model will extend SQLModel (not BaseModel) but follow same pattern for timestamp columns.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/folders.py</path>
+        <kind>api</kind>
+        <symbol>create_folder</symbol>
+        <lines>54-100</lines>
+        <reason>Reference pattern for authenticated endpoints: uses Pydantic request/response models, Depends(get_current_user), HTTPException for errors, structured logging. Template for new telegram endpoints.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="fastapi" version="0.115.12+" note="Web framework for API endpoints" />
+        <package name="sqlmodel" version="0.0.24+" note="SQLAlchemy + Pydantic ORM for database models" />
+        <package name="alembic" version="1.13.3+" note="Database migration tool" />
+        <package name="python-telegram-bot" version="21.0+" note="Telegram Bot API library for bot handlers" />
+        <package name="structlog" version="25.2.0+" note="Structured JSON logging" />
+        <package name="pydantic" version="2.11.1+" note="Request/response schema validation" />
+        <package name="python-jose" version="3.4.0+" note="JWT token handling for authentication" />
+        <package name="cryptography" version="43.0.1+" note="Encryption utilities" />
+        <package name="secrets" version="built-in" note="Cryptographically secure random code generation (Python stdlib)" />
+        <package name="pytest" version="8.3.5+" note="Testing framework (dev dependency)" />
+        <package name="pytest-asyncio" version="0.25.2+" note="Async test support (dev dependency)" />
+        <package name="httpx" version="0.28.1+" note="HTTP client for API testing (dev dependency)" />
+      </python>
+      <system>
+        <dependency name="PostgreSQL 18" note="Primary database for users and linking_codes tables" />
+        <dependency name="Python 3.13+" note="Runtime environment with async/await support" />
+      </system>
+      <note>All required dependencies already present in pyproject.toml - no new packages needed for Story 2.5</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="database">Use SQLModel for all database models (combination of SQLAlchemy + Pydantic). Follow existing pattern: Field() for columns, table=True, relationships with back_populates.</constraint>
+    <constraint type="migration">All database schema changes require Alembic migrations. Use 'alembic revision -m "description"' and implement both upgrade() and downgrade() functions.</constraint>
+    <constraint type="authentication">All API endpoints requiring user authentication must use Depends(get_current_user) pattern from app.api.v1.auth module.</constraint>
+    <constraint type="logging">Use structured logging with structlog. Log all linking events (success, failures, validations) with structured fields: telegram_id, code, user_id, error details.</constraint>
+    <constraint type="security">Use secrets.choice() for cryptographic randomness when generating linking codes. Never use random.choice() or random.randint() for security-sensitive operations.</constraint>
+    <constraint type="validation">Code expiration window is exactly 15 minutes. Codes are single-use only (set used=True after successful linking). Reject expired or used codes with clear error messages.</constraint>
+    <constraint type="datetime">All datetime fields must use timezone-aware UTC timestamps: DateTime(timezone=True) in SQLAlchemy, datetime.now(UTC) in Python code.</constraint>
+    <constraint type="api">Follow existing API response pattern: {"success": bool, "data": {...}} for successful responses. Use HTTPException with appropriate status codes for errors.</constraint>
+    <constraint type="telegram">Bot command handlers receive Update and ContextTypes.DEFAULT_TYPE parameters. Access user info via update.effective_user.id and context.args for command arguments.</constraint>
+    <constraint type="testing">Write both unit tests (backend/tests/) and integration tests (backend/tests/integration/). Follow AAA pattern (Arrange-Act-Assert). Use pytest fixtures for database and async support.</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/telegram/generate-code</name>
+      <kind>REST endpoint</kind>
+      <signature>
+        Authentication: JWT Bearer token (get_current_user dependency)
+        Request: {} (empty body)
+        Response: LinkingCodeResponse {success: bool, data: {code: str, expires_at: str, bot_username: str, instructions: str}}
+      </signature>
+      <path>backend/app/api/v1/telegram.py (NEW FILE)</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/telegram/status</name>
+      <kind>REST endpoint</kind>
+      <signature>
+        Authentication: JWT Bearer token (get_current_user dependency)
+        Response: TelegramStatusResponse {success: bool, data: {linked: bool, telegram_id: str|null, telegram_username: str|null, linked_at: str|null}}
+      </signature>
+      <path>backend/app/api/v1/telegram.py (NEW FILE)</path>
+    </interface>
+    <interface>
+      <name>TelegramBotClient.send_message()</name>
+      <kind>service method</kind>
+      <signature>async def send_message(telegram_id: str, text: str) -> str</signature>
+      <path>backend/app/core/telegram_bot.py:81-147</path>
+    </interface>
+    <interface>
+      <name>handle_start_command</name>
+      <kind>bot command handler</kind>
+      <signature>async def handle_start_command(update: Update, context: ContextTypes.DEFAULT_TYPE)</signature>
+      <path>backend/app/api/telegram_handlers.py:16-67 (MODIFY to add linking logic)</path>
+    </interface>
+    <interface>
+      <name>User.telegram_id</name>
+      <kind>model field</kind>
+      <signature>telegram_id: Optional[str] = Field(default=None, max_length=100, unique=True, index=True)</signature>
+      <path>backend/app/models/user.py:58</path>
+    </interface>
+    <interface>
+      <name>LinkingCode (NEW MODEL)</name>
+      <kind>database model</kind>
+      <signature>
+        class LinkingCode(SQLModel, table=True):
+          id: int (primary key)
+          code: str (6 chars, unique, indexed)
+          user_id: int (FK to users.id)
+          used: bool (default False)
+          expires_at: datetime (UTC, 15 min from creation)
+          created_at: datetime (UTC, server default)
+      </signature>
+      <path>backend/app/models/linking_codes.py (NEW FILE)</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Project uses pytest 8.3.5+ as testing framework with pytest-asyncio for async support. Follow AAA pattern (Arrange-Act-Assert) for all tests. Use AsyncMock for async functions, MagicMock for sync functions. Mock external dependencies (database, Telegram API) using unittest.mock.patch. Unit tests in backend/tests/, integration tests in backend/tests/integration/. Run with: uv run pytest backend/tests/test_telegram_linking.py -v for unit tests, uv run pytest backend/tests/integration/test_telegram_linking_integration.py -v for integration. Use TestClient for FastAPI endpoint testing with dependency overrides (app.dependency_overrides[get_current_user]). Follow existing patterns from test_telegram_bot.py (unit) and test_telegram_bot_integration.py (integration). Use structured assertions with clear failure messages.
+    </standards>
+    <locations>
+      <location>backend/tests/test_telegram_linking.py (NEW - unit tests for linking service)</location>
+      <location>backend/tests/integration/test_telegram_linking_integration.py (NEW - integration tests for API endpoints and bot commands)</location>
+      <location>backend/tests/conftest.py (existing - shared pytest fixtures)</location>
+    </locations>
+    <ideas>
+      <test id="AC1-code-generation" acceptance_criteria="AC1">
+        <name>test_generate_linking_code</name>
+        <description>Verify code generation creates valid 6-character alphanumeric uppercase code, stores in database with correct user_id, expires_at (15 min future), and used=False</description>
+      </test>
+      <test id="AC1-uniqueness" acceptance_criteria="AC1">
+        <name>test_linking_code_uniqueness</name>
+        <description>Generate 100+ codes sequentially and verify all are unique (no collisions)</description>
+      </test>
+      <test id="AC2-table-creation" acceptance_criteria="AC2">
+        <name>test_linking_codes_table_schema</name>
+        <description>Verify LinkingCodes table exists with correct columns (id, code, user_id, expires_at, used, created_at), unique constraint on code, index on code, FK to users</description>
+      </test>
+      <test id="AC3-generate-endpoint" acceptance_criteria="AC3">
+        <name>test_generate_code_endpoint_success</name>
+        <description>POST /api/v1/telegram/generate-code as authenticated user returns 201 with code, expires_at, bot_username, instructions in response data</description>
+      </test>
+      <test id="AC3-already-linked" acceptance_criteria="AC3">
+        <name>test_generate_code_already_linked</name>
+        <description>POST /telegram/generate-code when user already has telegram_id set returns 400 Bad Request with "already linked" error</description>
+      </test>
+      <test id="AC4-bot-command" acceptance_criteria="AC4, AC5">
+        <name>test_bot_start_command_with_valid_code</name>
+        <description>Mock Telegram Update with /start [valid_code], verify handle_start_command links account (updates telegram_id, telegram_username, telegram_linked_at), marks code used=True, sends success message</description>
+      </test>
+      <test id="AC5-validation-success" acceptance_criteria="AC5">
+        <name>test_link_telegram_account_success</name>
+        <description>Call link_telegram_account with valid code, verify user.telegram_id updated, code.used=True, returns success=True with confirmation message</description>
+      </test>
+      <test id="AC6-expired-code" acceptance_criteria="AC6">
+        <name>test_link_telegram_account_expired_code</name>
+        <description>Create code with expires_at in past, call link_telegram_account, verify returns error "code has expired"</description>
+      </test>
+      <test id="AC7-used-code" acceptance_criteria="AC7">
+        <name>test_link_telegram_account_used_code</name>
+        <description>Create code and mark used=True, attempt linking, verify returns error "already been used"</description>
+      </test>
+      <test id="AC7-invalid-code" acceptance_criteria="AC7">
+        <name>test_link_telegram_account_invalid_code</name>
+        <description>Call link_telegram_account with non-existent code, verify returns error "Invalid linking code"</description>
+      </test>
+      <test id="AC8-success-message" acceptance_criteria="AC8">
+        <name>test_bot_sends_success_message</name>
+        <description>After successful linking, verify bot sends message containing "linked successfully" and approval instructions to telegram_id</description>
+      </test>
+      <test id="AC9-telegram-id-stored" acceptance_criteria="AC9">
+        <name>test_telegram_fields_stored_in_users</name>
+        <description>After linking, query User record and verify telegram_id, telegram_username, telegram_linked_at are populated with correct values</description>
+      </test>
+      <test id="edge-telegram-already-linked" acceptance_criteria="AC5">
+        <name>test_telegram_id_already_linked_to_another_user</name>
+        <description>Link telegram_id to user1, attempt to link same telegram_id to user2, verify returns error "already linked to another account"</description>
+      </test>
+      <test id="integration-status-endpoint" acceptance_criteria="AC3">
+        <name>test_telegram_status_endpoint</name>
+        <description>GET /api/v1/telegram/status returns linked=false for unlinked user, linked=true with telegram details for linked user</description>
+      </test>
+    </ideas>
+  </tests>
+</story-context>

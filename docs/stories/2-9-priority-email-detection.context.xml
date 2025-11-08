@@ -1,0 +1,315 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>2.9</storyId>
+    <title>Priority Email Detection</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-9-priority-email-detection.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to detect high-priority emails that need immediate attention</iWant>
+    <soThat>users are notified immediately rather than waiting for batch processing</soThat>
+    <tasks>
+      <task id="1" acs="1,2">
+        <title>Create Priority Configuration Module</title>
+        <description>Define government domains list, multilingual priority keywords (EN/DE/RU/UK), priority threshold constant, and environment variable configuration loading</description>
+        <files>
+          <create>backend/app/config/priority_config.py</create>
+        </files>
+      </task>
+      <task id="2" acs="2,3,4,5,9">
+        <title>Create Priority Detection Service</title>
+        <description>Implement PriorityDetectionService class with detect_priority() method to analyze emails and calculate priority scores (0-100) based on government domains (+50), urgency keywords (+30), and user-configured senders (+40)</description>
+        <files>
+          <create>backend/app/services/priority_detection.py</create>
+        </files>
+      </task>
+      <task id="3" acs="4,5">
+        <title>Add Priority Detection Node to Workflow</title>
+        <description>Implement detect_priority_node function to run PriorityDetectionService and update EmailProcessingQueue with priority_score and is_priority flags</description>
+        <files>
+          <modify>backend/app/workflows/nodes.py</modify>
+        </files>
+      </task>
+      <task id="4" acs="6">
+        <title>Integrate Priority Node into EmailWorkflow</title>
+        <description>Insert detect_priority node between classify_node and send_telegram_node in the EmailWorkflow graph</description>
+        <files>
+          <modify>backend/app/workflows/email_workflow.py</modify>
+        </files>
+      </task>
+      <task id="5" acs="6,7">
+        <title>Verify Priority Bypass Logic</title>
+        <description>Verify existing send_telegram_node implementation checks is_priority flag and sends priority emails immediately with ⚠️ indicator, bypassing batch processing</description>
+        <files>
+          <review>backend/app/workflows/nodes.py</review>
+        </files>
+      </task>
+      <task id="6" acs="8">
+        <title>Add User-Configurable Priority Senders</title>
+        <description>Add is_priority_sender boolean field to FolderCategory model, create Alembic migration, and update PriorityDetectionService to check this field</description>
+        <files>
+          <modify>backend/app/models/folder_categories.py</modify>
+          <create>backend/alembic/versions/{hash}_add_is_priority_sender_to_folder_categories.py</create>
+        </files>
+      </task>
+      <task id="7" acs="1,2,3,4,5,8,9">
+        <title>Create Unit Tests</title>
+        <description>8 unit tests covering government domain detection, multilingual keyword detection, priority threshold triggering, user-configured senders, score capping, logging, and email format parsing</description>
+        <files>
+          <create>backend/tests/test_priority_detection.py</create>
+        </files>
+      </task>
+      <task id="8" acs="6,7">
+        <title>Create Integration Tests</title>
+        <description>3 integration tests covering priority email immediate notification, non-priority email batching, and priority email exclusion from batch queries</description>
+        <files>
+          <create>backend/tests/integration/test_priority_detection_integration.py</create>
+        </files>
+      </task>
+      <task id="9" acs="1,2,3,4,5,6,7,8,9">
+        <title>Update Documentation</title>
+        <description>Document priority detection rules, scoring algorithm, email flow, configuration options, testing commands, monitoring/logging examples, and troubleshooting guide</description>
+        <files>
+          <modify>backend/README.md</modify>
+        </files>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <description>Priority detection rules defined (keywords: "urgent", "deadline", "wichtig", specific senders)</description>
+    </criterion>
+    <criterion id="2">
+      <description>Government sender detection implemented (domains: finanzamt.de, auslaenderbehoerde.de, etc.)</description>
+    </criterion>
+    <criterion id="3">
+      <description>Priority scoring algorithm created (0-100 score based on multiple factors)</description>
+    </criterion>
+    <criterion id="4">
+      <description>Emails scoring above threshold (e.g., 70+) marked as high-priority</description>
+    </criterion>
+    <criterion id="5">
+      <description>High-priority flag stored in EmailProcessingQueue</description>
+    </criterion>
+    <criterion id="6">
+      <description>High-priority emails bypass batch scheduling and notify immediately</description>
+    </criterion>
+    <criterion id="7">
+      <description>Priority indicator added to Telegram messages (⚠️ emoji)</description>
+    </criterion>
+    <criterion id="8">
+      <description>User can configure custom priority senders in FolderCategories settings</description>
+    </criterion>
+    <criterion id="9">
+      <description>Priority detection logged for analysis and refinement</description>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic Technical Specification: AI Sorting Engine & Telegram Approval</title>
+        <section>Priority Detection Service</section>
+        <snippet>PriorityDetectionService implements 0-100 scoring algorithm combining government sender detection (+50), urgency keywords (+30), and user-configured senders (+40). Priority threshold default: 70. Integrates with EmailWorkflow as detect_priority node between classify and send_telegram.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Epic Technical Specification: AI Sorting Engine & Telegram Approval</title>
+        <section>EmailProcessingQueue Schema Extensions</section>
+        <snippet>priority_score field (Integer, default=0, 0-100 scale) and is_priority field (Boolean, default=False, True when priority_score >= 70) already exist in EmailProcessingQueue from Story 2.3. Ready for population by PriorityDetectionService.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>LangGraph State Machine Workflow</section>
+        <snippet>EmailWorkflow state machine with PostgreSQL checkpointing. Nodes: extract_context → classify → send_telegram → await_approval → execute_action. Priority detection node to be inserted between classify and send_telegram.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Mail Agent - Epic Breakdown</title>
+        <section>Story 2.9: Priority Email Detection</section>
+        <snippet>9 acceptance criteria covering priority detection rules, government domain detection, scoring algorithm, threshold triggering, EmailProcessingQueue storage, immediate notification bypass, Telegram message indicators, user-configurable senders, and logging.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-8-batch-notification-system.md</path>
+        <title>Story 2.8: Batch Notification System</title>
+        <section>Priority Bypass Logic</section>
+        <snippet>send_telegram_node already checks state.get("is_priority", False) flag. If True: sends immediately with ⚠️ indicator, bypasses batch queue. If False: marks awaiting_approval for batch processing. Batch query filters is_priority=False to exclude priority emails.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-8-batch-notification-system.md</path>
+        <title>Story 2.8: Batch Notification System</title>
+        <section>NotificationPreferences Model</section>
+        <snippet>NotificationPreferences table includes priority_immediate field (Boolean, default=True) controlling whether priority emails bypass batching. Supports batch_time configuration, quiet hours, timezone settings.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/workflows/nodes.py</path>
+        <kind>workflow_nodes</kind>
+        <symbol>send_telegram</symbol>
+        <lines>208-361</lines>
+        <reason>Priority bypass logic already implemented. Checks state.get("priority_score", 0) >= 70. If True: sends immediately with ⚠️ indicator (line 258-327). If False: marks awaiting_approval for batch (line 329-361). This story must SET the priority_score upstream in detect_priority_node.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/email_workflow.py</path>
+        <kind>workflow_graph</kind>
+        <symbol>create_email_workflow</symbol>
+        <lines>71-170</lines>
+        <reason>EmailWorkflow graph structure. Current sequence: extract_context → classify → send_telegram (lines 145-146). Need to insert detect_priority node between classify and send_telegram: classify → detect_priority → send_telegram.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/states.py</path>
+        <kind>state_definition</kind>
+        <symbol>EmailWorkflowState</symbol>
+        <lines>14-81</lines>
+        <reason>EmailWorkflowState TypedDict defines priority_score field (line 66). State container flows through all workflow nodes. Must populate priority_score in detect_priority_node for use by send_telegram_node.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>database_model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>71-72</lines>
+        <reason>EmailProcessingQueue already has priority_score (Integer, default=0) and is_priority (Boolean, default=False) fields from Story 2.3. Ready for population by PriorityDetectionService. No schema changes needed.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/folder_category.py</path>
+        <kind>database_model</kind>
+        <symbol>FolderCategory</symbol>
+        <lines>15-70</lines>
+        <reason>FolderCategory model needs new is_priority_sender boolean field (default=False) for user-configured priority senders (AC #8). Requires Alembic migration to add column.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/classification.py</path>
+        <kind>service</kind>
+        <symbol>EmailClassificationService</symbol>
+        <lines>36-80</lines>
+        <reason>Service pattern example: __init__ with AsyncSession dependency, async methods, structured logging with self.logger. Follow this pattern for PriorityDetectionService implementation.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/batch_notification.py</path>
+        <kind>service</kind>
+        <symbol>get_pending_emails</symbol>
+        <lines>162-190</lines>
+        <reason>Batch query already filters is_priority=False (line 184) to exclude priority emails. Priority emails sent immediately in send_telegram_node, never enter batch queue.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="structlog" version=">=25.2.0">Structured logging for priority detection events</package>
+        <package name="sqlmodel" version=">=0.0.24">Database ORM for EmailProcessingQueue and FolderCategory models</package>
+        <package name="langgraph" version=">=0.4.1">State machine workflow for detect_priority node integration</package>
+        <package name="alembic" version=">=1.13.3">Database migrations for is_priority_sender field</package>
+        <package name="pytest" version=">=8.3.5">Testing framework for unit and integration tests</package>
+        <package name="pytest-asyncio" version=">=0.25.2">Async test support for AsyncSession and workflow nodes</package>
+      </python>
+      <frameworks>
+        <framework>LangGraph Workflow Nodes - EmailWorkflow state machine with PostgreSQL checkpointing</framework>
+        <framework>SQLModel ORM - Async database operations with EmailProcessingQueue and FolderCategory</framework>
+        <framework>Structured Logging - structlog.get_logger() pattern with context fields</framework>
+        <framework>Pytest Async - AsyncMock for unit tests, real database for integration tests</framework>
+      </frameworks>
+      <note>No new dependencies required. All packages already installed from previous stories (Epic 1 and Epic 2).</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Workflow Integration: Insert detect_priority node between classify and send_telegram in EmailWorkflow graph (backend/app/workflows/email_workflow.py:145-146). Update edges: classify → detect_priority, detect_priority → send_telegram.</constraint>
+    <constraint>Priority Threshold: Default threshold is 70. Emails with priority_score >= 70 marked as is_priority=True, triggering immediate Telegram notification.</constraint>
+    <constraint>Scoring Algorithm: Government domain (+50), urgency keywords (+30), user-configured senders (+40). Cap total score at 100.</constraint>
+    <constraint>Database Fields: EmailProcessingQueue.priority_score and EmailProcessingQueue.is_priority already exist (Story 2.3). Populate via detect_priority_node, do not modify schema.</constraint>
+    <constraint>Service Pattern: Follow EmailClassificationService pattern - __init__ with AsyncSession, async methods, structured logging via structlog.get_logger().</constraint>
+    <constraint>Logging Standard: Use structured logging with context fields (email_id, sender, priority_score, is_priority, detection_reasons). Log at info level for detection completion.</constraint>
+    <constraint>Testing Strategy: 8 unit tests (service logic), 3 integration tests (workflow integration). Use AsyncMock for database, real database for integration tests. Follow patterns from Story 2.8.</constraint>
+    <constraint>Configuration: Store priority detection config in backend/app/config/priority_config.py. Support environment variable overrides (PRIORITY_THRESHOLD, PRIORITY_GOVERNMENT_DOMAINS).</constraint>
+    <constraint>Multilingual Keywords: Support 4 languages - English, German, Russian, Ukrainian. Case-insensitive keyword matching in both subject and body_preview.</constraint>
+    <constraint>No Breaking Changes: send_telegram_node already checks is_priority flag. Batch notification already excludes priority emails. This story only adds detection logic upstream.</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>PriorityDetectionService.detect_priority</name>
+      <kind>async_method</kind>
+      <signature>async def detect_priority(self, email_id: int, sender: str, subject: str, body_preview: str = "") -> Dict[str, Any]</signature>
+      <path>backend/app/services/priority_detection.py</path>
+      <description>Analyzes email to determine priority level. Returns dict with priority_score (0-100), is_priority (bool), and detection_reasons (List[str]).</description>
+    </interface>
+    <interface>
+      <name>detect_priority_node</name>
+      <kind>workflow_node</kind>
+      <signature>async def detect_priority_node(state: EmailWorkflowState) -> EmailWorkflowState</signature>
+      <path>backend/app/workflows/nodes.py</path>
+      <description>LangGraph workflow node. Calls PriorityDetectionService, updates state with priority_score/is_priority/detection_reasons, persists to EmailProcessingQueue via database update.</description>
+    </interface>
+    <interface>
+      <name>EmailWorkflowState.priority_score</name>
+      <kind>state_field</kind>
+      <signature>priority_score: int</signature>
+      <path>backend/app/workflows/states.py:66</path>
+      <description>State field for priority score (0-100). Populated by detect_priority_node, consumed by send_telegram_node for bypass decision.</description>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue priority fields</name>
+      <kind>database_schema</kind>
+      <signature>priority_score: int (default=0), is_priority: bool (default=False)</signature>
+      <path>backend/app/models/email.py:71-72</path>
+      <description>Database fields for priority tracking. Already exist from Story 2.3. Updated by detect_priority_node, queried by batch_notification service.</description>
+    </interface>
+    <interface>
+      <name>FolderCategory.is_priority_sender</name>
+      <kind>database_field</kind>
+      <signature>is_priority_sender: bool (default=False)</signature>
+      <path>backend/app/models/folder_category.py</path>
+      <description>NEW FIELD - User-configurable priority sender flag. Queried by PriorityDetectionService._check_user_priority_senders() for +40 score boost. Requires Alembic migration.</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Testing framework: pytest with pytest-asyncio for async support. Unit tests use AsyncMock for database/external dependencies (structlog, AsyncSession). Integration tests use real PostgreSQL database with db_session fixture from conftest.py. Test isolation: conftest.py creates/drops tables per test function. Naming: test_*.py for unit tests, test_*_integration.py for integration tests. Assertions: Use pytest assertions with descriptive messages. Logging: Verify structured log events using mock logger. Coverage target: 8 unit tests (service logic), 3 integration tests (workflow integration). Pattern reference: Story 2.8 batch_notification tests.</standards>
+    <locations>
+      <location>backend/tests/test_priority_detection.py</location>
+      <location>backend/tests/integration/test_priority_detection_integration.py</location>
+      <location>backend/tests/conftest.py (shared fixtures: db_session, test_user)</location>
+    </locations>
+    <ideas>
+      <test id="unit-1" acs="2">
+        <description>test_government_domain_detection - Mock email from finanzamt.de, verify priority_score includes +50, detection_reasons includes "government_domain:finanzamt.de"</description>
+      </test>
+      <test id="unit-2" acs="1">
+        <description>test_urgency_keyword_detection_german - Mock email with subject "Wichtig: Frist bis Freitag", verify priority_score includes +30, detection_reasons includes "keyword:wichtig"</description>
+      </test>
+      <test id="unit-3" acs="1">
+        <description>test_urgency_keyword_detection_multilingual - Test keywords from EN/DE/RU/UK, verify all languages detected correctly</description>
+      </test>
+      <test id="unit-4" acs="4">
+        <description>test_priority_threshold_triggering - Mock government+keyword (80) verify is_priority=True. Mock keyword only (30) verify is_priority=False</description>
+      </test>
+      <test id="unit-5" acs="8">
+        <description>test_user_configured_priority_sender - Create FolderCategory with is_priority_sender=True, verify priority_score includes +40, detection_reasons includes "user_configured_sender"</description>
+      </test>
+      <test id="unit-6" acs="3">
+        <description>test_priority_score_capped_at_100 - Mock government(50)+keyword(30)+user_config(40)=120, verify priority_score=100 (capped)</description>
+      </test>
+      <test id="unit-7" acs="9">
+        <description>test_priority_detection_logging - Run detection, verify structured log entry with email_id, priority_score, detection_reasons</description>
+      </test>
+      <test id="unit-8" acs="2">
+        <description>test_extract_domain_from_email_formats - Test "email@domain.de", "Name &lt;email@domain.de&gt;", "name@subdomain.domain.de" formats</description>
+      </test>
+      <test id="integration-1" acs="6,7">
+        <description>test_priority_email_immediate_notification - Create finanzamt.de email with "wichtig", trigger workflow, verify priority_score>=70, is_priority=True, Telegram sent immediately with ⚠️</description>
+      </test>
+      <test id="integration-2" acs="6">
+        <description>test_non_priority_email_batched - Create normal email, verify priority_score&lt;70, is_priority=False, NOT sent to Telegram, marked awaiting_approval</description>
+      </test>
+      <test id="integration-3" acs="6">
+        <description>test_priority_email_excluded_from_batch - Create 2 priority + 1 non-priority emails, run batch task, verify only non-priority returned</description>
+      </test>
+    </ideas>
+  </tests>
+</story-context>

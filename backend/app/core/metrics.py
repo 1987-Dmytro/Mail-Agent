@@ -35,6 +35,52 @@ llm_stream_duration_seconds = Histogram(
     buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
 )
 
+# Gemini-specific metrics
+gemini_token_usage_total = Counter(
+    "gemini_token_usage_total",
+    "Total tokens consumed by Gemini API calls",
+    ["operation"]
+)
+
+# Error handling and recovery metrics (Story 2.11 - Task 9)
+email_processing_errors_total = Counter(
+    "email_processing_errors_total",
+    "Total number of email processing errors",
+    ["error_type", "user_id"]
+)
+
+email_dlq_total = Counter(
+    "email_dlq_total",
+    "Total number of emails moved to Dead Letter Queue",
+    ["error_type", "user_id"]
+)
+
+email_retry_attempts_total = Counter(
+    "email_retry_attempts_total",
+    "Total number of retry attempts (successful and failed)",
+    ["operation", "success"]
+)
+
+email_retry_count_histogram = Histogram(
+    "email_retry_count_histogram",
+    "Distribution of retry counts before success or failure",
+    buckets=[0, 1, 2, 3, 4, 5]
+)
+
+email_error_recovery_duration_seconds = Histogram(
+    "email_error_recovery_duration_seconds",
+    "Time from error occurrence to successful retry",
+    ["error_type"],
+    buckets=[60, 300, 600, 1800, 3600, 7200]  # 1min, 5min, 10min, 30min, 1hr, 2hr
+)
+
+# Current error state metrics (gauges)
+emails_in_error_state = Gauge(
+    "emails_in_error_state",
+    "Current number of emails in error state",
+    ["error_type"]
+)
+
 
 def setup_metrics(app):
     """Set up Prometheus metrics middleware and endpoints.

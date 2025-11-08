@@ -1,0 +1,131 @@
+%% EmailWorkflow Complete Flow Diagram
+%% Epic 2: AI Sorting Engine & Telegram Approval
+%% Generated: 2025-11-08
+
+graph TD
+    START([Email Arrives in Gmail]) --> poll
+
+    poll[Email Polling Service<br/>Celery Task runs every 120s] --> create_queue
+    create_queue[Create EmailProcessingQueue<br/>status: pending] --> start_workflow
+
+    start_workflow[Start EmailWorkflow<br/>thread_id: email_ID_UUID] --> extract_context
+
+    %% Node 1: Extract Context
+    extract_context[1. extract_context<br/>Load email from Gmail API]
+    extract_context --> extract_details{Extract<br/>Details}
+    extract_details -->|sender, subject, body| classify
+
+    %% Node 2: Classify
+    classify[2. classify<br/>AI Classification<br/>with Gemini 1.5 Flash]
+    classify --> gemini_call[Call Gemini API<br/>with classification prompt]
+    gemini_call --> parse_response{Parse JSON<br/>Response}
+    parse_response -->|suggested_folder<br/>reasoning<br/>priority_score| detect_priority
+
+    %% Node 3: Detect Priority
+    detect_priority[3. detect_priority<br/>Priority Detection Logic]
+    detect_priority --> check_domain{Check<br/>Sender Domain}
+    check_domain -->|finanzamt.de<br/>auslaenderbehoerde.de| priority_boost[+30 priority points]
+    check_domain -->|other| check_keywords
+
+    check_keywords{Check<br/>Keywords}
+    priority_boost --> check_keywords
+    check_keywords -->|urgent, wichtig| keyword_boost[+20 priority points]
+    check_keywords -->|none| calc_priority
+
+    keyword_boost --> calc_priority
+    calc_priority[Calculate Final Priority Score<br/>Set is_priority flag if >= 70] --> send_telegram
+
+    %% Node 4: Send Telegram
+    send_telegram[4. send_telegram<br/>Send Approval Request<br/>to Telegram]
+    send_telegram --> priority_check{is_priority<br/>== true?}
+
+    priority_check -->|Yes| send_immediate[Send Immediately<br/>⚠️ Priority Email]
+    priority_check -->|No| batch_check{batch_enabled<br/>== true?}
+
+    batch_check -->|Yes| queue_batch[Queue for Batch<br/>Send at batch_time]
+    batch_check -->|No| send_immediate
+
+    send_immediate --> format_message[Format Telegram Message<br/>From: sender<br/>Subject: subject<br/>Preview: body<br/>AI Suggestion: folder<br/>Reasoning: reasoning]
+    queue_batch --> format_message
+
+    format_message --> create_buttons[Create Inline Keyboard<br/>Approve | Change Folder | Reject]
+    create_buttons --> telegram_send[TelegramBotClient.send_message]
+    telegram_send --> create_mapping[Create WorkflowMapping<br/>email_id ↔ thread_id ↔ telegram_msg_id]
+
+    create_mapping --> await_approval
+
+    %% Node 5: Await Approval (PAUSE)
+    await_approval[5. await_approval<br/>⚠️ WORKFLOW PAUSES<br/>Checkpoint saved to PostgreSQL]
+
+    await_approval -.State Persisted.-> checkpoint_db[(PostgreSQL<br/>checkpoints table)]
+
+    await_approval -.Hours/Days Later.-> user_responds
+
+    user_responds[User Responds<br/>via Telegram]
+    user_responds --> callback{Callback<br/>Data}
+
+    callback -->|approve_ID| resume_approve[Workflow Resumes<br/>user_decision: approve]
+    callback -->|reject_ID| resume_reject[Workflow Resumes<br/>user_decision: reject]
+    callback -->|change_folder_ID| show_folders[Show Folder Menu]
+    show_folders --> user_selects[User Selects Folder]
+    user_selects --> resume_change[Workflow Resumes<br/>user_decision: change_folder<br/>selected_folder_id: X]
+
+    resume_approve --> execute_action
+    resume_reject --> execute_action
+    resume_change --> execute_action
+
+    %% Node 6: Execute Action
+    execute_action[6. execute_action<br/>Apply User Decision]
+    execute_action --> decision_type{User<br/>Decision}
+
+    decision_type -->|approve| apply_ai_label[Apply AI Suggested Label<br/>Gmail API apply_label]
+    decision_type -->|change_folder| apply_user_label[Apply User Selected Label<br/>Gmail API apply_label]
+    decision_type -->|reject| no_action[No Gmail Action<br/>Leave in Inbox]
+
+    apply_ai_label --> record_history
+    apply_user_label --> record_history
+    no_action --> record_history
+
+    record_history[Record ApprovalHistory<br/>action_type, ai_suggestion,<br/>user_selection, approved]
+    record_history --> update_status{Update<br/>Status}
+
+    update_status -->|approve/change| status_completed[status: completed]
+    update_status -->|reject| status_rejected[status: rejected]
+
+    status_completed --> send_confirmation
+    status_rejected --> send_confirmation
+
+    %% Node 7: Send Confirmation
+    send_confirmation[7. send_confirmation<br/>Send Completion Message]
+    send_confirmation --> format_confirm{Format<br/>Message}
+
+    format_confirm -->|approved| confirm_sorted[✅ Email sorted to FOLDER!]
+    format_confirm -->|rejected| confirm_rejected[❌ Email rejected and left in inbox]
+
+    confirm_sorted --> telegram_confirm[Send Telegram Confirmation]
+    confirm_rejected --> telegram_confirm
+
+    telegram_confirm --> workflow_complete[Update WorkflowMapping<br/>workflow_state: completed]
+    workflow_complete --> END([END])
+
+    %% Error Handling Paths
+    gemini_call -.Gemini API Error.-> fallback[Fallback Classification<br/>Folder: Unclassified<br/>Priority: 50]
+    fallback -.Continue.-> detect_priority
+
+    apply_ai_label -.Gmail API Error.-> retry_gmail[Retry with<br/>Exponential Backoff<br/>Max 3 attempts]
+    apply_user_label -.Gmail API Error.-> retry_gmail
+
+    retry_gmail -.All Retries Failed.-> mark_error[status: error<br/>Record error_type,<br/>error_message, dlq_reason]
+    mark_error -.Notify User.-> error_notification[Send Telegram Error Notification<br/>/retry instructions]
+    error_notification --> END
+
+    retry_gmail -.Success After Retry.-> record_history
+
+    %% Styling
+    classDef pauseNode fill:#ffcccc,stroke:#ff0000,stroke-width:3px
+    classDef errorNode fill:#ffeecc,stroke:#ff9900,stroke-width:2px
+    classDef successNode fill:#ccffcc,stroke:#00cc00,stroke-width:2px
+
+    class await_approval pauseNode
+    class fallback,retry_gmail,mark_error,error_notification errorNode
+    class workflow_complete,END successNode
