@@ -670,7 +670,7 @@ So that I can present quality drafts to users for approval.
 6. Service calls Grok LLM API and receives response draft
 7. Generated response stored in EmailProcessingQueue (response_draft field)
 8. Response quality validation (not empty, appropriate length, correct language)
-9. Processing status updated to "awaiting_approval" with action_type="send_response"
+9. Processing status updated to "awaiting_approval" with classification="needs_response" (differentiates from "sort_only" emails)
 
 **Prerequisites:** Story 3.6 (response prompts), Story 2.1 (Grok integration)
 
@@ -739,8 +739,29 @@ So that I can ensure the system generates appropriate responses in each language
 
 ---
 
+### Story 3.11: Workflow Integration & Conditional Routing
+
+As a system,
+I want emails to be conditionally routed based on whether they need responses,
+So that only relevant emails trigger response generation and users receive appropriate Telegram messages.
+
+**Acceptance Criteria:**
+1. Update `classify` node to call `ResponseGenerationService.should_generate_response()` and set `classification` field ("sort_only" or "needs_response")
+2. Implement `route_by_classification()` conditional edge function that returns "draft_response" or "send_telegram"
+3. Create `draft_response` node that calls `ResponseGenerationService.generate_response_draft()` and updates state
+4. Add conditional edges in workflow graph: classify → route_by_classification → {needs_response: draft_response, sort_only: send_telegram}
+5. Add edge: draft_response → send_telegram
+6. Update `send_telegram` node to use response draft template when `state["draft_response"]` exists, sorting template otherwise
+7. Integration test verifies "needs_response" path: email with question → classify → draft → telegram (shows draft)
+8. Integration test verifies "sort_only" path: newsletter → classify → telegram (sorting only, no draft)
+9. Update Epic 3 documentation marking workflow integration complete
+
+**Prerequisites:** All Epic 3 stories (3.1-3.10)
+
+---
+
 **Epic 3 Summary:**
-- **Total Stories:** 10
+- **Total Stories:** 11
 - **Delivers:** Complete RAG-powered response generation with multilingual support and context-aware drafting
 - **User Value:** AI-generated responses that understand conversation history, eliminating manual context review
 - **Technical Achievement:** Production RAG system with vector search, embedding, and multilingual generation
@@ -956,9 +977,9 @@ So that I successfully complete setup on my first attempt.
 **Total Stories Across All Epics:**
 - Epic 1: 10 stories (Foundation & Gmail)
 - Epic 2: 12 stories (AI Sorting & Telegram)
-- Epic 3: 10 stories (RAG & Response Generation)
+- Epic 3: 11 stories (RAG & Response Generation)
 - Epic 4: 8 stories (Configuration UI)
-- **Grand Total: 40 stories**
+- **Grand Total: 41 stories**
 
 **Delivery Milestones:**
 1. After Epic 1: Working Gmail integration and email monitoring

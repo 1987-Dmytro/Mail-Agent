@@ -1,0 +1,278 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>9</storyId>
+    <title>Response Editing and Sending</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-9-response-editing-and-sending.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to edit AI-generated drafts directly in Telegram before sending</iWant>
+    <soThat>I can quickly modify responses without leaving Telegram</soThat>
+    <tasks>
+      <task n="1" title="Core Implementation + Unit Tests">
+        <subtasks>
+          <subtask id="1.1">Implement Edit button callback handler - handle_edit_response_callback(), parse callback_data, load WorkflowMapping, send edit prompt, capture reply</subtask>
+          <subtask id="1.2">Implement message reply handler - handle_message_reply(), validate reply, update response_draft in database, send confirmation</subtask>
+          <subtask id="1.3">Implement Send button callback handler - handle_send_response_callback(), load response_draft, call GmailClient.send_email(), set In-Reply-To headers, send confirmation</subtask>
+          <subtask id="1.4">Implement vector DB indexing - index_sent_response(), generate embedding, add to ChromaDB, update sent_response_indexed flag</subtask>
+          <subtask id="1.5">Implement Reject button callback handler - handle_reject_response_callback(), update status to rejected, send confirmation</subtask>
+          <subtask id="1.6">Integrate handlers with TelegramBot - register callback handlers for edit_response_*, send_response_*, reject_response_*, add error handling</subtask>
+          <subtask id="1.7">Write unit tests - 10 test functions covering edit workflow, send workflow, threading, confirmation, status updates, indexing, error handling</subtask>
+        </subtasks>
+      </task>
+      <task n="2" title="Integration Tests">
+        <subtasks>
+          <subtask id="2.1">Set up integration test infrastructure - test database, fixtures for users/emails/drafts, mock Telegram bot, mock Gmail client</subtask>
+          <subtask id="2.2">Implement integration test scenarios - 6 tests: end-to-end edit workflow, send original draft, send edited draft, email threading, vector DB indexing, reject workflow</subtask>
+          <subtask id="2.3">Verify all integration tests passing - run pytest with real database and verify email threading and vector DB indexing</subtask>
+        </subtasks>
+      </task>
+      <task n="3" title="Documentation + Security Review">
+        <subtasks>
+          <subtask id="3.1">Update documentation - Update backend/README.md with Response Editing & Sending section, update docs/architecture.md with Telegram callback patterns and vector DB indexing</subtask>
+          <subtask id="3.2">Security review - Verify no email content logged in full, input validation for edited text, user permission checks, parameterized queries</subtask>
+        </subtasks>
+      </task>
+      <task n="4" title="Final Validation">
+        <subtasks>
+          <subtask id="4.1">Run complete test suite - all unit tests (10) and integration tests (6) passing</subtask>
+          <subtask id="4.2">Verify DoD checklist - review all DoD items, update task checkboxes, mark story ready</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC01">[Edit] button handler implemented that prompts user for modified text</criterion>
+    <criterion id="AC02">User can reply to bot message with edited response text</criterion>
+    <criterion id="AC03">Edited text replaces AI-generated draft in database</criterion>
+    <criterion id="AC04">[Send] button applies to both original draft and edited versions</criterion>
+    <criterion id="AC05">[Send] handler retrieves response text and sends via Gmail API</criterion>
+    <criterion id="AC06">Sent response properly threaded (In-Reply-To header set)</criterion>
+    <criterion id="AC07">Confirmation message sent after successful send ("✅ Response sent to [recipient]")</criterion>
+    <criterion id="AC08">Email status updated to "completed" after sending</criterion>
+    <criterion id="AC09">Sent response indexed into vector DB for future context</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Response Editing and Sending</section>
+        <snippet>Epic 3 implements response editing workflow allowing direct Telegram-based modifications and email sending with proper threading (In-Reply-To headers). After successful send, the sent response is indexed into ChromaDB vector database to become part of the user's RAG context for future response generation.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture</title>
+        <section>TelegramHITLWorkflow Pattern</section>
+        <snippet>LangGraph workflows can pause for user approval in Telegram and resume exactly where they left off using persistent checkpointing via PostgreSQL. The architecture leverages FastAPI + LangGraph template with Gmail API integration, ChromaDB for RAG, and Google Gemini 2.5 Flash for LLM operations.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Functional Requirements</section>
+        <snippet>FR011: System shall allow users to edit AI-generated drafts directly within Telegram before approval. FR005: System shall send email responses on behalf of the user upon approval. FR017: System shall index complete email conversation history in a vector database for context retrieval.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 3 Story 3.9</section>
+        <snippet>Story 3.9 delivers response editing and sending capabilities with 9 acceptance criteria covering edit button handling, message reply capture, draft replacement, send button support for both original and edited drafts, Gmail threading, confirmation messages, status updates, and vector DB indexing.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/stories/3-8-response-draft-telegram-messages.md</path>
+        <title>Story 3.8: Response Draft Telegram Messages</title>
+        <section>Implementation Details</section>
+        <snippet>Story 3.8 created TelegramResponseDraftService with inline buttons [Send] [Edit] [Reject] using callback data format "send_response_{email_id}". WorkflowMapping records link telegram_message_id to email_id for callback routing. Status: done, APPROVED.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/stories/1-9-email-sending-capability.md</path>
+        <title>Story 1.9: Email Sending Capability</title>
+        <section>Gmail API Threading</section>
+        <snippet>GmailClient.send_email() method supports reply-to-thread functionality with In-Reply-To and References headers for proper email threading. Method includes error handling for quota exceeded, invalid recipient, and sends via Gmail API messages.send endpoint. Status: done.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/stories/3-1-vector-database-setup.md</path>
+        <title>Story 3.1: Vector Database Setup</title>
+        <section>ChromaDB Configuration</section>
+        <snippet>VectorDBClient.add_embedding() method stores embeddings in "email_embeddings" collection with user_id filtering. Metadata schema includes message_id, thread_id, sender, subject, date, language. Persistent SQLite backend for embeddings.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/stories/3-2-email-embedding-service.md</path>
+        <title>Story 3.2: Email Embedding Service</title>
+        <section>Embedding Generation</section>
+        <snippet>EmbeddingService.embed(text) method generates 768-dimension vectors using Gemini text-embedding-004. Free tier unlimited requests, multilingual support for ru/uk/en/de. Batch processing supports 50 emails per minute.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/services/telegram_response_draft.py</path>
+        <kind>service</kind>
+        <symbol>TelegramResponseDraftService</symbol>
+        <lines>32-475</lines>
+        <reason>Story 3.8 service creates inline buttons [Send] [Edit] [Reject] with callback data format "send_response_{email_id}". Provides build_response_draft_keyboard() method that Story 3.9 will use as pattern reference. Creates WorkflowMapping records for callback routing.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>service</kind>
+        <symbol>GmailClient.send_email</symbol>
+        <lines>918-933</lines>
+        <reason>Story 1.9 method sends email via Gmail API with threading support. Method signature: async def send_email(to, subject, body, in_reply_to=None, references=None, body_type="plain", thread_id=None) -> str. Story 3.9 will call this to send approved responses with proper In-Reply-To headers.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>service</kind>
+        <symbol>TelegramBotClient</symbol>
+        <lines>20-87</lines>
+        <reason>Epic 2 client provides callback handler registration and message sending. Story 3.9 will use send_message() for edit prompts and confirmations. CallbackQueryHandler registered in initialize() method (line 77) handles all callback patterns.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/workflow_mapping.py</path>
+        <kind>model</kind>
+        <symbol>WorkflowMapping</symbol>
+        <lines>16-94</lines>
+        <reason>Story 2.6 model tracks workflow state transitions. Fields: email_id, user_id, thread_id, telegram_message_id, workflow_state. Story 3.9 will update workflow_state to "draft_edited", "sent", or "rejected". Used for callback reconnection.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>17-80</lines>
+        <reason>Epic 1-3 model stores email metadata. Fields relevant to Story 3.9: id, user_id, sender, subject, gmail_thread_id, draft_response (Story 3.7), detected_language, tone, status. Story 3.9 will update draft_response when edited and status when sent.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/vector_db.py</path>
+        <kind>service</kind>
+        <symbol>VectorDBClient.insert_embedding</symbol>
+        <lines>134-149</lines>
+        <reason>Story 3.1 method stores embeddings in ChromaDB. Method signature: insert_embedding(collection_name, embedding, metadata, id). Story 3.9 will use this to index sent responses into "email_embeddings" collection for future RAG retrieval.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/embedding_service.py</path>
+        <kind>service</kind>
+        <symbol>EmbeddingService.embed_text</symbol>
+        <lines>55-80</lines>
+        <reason>Story 3.2 service generates 768-dim embeddings using Gemini text-embedding-004. Story 3.9 will call embed_text(response_draft) to create embedding before indexing sent response to vector DB.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/telegram_handlers.py</path>
+        <kind>handler</kind>
+        <symbol>handle_callback_query</symbol>
+        <lines>unknown</lines>
+        <reason>Epic 2 callback handler registered in telegram_bot.py (line 77). Story 3.9 will extend this handler to route "edit_response_*", "send_response_*", "reject_response_*" callbacks to new service methods. Currently handles approval callbacks from Story 2.7.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python version=">=3.13">
+        <framework name="fastapi" version=">=0.115.12">API framework for HTTP endpoints</framework>
+        <framework name="python-telegram-bot" version=">=21.0">Telegram Bot API client (Epic 2, Story 3.9 callback handlers)</framework>
+        <framework name="google-api-python-client" version=">=2.146.0">Gmail API client (Story 1.9 email sending)</framework>
+        <framework name="chromadb" version=">=0.4.22">Self-hosted vector database (Story 3.1, Story 3.9 sent response indexing)</framework>
+        <framework name="google-generativeai" version=">=0.8.3">Gemini API for embeddings (Story 3.2, Story 3.9 response embedding)</framework>
+        <framework name="sqlmodel" version=">=0.0.24">Database ORM for PostgreSQL (EmailProcessingQueue, WorkflowMapping models)</framework>
+        <framework name="structlog" version=">=25.2.0">Structured logging (all Story 3.9 operations)</framework>
+        <framework name="celery" version=">=5.4.0">Background task processing</framework>
+        <framework name="redis" version=">=5.0.1">Celery message broker</framework>
+        <framework name="alembic" version=">=1.13.3">Database migrations</framework>
+        <framework name="tenacity" version=">=8.2.3">Retry logic with exponential backoff</framework>
+        <testing name="pytest" version=">=8.3.5">Testing framework (Story 3.9 unit + integration tests)</testing>
+        <testing name="pytest-asyncio" version=">=0.25.2">Async test support</testing>
+        <testing name="httpx" version=">=0.28.1">HTTP client for testing</testing>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>REUSE existing services - DO NOT recreate: TelegramResponseDraftService (Story 3.8), GmailClient (Story 1.9), TelegramBotClient (Epic 2), EmbeddingService (Story 3.2), VectorDBClient (Story 3.1). Only create NEW services: ResponseEditingService, ResponseSendingService.</constraint>
+    <constraint>Database operations: Use SQLModel ORM with parameterized queries (no string concatenation). Reuse EmailProcessingQueue and WorkflowMapping tables (no new tables).</constraint>
+    <constraint>Testing requirements: Implement exactly 10 unit tests + 6 integration tests covering ALL acceptance criteria. NO stub tests with 'pass' statements. All tests must execute real logic.</constraint>
+    <constraint>Error handling: Follow Epic 2/3 patterns - TelegramUserBlockedError for blocked users, GmailAPIError for send failures, structured logging for all operations.</constraint>
+    <constraint>Callback data format: Use pattern "{action}_response_{email_id}" matching Story 3.8 convention (e.g., "send_response_123", "edit_response_123").</constraint>
+    <constraint>WorkflowMapping state transitions: "awaiting_response_approval" (Story 3.8) → "draft_edited" (Story 3.9 edit) → "sent" (Story 3.9 send) or "rejected" (Story 3.9 reject).</constraint>
+    <constraint>Vector DB indexing: Use collection "email_embeddings" with metadata schema {message_id, user_id, thread_id, sender, subject, date, language}. 768-dim embeddings from Gemini text-embedding-004.</constraint>
+    <constraint>Structured logging: Use structlog.get_logger(__name__) with context fields (email_id, user_id, action, status). Follow Story 3.8 logging pattern.</constraint>
+    <constraint>Email threading: Use gmail_thread_id from EmailProcessingQueue when calling GmailClient.send_email(thread_id=...) to ensure In-Reply-To headers set correctly.</constraint>
+    <constraint>Documentation updates: Update backend/README.md with Response Editing & Sending section, update docs/architecture.md with Telegram callback patterns and vector DB indexing strategy.</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>GmailClient.send_email</name>
+      <kind>async method</kind>
+      <signature>async def send_email(self, to: str, subject: str, body: str, in_reply_to: str = None, references: str = None, body_type: str = "plain", thread_id: str = None) -> str</signature>
+      <path>backend/app/core/gmail_client.py:918</path>
+    </interface>
+    <interface>
+      <name>TelegramBotClient.send_message</name>
+      <kind>async method</kind>
+      <signature>async def send_message(self, telegram_id: str, text: str, user_id: int = None) -> str</signature>
+      <path>backend/app/core/telegram_bot.py:88</path>
+    </interface>
+    <interface>
+      <name>TelegramBotClient.send_message_with_buttons</name>
+      <kind>async method</kind>
+      <signature>async def send_message_with_buttons(self, telegram_id: str, text: str, buttons: list[list[InlineKeyboardButton]], user_id: int = None) -> str</signature>
+      <path>backend/app/core/telegram_bot.py:195</path>
+    </interface>
+    <interface>
+      <name>EmbeddingService.embed_text</name>
+      <kind>method</kind>
+      <signature>def embed_text(self, text: str) -> List[float]</signature>
+      <path>backend/app/core/embedding_service.py:55-80</path>
+    </interface>
+    <interface>
+      <name>VectorDBClient.insert_embedding</name>
+      <kind>method</kind>
+      <signature>def insert_embedding(self, collection_name: str, embedding: List[float], metadata: Dict[str, Any], id: str) -> None</signature>
+      <path>backend/app/core/vector_db.py:134</path>
+    </interface>
+    <interface>
+      <name>WorkflowMapping.workflow_state</name>
+      <kind>model field</kind>
+      <signature>workflow_state: str = Field(default="initialized", max_length=50)</signature>
+      <path>backend/app/models/workflow_mapping.py:66-70</path>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue.draft_response</name>
+      <kind>model field</kind>
+      <signature>draft_response: Optional[str] = Field(default=None, sa_column=Column(Text))</signature>
+      <path>backend/app/models/email.py:77</path>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue.status</name>
+      <kind>model field</kind>
+      <signature>status: str = Field(default="pending", sa_column=Column(String(50), nullable=False))</signature>
+      <path>backend/app/models/email.py:64</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Testing framework: pytest>=8.3.5 with pytest-asyncio>=0.25.2 for async test support. Unit tests use unittest.mock (Mock, AsyncMock, MagicMock, patch) for isolating dependencies (database, Telegram bot, Gmail client, vector DB). Integration tests use real PostgreSQL database with env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent". Mock external APIs (Telegram bot, Gmail API) even in integration tests for speed and reliability. Test structure: Arrange-Act-Assert pattern with clear fixtures. Coverage target: 80%+ for new code (run: uv run pytest --cov=app/services/response_editing_service backend/tests/). Follow Epic 2/3 patterns: create fixtures for mock services, use pytest.mark.asyncio for async tests, create sync_db_service fixture for services using sync Session(engine). NO stub tests with 'pass' statements - all tests must execute real business logic.</standards>
+    <locations>
+      <location>backend/tests/test_response_editing_sending.py - Unit tests (10 test functions)</location>
+      <location>backend/tests/integration/test_response_editing_sending_integration.py - Integration tests (6 test functions)</location>
+    </locations>
+    <ideas>
+      <test id="unit-1" ac="AC01">test_handle_edit_response_callback() - Verify edit button triggers reply prompt message to user via Telegram</test>
+      <test id="unit-2" ac="AC02,AC03">test_handle_message_reply_edited_text() - Verify user reply text updates EmailProcessingQueue.draft_response in database</test>
+      <test id="unit-3" ac="AC04,AC05">test_handle_send_response_original_draft() - Verify send button with original draft calls GmailClient.send_email()</test>
+      <test id="unit-4" ac="AC04,AC05">test_handle_send_response_edited_draft() - Verify send button with edited draft calls GmailClient.send_email()</test>
+      <test id="unit-5" ac="AC06">test_gmail_send_with_threading() - Verify In-Reply-To header set correctly using gmail_thread_id parameter</test>
+      <test id="unit-6" ac="AC07">test_telegram_confirmation_message() - Verify success confirmation "✅ Response sent to {sender}" sent to user</test>
+      <test id="unit-7" ac="AC08">test_email_status_updated_completed() - Verify EmailProcessingQueue.status updated to "completed" after send</test>
+      <test id="unit-8" ac="AC09">test_index_sent_response_to_vector_db() - Verify sent response embedded and indexed into ChromaDB "email_embeddings" collection</test>
+      <test id="unit-9" ac="none">test_handle_reject_response_callback() - Verify reject button updates status to "rejected" and sends confirmation</test>
+      <test id="unit-10" ac="none">test_error_handling_invalid_email_id() - Verify error handling for missing email_id returns meaningful error</test>
+      <test id="integration-1" ac="AC01-03">test_end_to_end_edit_workflow() - Complete edit workflow: button click → reply prompt → user reply → draft updated in database</test>
+      <test id="integration-2" ac="AC04-08">test_end_to_end_send_original_draft() - Send original draft: button click → Gmail send → status update → confirmation message</test>
+      <test id="integration-3" ac="AC04-08">test_end_to_end_send_edited_draft() - Send edited draft: edit workflow → save → send → confirmation</test>
+      <test id="integration-4" ac="AC06">test_email_threading_in_reply() - Verify In-Reply-To and References headers present in sent email metadata</test>
+      <test id="integration-5" ac="AC09">test_sent_response_indexed_to_chromadb() - Verify sent response appears in ChromaDB collection with correct metadata for future RAG</test>
+      <test id="integration-6" ac="none">test_reject_response_workflow() - Verify reject button marks email as rejected and updates WorkflowMapping state</test>
+    </ideas>
+  </tests>
+</story-context>

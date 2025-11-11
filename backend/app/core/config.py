@@ -174,6 +174,13 @@ class Settings:
         # Admin API Configuration (Story 2.11 - AC #7)
         self.ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
 
+        # Gemini API Configuration (Epic 2 - AI Classification, Epic 3 - Embeddings)
+        self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+        self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+        # ChromaDB Vector Database Configuration (Epic 3 - Story 3.1)
+        self.CHROMADB_PATH = os.getenv("CHROMADB_PATH", "./backend/data/chromadb")
+
         # Logging Configuration
         self.LOG_DIR = Path(os.getenv("LOG_DIR", "logs"))
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

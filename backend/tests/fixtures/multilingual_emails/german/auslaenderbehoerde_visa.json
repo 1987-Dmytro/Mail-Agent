@@ -1,0 +1,50 @@
+{
+  "test_name": "german_auslaenderbehoerde_visa",
+  "description": "German immigration office (Ausländerbehörde) email - CRITICAL for AC #4 - formal government tone",
+  "original_email": {
+    "sender": "auslaenderamt@example.de",
+    "sender_name": "Ausländerbehörde Berlin",
+    "subject": "Verlängerung der Aufenthaltserlaubnis - Erforderliche Unterlagen",
+    "body": "Sehr geehrte Damen und Herren,\n\nIhr Antrag auf Verlängerung der Aufenthaltserlaubnis ist bei uns eingegangen. Zur weiteren Bearbeitung benötigen wir folgende Unterlagen:\n\n1. Aktueller Arbeitsvertrag\n2. Gehaltsabrechnungen der letzten 3 Monate\n3. Mietvertrag oder Wohnungsgeberbestätigung\n4. Krankenversicherungsnachweis\n\nBitte reichen Sie die Unterlagen innerhalb von 4 Wochen ein.\n\nBei Fragen können Sie sich gerne an uns wenden.\n\nMit freundlichen Grüßen\nAusländerbehörde Berlin\nSachbearbeitung Aufenthaltstitel",
+    "thread_id": "thread-de-auslaenderamt-001",
+    "received_at": "2025-11-09T10:00:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Antrag auf Verlängerung der Aufenthaltserlaubnis",
+      "body": "Sehr geehrte Damen und Herren,\n\nhiermit beantrage ich die Verlängerung meiner Aufenthaltserlaubnis.\n\nMit freundlichen Grüßen",
+      "timestamp": "2025-10-30T12:00:00Z",
+      "is_sent_by_user": true
+    }
+  ],
+  "expected_language": "de",
+  "expected_tone": "formal",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["Aufenthaltserlaubnis", "Unterlagen", "Verlängerung", "Ausländerbehörde"],
+    "thread_history_references": ["Antrag", "Verlängerung"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "de",
+      "greeting_examples": ["Sehr geehrte Damen und Herren"],
+      "closing_examples": ["Mit freundlichen Grüßen"],
+      "required_greeting": "Sehr geehrte Damen und Herren",
+      "required_closing": "Mit freundlichen Grüßen"
+    },
+    "tone_markers": {
+      "tone": "formal",
+      "formality_level": "very-high",
+      "expected_phrases": ["hiermit", "ich bestätige", "zur Kenntnis genommen", "fristgerecht einreichen", "ich werde"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["erforderliche Unterlagen", "Frist", "Einreichung"]
+    }
+  },
+  "quality_threshold": 90,
+  "critical_for_ac": 4,
+  "notes": "CRITICAL TEST - Must include exact formal German government greetings and closings"
+}

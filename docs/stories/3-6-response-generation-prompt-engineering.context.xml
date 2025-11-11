@@ -1,0 +1,310 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>6</storyId>
+    <title>Response Generation Prompt Engineering</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-6-response-generation-prompt-engineering.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to create effective prompts for email response generation</iWant>
+    <soThat>the AI generates appropriate, contextual responses</soThat>
+    <tasks>
+### Task 1: Core Implementation + Unit Tests (AC: #1, #2, #3, #7, #8)
+
+**Subtask 1.1**: Create prompt template module and constants
+- Create file: `backend/app/prompts/response_generation.py`
+- Define RESPONSE_PROMPT_TEMPLATE with placeholders (sender, subject, email_body, detected_language, tone, thread_history, semantic_results)
+- Define GREETING_EXAMPLES dictionary (de/en/ru/uk × formal/professional/casual)
+- Define CLOSING_EXAMPLES dictionary (de/en/ru/uk × formal/professional/casual)
+- Define LANGUAGE_NAMES mapping (de→German, en→English, ru→Russian, uk→Ukrainian)
+- Add comprehensive type hints for all constants
+- Add docstrings explaining prompt template structure and usage
+
+**Subtask 1.2**: Implement tone detection service
+- Create file: `backend/app/services/tone_detection.py`
+- Implement `ToneDetectionService` class with `__init__()` constructor
+- Add method: `detect_tone(email: Email, thread_history: List[Email]) -> str` (AC #4)
+- Implement rule-based detection for known cases (government domains → formal, business clients → professional, personal contacts → casual)
+- Define constant: `GOVERNMENT_DOMAINS` list with common German bureaucracy domains
+- Add LLM-based detection for ambiguous cases (use Gemini to analyze thread tone)
+- Add fallback logic: default to "professional" if tone cannot be determined
+- Configure logging using structlog (log sender, detected tone, method used)
+- Add comprehensive type hints (PEP 484) for all methods
+
+**Subtask 1.3**: Implement prompt template formatter
+- Add method to `response_generation.py`: `format_response_prompt(email, rag_context, language, tone) -> str`
+- Format thread history from RAG context (chronological, with sender/date/body)
+- Format semantic results from RAG context (ranked by relevance, with similarity scores)
+- Substitute all template placeholders with actual values
+- Include appropriate greeting/closing examples based on language and tone
+- Add length constraints to prompt (2-3 paragraphs maximum)
+- Add formality instructions based on tone
+- Handle edge cases: empty thread history, no semantic results, unknown language
+
+**Subtask 1.4**: Implement prompt configuration storage
+- Create file: `backend/app/config/prompts_config.py`
+- Define PromptVersion dataclass (version, template_name, created_at, parameters)
+- Add method: `save_prompt_version(template_name, template_content, version)` (AC #8)
+- Add method: `load_prompt_version(template_name, version=None)` (loads latest if version=None)
+- Store prompt versions in database (PromptVersions table)
+- Create Alembic migration for PromptVersions table
+- Log prompt version usage for tracking and refinement
+
+**Subtask 1.5**: Write unit tests for prompt engineering
+- Create file: `backend/tests/test_response_generation_prompts.py`
+- Implement exactly 8 unit test functions covering tone detection, prompt formatting, greetings/closings, length constraints, multilingual support, and versioning
+- Use pytest fixtures for sample emails in all 4 languages and tones
+- Verify all unit tests passing
+
+### Task 2: Integration Tests (AC: #5, #6)
+
+**Subtask 2.1**: Set up integration test infrastructure
+- Create file: `backend/tests/integration/test_prompt_generation_integration.py`
+- Configure test database for Email and RAGContext integration
+- Create fixtures: test_user, sample_emails_with_threads, sample_rag_contexts
+- Create cleanup fixture: delete test data after tests
+
+**Subtask 2.2**: Implement integration test scenarios
+- Implement exactly 5 integration test functions covering formal German government emails, professional English business emails, casual Russian personal emails, multilingual quality, and real Gemini tone detection
+- Use real LanguageDetectionService from Story 3.5
+- Verify formatted prompts valid and ready for LLM consumption
+
+**Subtask 2.3**: Verify all integration tests passing
+- Run tests and verify tone detection (formal/professional/casual correctly identified)
+- Verify multilingual support (all 4 languages handled correctly)
+- Verify prompt quality (greetings/closings appropriate for language+tone)
+
+### Task 3: Documentation + Security Review (AC: #1, #4, #8)
+
+**Subtask 3.1**: Update documentation
+- Update `backend/README.md` with Response Generation Prompts section (prompt template structure, tone detection rules, greeting/closing examples, versioning)
+- Update `docs/architecture.md` with Prompt Engineering section (ADR-014, prompt template design principles, tone mapping strategy)
+- Add code examples for typical prompt generation scenarios
+
+**Subtask 3.2**: Security review
+- Verify no email content logged in prompt generation (privacy)
+- Verify no hardcoded prompt secrets or API keys
+- Verify input validation for email data (prevent prompt injection)
+- Verify prompt version storage does not expose sensitive data
+
+### Task 4: Final Validation (AC: all)
+
+**Subtask 4.1**: Run complete test suite
+- All unit tests passing (8 functions)
+- All integration tests passing (5 functions)
+- No test warnings or errors
+- Test coverage for new code: 80%+
+
+**Subtask 4.2**: Verify DoD checklist
+- Review each DoD item in story header
+- Update all task checkboxes
+- Add file list to Dev Agent Record
+- Add completion notes to Dev Agent Record
+- Mark story as review-ready in sprint-status.yaml
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Response prompt template created with placeholders for email content, context, and language
+2. Prompt includes: original email, conversation thread summary, relevant context from RAG
+3. Prompt instructs LLM to generate response in specified language with appropriate tone
+4. Tone detection logic implemented (formal for government, professional for business, casual for personal)
+5. Prompt examples created showing expected output for different scenarios
+6. Testing performed with sample emails across languages and tones
+7. Prompt includes constraints (length, formality level, key points to address)
+8. Prompt version stored in config for refinement
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification: RAG System & Response Generation</title>
+        <section>Response Generation Prompt Template</section>
+        <snippet>RESPONSE_PROMPT_TEMPLATE structure: Original email (sender, subject, body, language) → Conversation context (thread history formatted + semantic results formatted) → Response requirements (language, tone, constraints, 2-3 paragraphs max) → Greeting/closing examples for language+tone → Generation instruction. Token budget: ~6.5K context tokens (leaves 25K for response generation in Gemini 32K window).</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>ADR-014: Hybrid Tone Detection (Rules + LLM)</section>
+        <snippet>Decision: Use hybrid approach - rule-based for known cases (government domains → formal, known clients → professional, personal → casual), LLM analysis for ambiguous emails. Rationale: Rules handle 80% correctly, no API call for majority, LLM provides flexibility for edge cases. Best balance of speed, accuracy, and cost.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Tone Mapping Strategy</section>
+        <snippet>Formal: "Sehr geehrte Damen und Herren" / "Mit freundlichen Grüßen" (German government). Professional: "Guten Tag Herr/Frau X" / "Beste Grüße" (business). Casual: "Hallo X" / "Viele Grüße" (personal). Language-specific variations for ru/uk/en/de with 12 combinations (4 languages × 3 tones).</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>Functional Requirements</section>
+        <snippet>FR018: System shall detect appropriate response language (Russian, Ukrainian, English, German) based on email context. FR020: System shall maintain conversation tone and formality level consistent with email context. NFR005: Non-technical users shall complete onboarding within 10 minutes, achieving 90%+ successful completion rate.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Greeting/Closing Examples Database</section>
+        <snippet>GREETING_EXAMPLES and CLOSING_EXAMPLES dictionaries: 4 languages (de, en, ru, uk) × 3 tones (formal, professional, casual). Examples: de+formal: "Sehr geehrte Damen und Herren" / "Mit freundlichen Grüßen"; en+professional: "Hello [Name]" / "Best regards"; ru+casual: "Привет, [Имя]" / "Всего хорошего". Used in prompt template substitution.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown: Mail Agent</title>
+        <section>Story 3.6: Response Generation Prompt Engineering</section>
+        <snippet>8 acceptance criteria covering: prompt template creation with placeholders, RAG context integration (original email + thread + semantic), multilingual LLM instructions, hybrid tone detection (formal/professional/casual), prompt examples across scenarios, testing with sample emails, length/formality constraints, prompt versioning system.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/services/language_detection.py</path>
+        <kind>service</kind>
+        <symbol>LanguageDetectionService.detect</symbol>
+        <lines>N/A</lines>
+        <reason>REUSE from Story 3.5 for detecting response language. Method: detect(email_body: str) -> Tuple[str, float]. Returns (language_code, confidence) e.g., ("de", 0.95). Supports ru, uk, en, de. Use detected language to select greeting/closing examples from GREETING_EXAMPLES[language][tone].</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/context_retrieval.py</path>
+        <kind>service</kind>
+        <symbol>ContextRetrievalService</symbol>
+        <lines>N/A</lines>
+        <reason>REUSE from Story 3.4 for RAG context (thread history + semantic results). Returns RAGContext structure with thread_history and semantic_results. Story 3.6 formats this context into prompt template placeholders for LLM consumption.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/context_models.py</path>
+        <kind>model</kind>
+        <symbol>RAGContext</symbol>
+        <lines>N/A</lines>
+        <reason>EXISTING TypedDict from Story 3.4. Structure: RAGContext(thread_history: List[EmailMessage], semantic_results: List[EmailMessage], metadata: dict). Story 3.6 uses this to format thread and semantic context in prompt template.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>N/A</lines>
+        <reason>EXISTING model with detected_language field added in Story 3.5. Story 3.6 reads detected_language from email record for prompt generation (language parameter in template).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/preprocessing.py</path>
+        <kind>service</kind>
+        <symbol>strip_html</symbol>
+        <lines>36-103</lines>
+        <reason>REUSE for HTML cleaning if needed. Story 3.2 created this for email preprocessing. Apply if processing email bodies for tone detection analysis.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/conftest.py</path>
+        <kind>test-config</kind>
+        <symbol>test_user</symbol>
+        <lines>N/A</lines>
+        <reason>Shared pytest fixtures for test database setup, user creation, and cleanup. Reuse for integration tests requiring PromptVersion database interactions.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="google-generativeai" version=">=0.8.3" status="existing">Gemini API for LLM-based tone detection (ambiguous cases). Already installed from Epic 2.</package>
+        <package name="langdetect" version=">=1.0.9" status="existing">Language detection library. Already installed from Story 3.5.</package>
+        <package name="sqlmodel" version=">=0.0.24" status="existing">Database ORM for PromptVersion model creation. Already installed.</package>
+        <package name="alembic" version=">=1.13.3" status="existing">Database migration tool for PromptVersions table creation. Already installed.</package>
+        <package name="structlog" version=">=25.2.0" status="existing">Structured logging framework. Used across all services.</package>
+        <package name="pytest" version=">=8.3.5" status="existing">Testing framework for unit and integration tests.</package>
+        <package name="pytest-asyncio" version=">=0.25.2" status="existing">Async support for pytest. Used for async test functions.</package>
+      </python>
+      <frameworks>
+        <framework name="FastAPI" version=">=0.115.12">Backend API framework</framework>
+        <framework name="SQLModel" version=">=0.0.24">Database models and ORM for PromptVersion table</framework>
+        <framework name="Pytest" version=">=8.3.5">Testing framework with fixtures and integration test support</framework>
+      </frameworks>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use Gemini API for LLM-based tone detection (ambiguous cases only). Most cases (80%) use rule-based detection (government domains, business clients, personal contacts) per ADR-014.</constraint>
+    <constraint>Prompt template must include all required placeholders: sender, subject, email_body, detected_language, tone, thread_history, semantic_results, greeting_examples, closing_examples per tech spec.</constraint>
+    <constraint>Token budget: Context limited to ~6.5K tokens (leaves 25K for Gemini response generation within 32K window). Include token counting in prompt metadata.</constraint>
+    <constraint>Greeting/closing examples database: 4 languages (de, en, ru, uk) × 3 tones (formal, professional, casual) = 12 combinations. Store as constants in response_generation.py module.</constraint>
+    <constraint>Government domains list must include common German bureaucracy: finanzamt.de, auslaenderbehoerde.de, bundesagentur-fuer-arbeit.de. Extend as needed.</constraint>
+    <constraint>Testing pattern: 8 unit tests + 5 integration tests as specified in task breakdown (prevents placeholder tests). Unit tests cover tone detection, prompt formatting, greeting/closing selection, versioning. Integration tests cover multilingual scenarios with real language detection.</constraint>
+    <constraint>Prompt versioning system: Store prompt templates in database (PromptVersions table) with version tracking. Enables A/B testing, refinement, rollback. Create Alembic migration.</constraint>
+    <constraint>All functions must have comprehensive type hints (PEP 484) for maintainability. Use structlog for logging (no print statements).</constraint>
+    <constraint>Error handling: No email content logged in prompt generation (privacy). Log only first 50 chars for debugging if needed.</constraint>
+    <constraint>Follow Epic 2/3 task ordering: Task 1 (Core + unit tests interleaved), Task 2 (Integration tests during development), Task 3 (Documentation + security), Task 4 (Final validation).</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>format_response_prompt</name>
+      <kind>function-signature</kind>
+      <signature>def format_response_prompt(email: Email, rag_context: RAGContext, language: str, tone: str) -> str</signature>
+      <path>backend/app/prompts/response_generation.py</path>
+      <description>NEW function to create. Formats complete prompt using RESPONSE_PROMPT_TEMPLATE with all placeholders substituted. Includes thread history formatting, semantic results formatting, greeting/closing examples selection. Returns ready-to-send LLM prompt string. Used by Story 3.7 response generation service.</description>
+    </interface>
+    <interface>
+      <name>ToneDetectionService.detect_tone</name>
+      <kind>function-signature</kind>
+      <signature>def detect_tone(self, email: Email, thread_history: List[Email]) -> str</signature>
+      <path>backend/app/services/tone_detection.py</path>
+      <description>NEW service to create. Hybrid tone detection: rule-based for government/business/personal (80% cases), LLM-based for ambiguous emails (20% cases). Returns "formal", "professional", or "casual". Uses GOVERNMENT_DOMAINS constant for rule-based detection. Fallback: "professional" if uncertain.</description>
+    </interface>
+    <interface>
+      <name>save_prompt_version</name>
+      <kind>function-signature</kind>
+      <signature>def save_prompt_version(template_name: str, template_content: str, version: str) -> PromptVersion</signature>
+      <path>backend/app/config/prompts_config.py</path>
+      <description>NEW function to create. Saves prompt template to database with version tracking. Template_name: "response_generation". Returns created PromptVersion record. Enables prompt refinement and rollback.</description>
+    </interface>
+    <interface>
+      <name>load_prompt_version</name>
+      <kind>function-signature</kind>
+      <signature>def load_prompt_version(template_name: str, version: Optional[str] = None) -> PromptVersion</signature>
+      <path>backend/app/config/prompts_config.py</path>
+      <description>NEW function to create. Loads prompt template from database. If version=None, loads latest version. Returns PromptVersion record with template_content.</description>
+    </interface>
+    <interface>
+      <name>LanguageDetectionService.detect</name>
+      <kind>function-signature</kind>
+      <signature>def detect(self, email_body: str) -> Tuple[str, float]</signature>
+      <path>backend/app/services/language_detection.py</path>
+      <description>EXISTING from Story 3.5. Returns (language_code, confidence) e.g., ("de", 0.95). Use to determine response language before prompt generation. Supports ru, uk, en, de.</description>
+    </interface>
+    <interface>
+      <name>RAGContext</name>
+      <kind>TypedDict</kind>
+      <signature>TypedDict with thread_history: List[EmailMessage], semantic_results: List[EmailMessage], metadata: dict</signature>
+      <path>backend/app/models/context_models.py</path>
+      <description>EXISTING from Story 3.4. Structure for RAG context. Story 3.6 formats thread_history and semantic_results into prompt template placeholders.</description>
+    </interface>
+    <interface>
+      <name>PromptVersion</name>
+      <kind>database-model</kind>
+      <signature>SQLModel with fields: id, template_name, template_content, version, created_at, parameters (JSON)</signature>
+      <path>backend/app/models/prompt_versions.py</path>
+      <description>NEW model to create. Database table for prompt versioning. Template_name: "response_generation". Template_content: full RESPONSE_PROMPT_TEMPLATE string. Version: semantic version (e.g., "1.0.0").</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Testing follows Epic 2/3 patterns with explicit test counts to prevent placeholder tests (8 unit + 5 integration). Unit tests focus on business logic with mocked dependencies (mock Gemini API, mock email objects). Integration tests use real LanguageDetectionService from Story 3.5 and test database (test environment) with cleanup fixtures. Performance testing not required for prompt engineering (generation happens in Story 3.7). Database tests require DATABASE_URL environment variable. Test coverage target: 80%+ for new code. No placeholder tests with pass statements allowed - all tests must have real assertions validating acceptance criteria. Follow Epic 2 retrospective task ordering: implement unit tests interleaved with code (not as separate phase).</standards>
+    <locations>
+      <location>backend/tests/test_response_generation_prompts.py (8 unit test functions)</location>
+      <location>backend/tests/integration/test_prompt_generation_integration.py (5 integration test functions)</location>
+      <location>backend/tests/conftest.py (shared fixtures: test_user, database setup/cleanup)</location>
+    </locations>
+    <ideas>
+      <test ac="AC #4" type="unit">test_tone_detection_government_domains() - Test emails from finanzamt.de, auslaenderbehoerde.de return "formal" tone via rule-based detection. Mock email object with sender in GOVERNMENT_DOMAINS.</test>
+      <test ac="AC #4" type="unit">test_tone_detection_business_clients() - Test known business client emails return "professional" tone. Mock FolderCategories with client senders.</test>
+      <test ac="AC #4" type="unit">test_tone_detection_personal_contacts() - Test personal contact emails return "casual" tone. Mock email with personal sender.</test>
+      <test ac="AC #1, #2" type="unit">test_prompt_template_formatting() - Test format_response_prompt() substitutes all placeholders correctly (sender, subject, body, language, tone, thread_history, semantic_results). Verify output contains all sections.</test>
+      <test ac="AC #1" type="unit">test_greeting_closing_selection() - Test appropriate greetings/closings selected for language+tone combinations. Verify de+formal uses "Sehr geehrte", en+professional uses "Hello", ru+casual uses "Привет".</test>
+      <test ac="AC #7" type="unit">test_prompt_length_constraints() - Test prompt includes "2-3 paragraphs maximum" instruction. Verify formality instructions present based on tone.</test>
+      <test ac="AC #3" type="unit">test_prompt_multilingual_support() - Test prompt generation for all 4 languages (de, en, ru, uk). Verify LANGUAGE_NAMES mapping correct, language-specific examples included.</test>
+      <test ac="AC #8" type="unit">test_prompt_version_storage() - Test save_prompt_version() creates PromptVersion record in database. Test load_prompt_version() retrieves latest version. Mock database session.</test>
+      <test ac="AC #4, #5, #6" type="integration">test_formal_german_government_email_prompt() - Test complete prompt generation for Finanzamt email. Verify formal German greeting ("Sehr geehrte"), closing ("Mit freundlichen Grüßen"), formal tone instructions. Use real LanguageDetectionService.</test>
+      <test ac="AC #4, #5, #6" type="integration">test_professional_english_business_email_prompt() - Test professional English prompt for business client email. Verify professional tone, context integration, appropriate greeting/closing. Use real database for prompt versioning.</test>
+      <test ac="AC #4, #5, #6" type="integration">test_casual_russian_personal_email_prompt() - Test casual Russian prompt for personal email. Verify casual tone, appropriate Russian greetings/closings ("Привет", "Всего хорошего").</test>
+      <test ac="AC #3, #5, #6" type="integration">test_multilingual_prompt_quality() - Test prompt generation for emails in all 4 languages (de, en, ru, uk). Verify language-specific greetings/closings correct for each language+tone combination.</test>
+      <test ac="AC #4" type="integration">test_tone_detection_with_real_gemini() - Test LLM-based tone detection for ambiguous email using real Gemini API. Verify correct tone identified from thread analysis. Mark as slow test (requires API call).</test>
+    </ideas>
+  </tests>
+</story-context>

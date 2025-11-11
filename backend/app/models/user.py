@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from app.models.workflow_mapping import WorkflowMapping
     from app.models.notification_preferences import NotificationPreferences
     from app.models.approval_history import ApprovalHistory
+    from app.models.indexing_progress import IndexingProgress
 
 
 class User(BaseModel, table=True):
@@ -85,6 +86,9 @@ class User(BaseModel, table=True):
     approval_history: List["ApprovalHistory"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+    indexing_progress: Optional["IndexingProgress"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     def verify_password(self, password: str) -> bool:
         """Verify if the provided password matches the hash."""
@@ -105,3 +109,4 @@ from app.models.linking_codes import LinkingCode  # noqa: E402
 from app.models.workflow_mapping import WorkflowMapping  # noqa: E402
 from app.models.notification_preferences import NotificationPreferences  # noqa: E402
 from app.models.approval_history import ApprovalHistory  # noqa: E402
+from app.models.indexing_progress import IndexingProgress  # noqa: E402

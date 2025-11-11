@@ -6,7 +6,7 @@
 
 This is the backend service for Mail Agent, an AI-powered email management system that uses Gmail API, Gemini LLM for intelligent email classification, and Telegram for user approvals.
 
-**Status:** Story 1.2 - Backend Service Foundation (Complete)
+**Status:** Epic 3 Complete - Story 3-11 in Review (RAG System & Response Generation)
 
 ---
 
@@ -2888,6 +2888,238 @@ pytest backend/tests/test_email_integration.py -v
 
 ---
 
+## Response Editing and Sending (Story 3.9)
+
+The Response Editing and Sending system enables users to edit AI-generated response drafts directly in Telegram before sending them via Gmail API. After successful sending, responses are automatically indexed into the vector database for future RAG context retrieval.
+
+### Purpose
+
+This service implements the final step of the AI response generation workflow (Epic 3), allowing users to:
+- Review AI-generated response drafts in Telegram
+- Edit draft text inline using Telegram message replies
+- Send approved responses via Gmail API with proper email threading
+- Automatically index sent responses for future context
+
+### Architecture
+
+**Service Components:**
+
+1. **ResponseEditingService** (`app/services/response_editing_service.py`)
+   - Handles [Edit] button callbacks from Telegram
+   - Prompts users to reply with edited text
+   - Updates `EmailProcessingQueue.draft_response` in database
+   - Re-displays draft message with updated text
+
+2. **ResponseSendingService** (`app/services/response_sending_service.py`)
+   - Handles [Send] button callbacks from Telegram
+   - Sends emails via GmailClient with proper threading (In-Reply-To headers)
+   - Sends confirmation messages to users
+   - Indexes sent responses to ChromaDB vector database
+   - Handles [Reject] button callbacks
+
+**Integration Points:**
+
+- **Story 3.8 (Response Draft Telegram Messages):** Provides draft messages with inline buttons [Send] [Edit] [Reject]
+- **Story 1.9 (Email Sending Capability):** Reuses `GmailClient.send_email()` for sending via Gmail API
+- **Story 3.2 (Email Embedding Service):** Reuses `EmbeddingService.embed_text()` for generating embeddings
+- **Story 3.1 (Vector Database Setup):** Reuses `VectorDBClient.insert_embedding()` for indexing to ChromaDB
+- **Epic 2 (Telegram Bot):** Reuses `TelegramBotClient` for message sending and callback handling
+
+### Edit Workflow
+
+1. User receives response draft message in Telegram with [Edit] button
+2. User clicks [Edit] button
+3. Bot sends prompt: "Please reply to this message with your edited response"
+4. User replies with edited text (using Telegram native reply feature)
+5. Bot validates edited text (length < 5000 chars, not empty)
+6. Bot updates `EmailProcessingQueue.draft_response` with new text
+7. Bot sends confirmation and re-displays draft with same buttons
+8. `WorkflowMapping.workflow_state` updated to "draft_edited"
+
+**Example:**
+```
+User: [Clicks Edit button on draft message]
+Bot: ✏️ Edit Response Draft
+     Please reply to this message with your edited response.
+     📝 Your current draft will be replaced with the new text.
+
+User: [Replies] This is my updated response with corrections.
+
+Bot: ✅ Response Updated
+     Your draft has been updated with the new text.
+     Use the buttons below to send or make further edits.
+
+     [Re-sends draft message with updated text and buttons]
+```
+
+### Send Workflow
+
+1. User clicks [Send] button on response draft (original or edited)
+2. Bot loads `draft_response` from `EmailProcessingQueue`
+3. Bot initializes `GmailClient` with user's OAuth credentials
+4. Bot sends email via `gmail_client.send_email()` with:
+   - Recipient: Original email sender
+   - Subject: "Re: {original_subject}"
+   - Body: Draft response text
+   - Thread ID: `email.gmail_thread_id` (ensures proper threading with In-Reply-To headers)
+5. Bot updates `EmailProcessingQueue.status` to "completed"
+6. Bot sends Telegram confirmation: "✅ Response sent to {recipient}"
+7. Bot generates embedding for sent response using `EmbeddingService`
+8. Bot indexes sent response to ChromaDB "email_embeddings" collection with metadata
+9. `WorkflowMapping.workflow_state` updated to "sent"
+
+**Example:**
+```
+User: [Clicks Send button]
+Bot: ✅ Response sent to john@example.com
+     Subject: Re: Project Update Request
+
+     Your response has been delivered successfully.
+```
+
+### Vector DB Indexing
+
+After successful email send, the sent response is automatically indexed into ChromaDB for future RAG context:
+
+**Metadata Structure:**
+```python
+{
+    "message_id": "sent_{email_id}_{timestamp}",
+    "user_id": user_id,
+    "thread_id": gmail_thread_id,
+    "sender": original_sender,  # Recipient of our response
+    "subject": "Re: {original_subject}",
+    "date": datetime.now(UTC).isoformat(),
+    "language": detected_language,
+    "tone": detected_tone,
+    "is_sent_response": True  # Flag to distinguish from received emails
+}
+```
+
+**Benefits:**
+- Sent responses become available for future AI context retrieval
+- Enables AI to reference user's own sent responses in future drafts
+- Improves response consistency across conversations
+- Maintains complete conversation history in vector database
+
+### State Management
+
+**WorkflowMapping State Transitions:**
+```
+"awaiting_response_approval" (Story 3.8)
+    ↓ [User clicks Edit]
+"draft_edited" (edit workflow)
+    ↓ [User clicks Send]
+"sent" (send workflow)
+
+OR
+
+"awaiting_response_approval" (Story 3.8)
+    ↓ [User clicks Send directly]
+"sent" (send workflow - original draft)
+
+OR
+
+"awaiting_response_approval" (Story 3.8)
+    ↓ [User clicks Reject]
+"rejected" (reject workflow)
+```
+
+**EmailProcessingQueue Status:**
+- `"awaiting_response_approval"` → Draft ready for user review
+- `"draft_edited"` → User edited the draft
+- `"completed"` → Response successfully sent
+- `"rejected"` → User rejected the draft
+
+### Security
+
+**Input Validation:**
+- Edited text length limit: 5000 characters
+- Empty text rejected with error message
+- Null checks on all database lookups
+
+**Authorization:**
+- User ownership validated before editing or sending
+- Telegram user to database user mapping verified
+- Email belongs to user check before any modification
+
+**Privacy:**
+- Email content not logged in full (only lengths logged)
+- OAuth tokens retrieved from database per request
+- No credentials hardcoded
+
+### Error Handling
+
+**Edit Workflow Errors:**
+- Email not found: "❌ Email not found"
+- No draft available: "❌ No draft available to edit"
+- Empty edited text: "❌ Edited text cannot be empty"
+- Text too long: "❌ Edited text too long ({length} characters). Maximum: 5000"
+- Unauthorized: "❌ Unauthorized"
+
+**Send Workflow Errors:**
+- Gmail API failure: "❌ Failed to send email: {error}"
+- Email not found: "❌ Email not found"
+- No draft available: "❌ No draft available to send"
+- Indexing failure: Logged but doesn't block send operation (graceful degradation)
+
+### Callback Routing
+
+Telegram callback handlers registered in `app/api/telegram_handlers.py`:
+
+```python
+# Callback data format: "{action}_response_{email_id}"
+if action == "send_response":
+    await handle_send_response(update, context, email_id, db)
+elif action == "edit_response":
+    await handle_edit_response(update, context, email_id, db)
+elif action == "reject_response":
+    await handle_reject_response(update, context, email_id, db)
+```
+
+### Testing
+
+**Unit Tests:** 10 tests covering:
+- Edit button callback handling
+- Message reply capture and validation
+- Send button handling (original and edited drafts)
+- Gmail API threading verification
+- Telegram confirmation messages
+- Status updates
+- Vector DB indexing
+- Reject button handling
+- Error handling for invalid inputs
+
+**Integration Tests:** 6 tests covering:
+- End-to-end edit workflow with database
+- End-to-end send workflow (original draft)
+- End-to-end send workflow (edited draft)
+- Email threading verification (In-Reply-To headers)
+- Vector DB indexing verification (ChromaDB)
+- Reject workflow with database
+
+**Run Tests:**
+```bash
+# Unit tests
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+  uv run pytest tests/test_response_editing_sending.py -v
+
+# Integration tests (requires PostgreSQL and ChromaDB running)
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+  uv run pytest tests/integration/test_response_editing_sending_integration.py -v
+```
+
+### Related Services
+
+- **Story 3.7:** AI Response Generation Service - Generates initial draft responses
+- **Story 3.8:** Response Draft Telegram Messages - Delivers drafts to Telegram with buttons
+- **Story 3.6:** Response Generation Prompt Engineering - Defines AI prompts for drafts
+- **Story 3.4:** Context Retrieval Service - Retrieves relevant email history for AI context
+- **Story 1.9:** Email Sending Capability - Gmail API sending functionality
+- **Story 3.1:** Vector Database Setup - ChromaDB for embedding storage
+
+---
+
 ## Email Polling Service (Story 1.6)
 
 The email polling service automatically checks Gmail inboxes for new emails at configurable intervals. It uses Celery with Redis as the message broker for background task processing.
@@ -3772,6 +4004,255 @@ uv run pytest tests/integration/test_epic_2_workflow_integration.py::TestComplet
 
 ---
 
+## Epic 3: Multilingual Response Quality Testing
+
+### Overview
+
+Epic 3 completes the RAG-powered AI response generation system with comprehensive multilingual quality validation across 4 supported languages (Russian, Ukrainian, English, German). Story 3.10 implements a systematic testing framework to ensure response quality meets production standards.
+
+**Test Coverage:**
+- Multilingual response generation (Russian, Ukrainian, English, German)
+- Response quality evaluation (language accuracy, tone appropriateness, context awareness)
+- Formal German government email responses (Finanzamt, Ausländerbehörde)
+- Edge case handling (mixed languages, no thread history, ambiguous tone, short emails, long threads)
+- Performance benchmarks (RAG retrieval <3s, end-to-end <120s per NFR001)
+- Complete workflow validation (email → RAG → response → Telegram → approval → send → indexing)
+
+### Test Data Fixtures
+
+**Location:** `backend/tests/fixtures/multilingual_emails/`
+
+**Structure:**
+```
+tests/fixtures/multilingual_emails/
+├── russian/
+│   ├── business_inquiry.json
+│   ├── personal_casual.json
+│   └── formal_government.json
+├── ukrainian/
+│   ├── client_request.json
+│   ├── casual_personal.json
+│   └── professional_business.json
+├── english/
+│   ├── business_proposal.json
+│   ├── casual_friend.json
+│   └── formal_corporate.json
+├── german/
+│   ├── finanzamt_tax.json           # Government formal German
+│   ├── auslaenderbehoerde_visa.json  # Government formal German
+│   ├── business_professional.json
+│   └── casual_personal.json
+└── edge_cases/
+    ├── mixed_language_email.json
+    ├── no_thread_history.json
+    ├── unclear_tone.json
+    ├── short_email.json
+    └── very_long_thread.json
+```
+
+**JSON Format:**
+```json
+{
+  "original_email": {
+    "sender": "sender@example.com",
+    "subject": "Email subject",
+    "body": "Email body text...",
+    "language": "de",
+    "expected_tone": "formal"
+  },
+  "thread_history": [
+    {
+      "sender": "previous@example.com",
+      "subject": "Re: Previous email",
+      "body": "Previous email body...",
+      "date": "2024-01-15"
+    }
+  ],
+  "expected_response_criteria": {
+    "language": "de",
+    "tone": "formal",
+    "must_include_greeting": "Sehr geehrte Damen und Herren,",
+    "must_include_closing": "Mit freundlichen Grüßen",
+    "context_keywords": ["visa", "application", "deadline"]
+  }
+}
+```
+
+### Response Quality Evaluation Framework
+
+**Module:** `backend/tests/evaluation/response_quality.py`
+
+**Evaluation Dimensions:**
+
+1. **Language Accuracy (40% weight):**
+   - Uses `langdetect` library to verify response language matches expected (ru/uk/en/de)
+   - Returns score (0-100) and confidence level
+   - Example: `evaluate_language_accuracy(response, expected_language="de")`
+
+2. **Tone Appropriateness (30% weight):**
+   - Checks for appropriate greetings (e.g., "Sehr geehrte Damen und Herren" for formal German)
+   - Verifies appropriate closings (e.g., "Mit freundlichen Grüßen")
+   - Validates formality level matches expected (formal/professional/casual)
+   - Example: `evaluate_tone_appropriateness(response, expected_tone="formal", language="de")`
+
+3. **Context Awareness (30% weight):**
+   - Checks if response references thread history appropriately
+   - Verifies key topics from original email are addressed
+   - Returns score (0-100) with matched keywords
+   - Example: `evaluate_context_awareness(response, expected_context_keywords=["visa", "deadline"])`
+
+**Overall Quality Scoring:**
+```python
+from evaluation.response_quality import evaluate_response_quality, ResponseQualityReport
+
+# Evaluate response
+report: ResponseQualityReport = evaluate_response_quality(
+    response_text="Sehr geehrte Damen und Herren...",
+    expected_criteria={
+        "language": "de",
+        "tone": "formal",
+        "greeting": "Sehr geehrte Damen und Herren,",
+        "closing": "Mit freundlichen Grüßen",
+        "context_keywords": ["visa", "application"]
+    }
+)
+
+# Check quality threshold (80% for standard, 90% for government emails)
+assert report.overall_score >= 80  # Standard threshold
+assert report.is_acceptable()      # True if >= 80%
+
+# Access detailed scores
+print(f"Language: {report.language_score}")  # 0-100
+print(f"Tone: {report.tone_score}")          # 0-100
+print(f"Context: {report.context_score}")    # 0-100
+```
+
+### Running Tests
+
+**Unit Tests (8 tests - evaluation framework):**
+```bash
+# Run response quality evaluation unit tests
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+uv run pytest backend/tests/test_response_quality_evaluation.py -v
+
+# Expected output:
+# test_evaluate_language_accuracy_russian      PASSED
+# test_evaluate_language_accuracy_german       PASSED
+# test_evaluate_tone_appropriateness_formal_german PASSED
+# test_evaluate_tone_appropriateness_casual_english PASSED
+# test_evaluate_context_awareness_thread_reference PASSED
+# test_evaluate_context_awareness_no_context   PASSED
+# test_response_quality_report_aggregation     PASSED
+# test_response_quality_acceptable_threshold   PASSED
+```
+
+**Integration Tests (12 tests - multilingual scenarios):**
+```bash
+# Run all Epic 3 multilingual response quality integration tests
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+uv run pytest backend/tests/integration/test_multilingual_response_quality.py -v
+
+# Run specific test scenario (German government email - critical for AC #4)
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+uv run pytest backend/tests/integration/test_multilingual_response_quality.py::test_german_government_email_formal_response -v
+
+# Run only performance benchmark tests
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+uv run pytest backend/tests/integration/test_multilingual_response_quality.py -v -k "performance"
+```
+
+**Test Categories:**
+
+1. **Multilingual Tests (4 tests):**
+   - `test_russian_business_inquiry_response` - Russian email workflow
+   - `test_ukrainian_client_request_response` - Ukrainian email workflow
+   - `test_english_business_proposal_response` - English email workflow
+   - `test_german_government_email_formal_response` - **Critical:** Formal German government email (AC #4)
+
+2. **Edge Case Tests (5 tests):**
+   - `test_mixed_language_email_response` - German + English mixed
+   - `test_no_thread_history_response` - First email in thread
+   - `test_unclear_tone_detection` - Ambiguous formality
+   - `test_short_email_language_detection` - <50 characters
+   - `test_very_long_thread_response` - 10+ emails in thread
+
+3. **Performance Tests (2 tests):**
+   - `test_rag_context_retrieval_performance` - RAG retrieval <3s (NFR001)
+   - `test_response_generation_end_to_end_performance` - Full pipeline <120s (NFR001)
+
+4. **Complete Workflow Test (1 test):**
+   - `test_complete_email_to_telegram_to_send_workflow` - End-to-end workflow validation
+
+### Performance Benchmark Interpretation
+
+**RAG Context Retrieval (<3s requirement):**
+```
+Test output breakdown:
+- Vector search time: 1.2s (ChromaDB semantic search)
+- Gmail thread fetch time: 0.8s (Gmail API call)
+- Context assembly time: 0.3s (formatting for prompt)
+- Total: 2.3s ✅ (meets NFR001 <3s requirement)
+```
+
+**End-to-End Response Generation (<120s requirement):**
+```
+Test output breakdown:
+- Language detection: 0.5s (langdetect)
+- Tone detection: 2.1s (rule-based) or 4.3s (LLM fallback)
+- RAG retrieval: 2.3s (see above)
+- Response generation: 45-60s (Gemini API latency)
+- Telegram delivery: 1.2s
+- Total: 50-70s ✅ (well under 120s requirement)
+```
+
+**Interpreting Results:**
+- If RAG retrieval >3s: Check ChromaDB performance, consider indexing optimization
+- If end-to-end >120s: Check Gemini API latency, consider prompt optimization
+- Performance degradation may indicate need for vector database maintenance
+
+### Test Infrastructure
+
+**Response Quality Evaluation Module:** `backend/tests/evaluation/response_quality.py`
+- Language accuracy evaluation using langdetect
+- Tone appropriateness evaluation with greeting/closing validation
+- Context awareness evaluation with keyword matching
+- Aggregated scoring with weighted dimensions (language 40%, tone 30%, context 30%)
+
+**Test Fixtures:** `backend/tests/fixtures/multilingual_emails/`
+- 17 anonymized multilingual email samples (Russian, Ukrainian, English, German + edge cases)
+- JSON format with original_email, thread_history, expected_response_criteria
+- Government email samples (German Finanzamt/Ausländerbehörde) for formal tone testing
+
+**Mock Strategy:**
+- Real database (PostgreSQL) with test isolation
+- Mocked external services (Gmail API, Telegram API) for fast execution
+- Real language detection (langdetect) and quality evaluation
+- Mocked Gemini API responses with realistic multilingual samples
+
+### Success Criteria
+
+**Unit Tests:**
+- 8/8 unit tests passing for evaluation framework
+- 80%+ code coverage for response_quality.py module
+
+**Integration Tests:**
+- 12/12 integration tests passing (4 multilingual + 5 edge cases + 2 performance + 1 complete workflow)
+- No test failures or errors
+- Performance benchmarks within NFR001 limits (RAG <3s, end-to-end <120s)
+
+**Quality Thresholds:**
+- Standard emails: 80%+ overall response quality score
+- Government emails: 90%+ overall response quality score (higher expectations for formal German)
+- Language detection: 95%+ accuracy across all 4 languages
+
+### Documentation
+
+- **Epic 3 Tech Spec:** `docs/tech-spec-epic-3.md` (Smart Hybrid RAG strategy, response quality evaluation framework, known limitations)
+- **Architecture:** `docs/architecture.md` (Epic 3 RAG flow diagrams, context retrieval logic)
+- **Story Details:** `docs/stories/3-10-multilingual-response-quality-testing.md` (Comprehensive test plan and acceptance criteria)
+
+---
+
 ## E2E (End-to-End) Testing
 
 ### Overview
@@ -3889,6 +4370,1777 @@ Common issues:
 - Invalid OAuth tokens
 - Bot not started in Telegram
 - No emails in test Gmail account
+
+---
+
+## ChromaDB Vector Database Setup (Epic 3)
+
+ChromaDB is a self-hosted vector database used for storing email embeddings for semantic search in the RAG (Retrieval-Augmented Generation) system.
+
+### Installation
+
+ChromaDB is automatically installed with project dependencies:
+
+```bash
+# Included in pyproject.toml
+chromadb>=0.4.22
+```
+
+To manually install or upgrade:
+```bash
+uv pip install "chromadb>=0.4.22"
+```
+
+Verify installation:
+```bash
+python -c "import chromadb; print(chromadb.__version__)"
+# Expected output: 1.3.4 (or higher)
+```
+
+### Configuration
+
+Add to your `.env` file:
+
+```bash
+# ChromaDB Vector Database (Epic 3 - Story 3.1)
+# Path for persistent vector database storage
+CHROMADB_PATH=./backend/data/chromadb
+```
+
+The ChromaDB storage directory is automatically created and gitignored (`backend/data/`).
+
+### Initialization
+
+ChromaDB is automatically initialized on application startup. The `email_embeddings` collection is created with:
+
+- **Distance Metric**: Cosine similarity (optimal for semantic search)
+- **Storage Backend**: Persistent SQLite (embeddings survive service restarts)
+- **Embedding Dimensions**: 768 (matches Gemini text-embedding-004 model)
+
+### Test Endpoint
+
+Verify ChromaDB connectivity:
+
+```bash
+# GET /api/v1/test/vector-db
+curl http://localhost:8000/api/v1/test/vector-db
+```
+
+Expected response:
+```json
+{
+  "status": "connected",
+  "collection_name": "email_embeddings",
+  "total_embeddings": 0,
+  "distance_metric": "cosine",
+  "persist_directory": "./backend/data/chromadb"
+}
+```
+
+### Performance
+
+- **Query Performance**: k=10 nearest neighbors in ~2ms (target: <500ms)
+- **Storage**: ~2.7 MB per user (90 days, 10 emails/day)
+- **MVP Scale**: 100 users ≈ 270 MB total
+
+### Security & Privacy
+
+- ✅ **Local Storage**: All embeddings stored on your server (no cloud transmission)
+- ✅ **No Hardcoded Secrets**: ChromaDB path from environment variable
+- ✅ **Data Sovereignty**: Full control over email embeddings
+- ✅ **GDPR Compliant**: Self-hosted, privacy-first design
+
+### Detailed Documentation
+
+For comprehensive ChromaDB documentation, see:
+- **Setup Guide**: `docs/vector-database-setup.md`
+- **VectorDBClient API**: `backend/app/core/vector_db.py`
+- **Unit Tests**: `backend/tests/test_vector_db_client.py`
+- **Integration Tests**: `backend/tests/integration/test_vector_db_integration.py`
+
+---
+
+## Email Embedding Service Setup (Epic 3)
+
+The Email Embedding Service converts email content into 768-dimensional vector embeddings using Google's Gemini `text-embedding-004` model for semantic search in the RAG system.
+
+### Installation
+
+The embedding service dependencies are automatically installed with project dependencies:
+
+```bash
+# Included in pyproject.toml
+google-generativeai>=0.8.3
+beautifulsoup4>=4.12.0
+```
+
+To manually install or upgrade:
+```bash
+uv pip install "google-generativeai>=0.8.3" "beautifulsoup4>=4.12.0"
+```
+
+### Configuration
+
+Add to your `.env` file (if not already present from Epic 2):
+
+```bash
+# Gemini API Configuration (Epic 2 - AI Classification, Epic 3 - Embeddings)
+GEMINI_API_KEY="your-gemini-api-key-here"
+GEMINI_MODEL="gemini-2.5-flash"
+```
+
+**Get your free API key**: [Google AI Studio](https://makersuite.google.com/app/apikey)
+
+### Usage
+
+```python
+from app.core.embedding_service import EmbeddingService
+
+# Initialize service (uses GEMINI_API_KEY from environment)
+service = EmbeddingService()
+
+# Single embedding
+email_text = "Your order #12345 has been shipped."
+embedding = service.embed_text(email_text)
+print(f"Dimensions: {len(embedding)}")  # Output: 768
+
+# Batch embedding (up to 50 emails)
+emails = ["Email 1", "Email 2", "Email 3"]
+embeddings = service.embed_batch(emails, batch_size=50)
+```
+
+### Features
+
+- **Automatic HTML Stripping**: Removes HTML tags from email content
+- **Token Truncation**: Limits input to 2048 tokens (Gemini API limit)
+- **Batch Processing**: Efficient batch embedding (up to 50 emails per batch)
+- **Error Handling**: Automatic retry with exponential backoff (3 attempts)
+- **Multilingual Support**: Native support for ru/uk/en/de and 50+ languages
+- **Usage Tracking**: Built-in metrics for free-tier monitoring
+
+### Test Endpoint
+
+Verify embedding service connectivity and get usage statistics:
+
+```bash
+# GET /api/v1/test/embedding-stats
+curl http://localhost:8000/api/v1/test/embedding-stats
+```
+
+Expected response:
+```json
+{
+  "total_requests": 0,
+  "total_embeddings_generated": 0,
+  "avg_latency_ms": 0.0,
+  "service_initialized": true
+}
+```
+
+### Performance
+
+- **Single Embedding**: ~200-500ms latency
+- **Batch (50 emails)**: <60 seconds total
+- **Throughput**: ~50 emails/minute
+- **Dimensions**: 768 (matches ChromaDB collection)
+
+### Detailed Documentation
+
+For comprehensive embedding service documentation, see:
+- **Setup Guide**: `docs/embedding-service-setup.md`
+- **EmbeddingService API**: `backend/app/core/embedding_service.py`
+- **Preprocessing API**: `backend/app/core/preprocessing.py`
+- **Unit Tests**: `backend/tests/test_embedding_service.py`, `backend/tests/test_preprocessing.py`
+- **Integration Tests**: `backend/tests/integration/test_embedding_integration.py`
+
+---
+
+## Email History Indexing Service (Epic 3 - Story 3.3)
+
+The Email History Indexing Service orchestrates bulk indexing of user's Gmail history into ChromaDB vector database for RAG-based context retrieval. Designed for fast onboarding with checkpoint-based resumption and comprehensive error handling.
+
+### Overview
+
+**Key Features:**
+- **90-Day Historical Indexing**: Indexes last 90 days of emails (configurable) for fast onboarding
+- **Gmail Pagination**: Efficient batched retrieval with date filtering
+- **Batch Processing**: 50 emails per batch with 60-second rate limiting
+- **Checkpoint Mechanism**: Resumable indexing with progress tracking
+- **Error Handling**: Retry logic for transient API errors
+- **Telegram Notifications**: User notification on completion
+- **Incremental Indexing**: Automatic indexing of new emails post-classification
+
+### Installation
+
+The indexing service dependencies are automatically installed with project dependencies:
+
+```bash
+# Core dependencies (included in pyproject.toml)
+google-generativeai>=0.8.3   # Gemini API for embeddings
+chromadb>=0.4.22              # Vector database
+langdetect>=1.0.9             # Language detection for metadata
+
+# Already installed with Epic 1 & 2
+celery>=5.3.0                 # Background task queue
+redis>=5.0.0                  # Celery broker
+```
+
+To manually install or upgrade:
+```bash
+uv pip install langdetect
+```
+
+Verify installation:
+```bash
+python -c "import langdetect; print('langdetect installed')"
+```
+
+### Configuration
+
+Add to your `.env` file:
+
+```bash
+# ChromaDB Vector Database (required)
+CHROMADB_PATH=./backend/data/chromadb
+
+# Gemini API (required for embeddings)
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Celery (required for background tasks)
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# Gmail API (required for email retrieval)
+# Set up via Story 1.4 (OAuth flow)
+```
+
+### Database Migration
+
+The indexing service requires the `indexing_progress` table:
+
+```bash
+# Apply migration (auto-created during implementation)
+alembic upgrade head
+
+# Verify table exists
+alembic current
+# Should show: 395af0dd3ac6 (add_indexing_progress_table)
+```
+
+**Table Schema:**
+```sql
+CREATE TABLE indexing_progress (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE NOT NULL REFERENCES users(id),
+    total_emails INTEGER DEFAULT 0,
+    processed_count INTEGER DEFAULT 0,
+    status VARCHAR(50) NOT NULL,  -- in_progress, completed, failed, paused
+    last_processed_message_id VARCHAR(255),  -- Checkpoint for resumption
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+```
+
+### Usage
+
+#### 1. Trigger Initial Indexing (Background Task)
+
+```python
+from app.tasks.indexing_tasks import index_user_emails
+
+# Start 90-day indexing job for user
+result = index_user_emails.delay(user_id=123, days_back=90)
+
+# Check task status
+if result.ready():
+    print(result.result)
+    # Output: {'success': True, 'total_emails': 437, 'processed': 437, 'status': 'completed'}
+```
+
+#### 2. Resume Interrupted Indexing
+
+```python
+from app.tasks.indexing_tasks import resume_user_indexing
+
+# Resume from checkpoint
+result = resume_user_indexing.delay(user_id=123)
+
+# Check result
+if result.ready():
+    print(result.result)
+    # Output: {'success': True, 'total_emails': 437, 'processed': 437}
+```
+
+#### 3. Incremental Indexing (New Emails)
+
+```python
+from app.tasks.indexing_tasks import index_new_email_background
+
+# Triggered automatically by email polling service
+# Can also be called manually:
+result = index_new_email_background.delay(user_id=123, message_id="msg_abc123")
+```
+
+#### 4. Direct Service Usage (Advanced)
+
+```python
+from app.services.email_indexing import EmailIndexingService
+
+# Initialize service
+service = EmailIndexingService(user_id=123)
+
+# Start indexing (async)
+progress = await service.start_indexing(days_back=90)
+print(f"Indexed {progress.processed_count}/{progress.total_emails} emails")
+
+# Resume interrupted job
+progress = await service.resume_indexing()
+
+# Index single email
+success = await service.index_new_email(message_id="msg_abc123")
+```
+
+### Workflow
+
+**Initial Indexing Workflow:**
+```
+User Trigger → Celery Task → EmailIndexingService
+    │
+    ├─> 1. Check for existing job (prevent duplicates)
+    ├─> 2. Create IndexingProgress record
+    ├─> 3. Retrieve Gmail emails (90-day lookback, paginated)
+    ├─> 4. Process in batches (50 emails/batch)
+    │       │
+    │       ├─> Extract metadata (thread, sender, language, flags)
+    │       ├─> Generate embeddings (EmbeddingService)
+    │       ├─> Store in ChromaDB (VectorDBClient)
+    │       ├─> Update checkpoint (last_processed_message_id)
+    │       └─> Rate limit delay (60 seconds)
+    │
+    ├─> 5. Mark as completed
+    └─> 6. Send Telegram notification
+```
+
+**Checkpoint & Resumption:**
+- Checkpoint saved every batch (50 emails)
+- Stores `last_processed_message_id` for recovery
+- Automatic resume on service restart (if job interrupted)
+- Manual resume via `resume_user_indexing` task
+
+### Performance
+
+- **Gmail API**: 100 emails/page, date filtering for 90-day window
+- **Batch Processing**: 50 emails per batch
+- **Rate Limiting**: 60-second delay between batches (50 requests/min to Gemini API)
+- **Total Time**: ~10 minutes for 5,000 emails (100 batches × 60s + API latency)
+- **Checkpoint Overhead**: ~50ms per batch (PostgreSQL update)
+
+**Example Timeline:**
+```
+User with 1,000 emails (last 90 days):
+- 20 batches × 60 seconds = 20 minutes total
+- Checkpoint saved every 50 emails
+- Can resume from any checkpoint if interrupted
+```
+
+### Metadata Extraction
+
+Each indexed email includes rich metadata for RAG context:
+
+```python
+{
+    "email_id": "msg_abc123",
+    "user_id": 123,
+    "thread_id": "thread_xyz789",
+    "sender": "sender@example.com",
+    "subject": "Email subject",
+    "received_at": "2025-11-03T10:15:30Z",
+    "language": "de",           # Detected via langdetect
+    "has_attachments": false,
+    "is_reply": true,            # Detected via "Re:" prefix
+    "word_count": 250
+}
+```
+
+### Error Handling
+
+**Transient Errors (retried 3 times):**
+- `GmailAPIError`: Rate limits (429), network timeouts
+- `GeminiAPIError`: Rate limits, embedding generation failures
+- Exponential backoff: 60s → 120s → 240s
+
+**Permanent Errors (not retried):**
+- `ValueError`: Indexing job already exists for user
+- Invalid user credentials
+- Database constraint violations
+
+**Error Recovery:**
+- All errors logged with `structlog`
+- Failed jobs marked with `status=failed` and `error_message`
+- User notified via Telegram on failure
+
+### Test Endpoints
+
+Check indexing status and trigger jobs manually:
+
+```bash
+# Check indexing progress for user
+GET /api/v1/indexing/progress/{user_id}
+
+# Start indexing job
+POST /api/v1/indexing/start
+{
+  "user_id": 123,
+  "days_back": 90
+}
+
+# Resume interrupted job
+POST /api/v1/indexing/resume
+{
+  "user_id": 123
+}
+```
+
+### Monitoring
+
+**Celery Task Monitoring:**
+```bash
+# Check Celery worker logs
+celery -A app.celery worker --loglevel=info
+
+# Monitor task execution
+# Look for: "indexing_task_started", "indexing_task_completed"
+```
+
+**Database Monitoring:**
+```sql
+-- Check indexing progress for all users
+SELECT user_id, total_emails, processed_count, status, completed_at
+FROM indexing_progress
+ORDER BY created_at DESC;
+
+-- Check for failed jobs
+SELECT user_id, error_message, updated_at
+FROM indexing_progress
+WHERE status = 'failed'
+ORDER BY updated_at DESC;
+```
+
+### Troubleshooting
+
+**Issue: langdetect module not found**
+```bash
+# Solution: Install langdetect
+uv pip install langdetect
+
+# Verify installation
+python -c "import langdetect; print('OK')"
+```
+
+**Issue: VectorDBClient initialization error**
+```bash
+# Solution: Set ChromaDB path in .env
+echo "CHROMADB_PATH=./backend/data/chromadb" >> .env
+
+# Restart FastAPI server
+```
+
+**Issue: Indexing task fails with GmailAPIError**
+```bash
+# Check Gmail API quota
+# Solution: Wait 60 seconds, task will auto-retry
+# Or check Gmail OAuth token validity
+```
+
+**Issue: Checkpoint not saving**
+```bash
+# Check database connection
+curl http://localhost:8000/api/v1/health/db
+
+# Verify indexing_progress table exists
+psql -h localhost -U mailagent -d mailagent -c "\d indexing_progress"
+```
+
+### Detailed Documentation
+
+For comprehensive indexing service documentation, see:
+- **Technical Spec**: `docs/tech-spec-epic-3.md`
+- **Story**: `docs/stories/3-3-email-history-indexing.md`
+- **EmailIndexingService API**: `backend/app/services/email_indexing.py`
+- **Celery Tasks**: `backend/app/tasks/indexing_tasks.py`
+- **Database Model**: `backend/app/models/indexing_progress.py`
+- **Unit Tests**: `backend/tests/test_email_indexing.py`, `backend/tests/test_indexing_tasks.py`
+- **Architecture**: `docs/architecture.md` (Email History Indexing Service section)
+
+---
+
+## Language Detection Service (Epic 3 - Story 3.5)
+
+The Language Detection Service automatically identifies the language of incoming emails to enable AI response generation in the correct language. Supports 4 target languages with confidence scoring and fallback logic for ambiguous cases.
+
+### Overview
+
+**Key Features:**
+- **4 Language Support**: Russian (ru), Ukrainian (uk), English (en), German (de)
+- **Confidence Scoring**: Returns probability (0.0-1.0) for detection reliability
+- **Confidence Threshold**: 0.7 minimum threshold with fallback to English
+- **Mixed-Language Handling**: Selects primary language (highest probability)
+- **Fast Detection**: <100ms per email (50-100ms typical)
+- **HTML Email Support**: Strips HTML tags before detection
+- **Database Integration**: Stores detected language in EmailProcessingQueue
+
+### Installation
+
+The langdetect library is automatically installed with project dependencies:
+
+```bash
+# Included in pyproject.toml
+langdetect>=1.0.9  # Language detection (55 languages, 5MB footprint)
+```
+
+To manually install or verify:
+```bash
+uv pip install langdetect
+python -c "import langdetect; print('langdetect installed')"
+```
+
+### Usage
+
+#### Basic Language Detection
+
+```python
+from app.services.language_detection import LanguageDetectionService
+
+# Initialize service
+detector = LanguageDetectionService()
+
+# Detect language with confidence
+email_body = "Hallo! Dies ist eine wichtige E-Mail."
+lang_code, confidence = detector.detect(email_body)
+print(f"Detected: {lang_code} (confidence: {confidence:.2f})")
+# Output: Detected: de (confidence: 0.95)
+```
+
+#### Detection with Fallback
+
+```python
+# Use detect_with_fallback for low-confidence handling
+ambiguous_text = "OK thx"
+lang, conf = detector.detect_with_fallback(ambiguous_text)
+# Returns ("en", 0.45) - fallback to English if confidence < 0.7
+```
+
+#### Mixed-Language Emails
+
+```python
+# Detect primary language from mixed-language content
+mixed_email = """
+    Hallo! Dies ist wichtig für unser Projekt.
+    Please review and confirm receipt.
+"""
+primary_lang = detector.detect_primary_language(mixed_email)
+print(f"Primary language: {primary_lang}")
+# Output: Primary language: de (German has highest probability)
+```
+
+#### Validate Supported Languages
+
+```python
+# Check if language is supported
+is_supported = detector.is_supported_language("de")  # True
+is_supported = detector.is_supported_language("fr")  # False
+```
+
+#### Database Integration
+
+```python
+from app.models.email import EmailProcessingQueue
+from datetime import datetime, UTC
+
+# Detect language and store in EmailProcessingQueue
+lang_code, confidence = detector.detect(email_body)
+
+email = EmailProcessingQueue(
+    user_id=user.id,
+    gmail_message_id="msg_123",
+    gmail_thread_id="thread_123",
+    sender="sender@example.com",
+    subject="Important email",
+    received_at=datetime.now(UTC),
+    status="pending",
+    detected_language=lang_code,  # Store 2-letter code
+)
+session.add(email)
+await session.commit()
+```
+
+### Configuration
+
+**Supported Languages**: `["ru", "uk", "en", "de"]`
+**Confidence Threshold**: `0.7`
+**Fallback Language**: `"en"` (English)
+
+These constants are defined in the `LanguageDetectionService` class and can be accessed:
+
+```python
+print(detector.SUPPORTED_LANGUAGES)  # ['ru', 'uk', 'en', 'de']
+print(detector.CONFIDENCE_THRESHOLD)  # 0.7
+```
+
+### Architecture Decision (ADR-013)
+
+**Decision**: Use langdetect library for language detection
+
+**Rationale**:
+- Simple: pip install langdetect (5MB footprint)
+- Fast: 50-100ms per email (meets <100ms NFR requirement)
+- Good accuracy for email bodies (>100 chars)
+- Zero cost: No API calls required
+- Proven reliability: Widely used, battle-tested
+
+**Trade-offs**:
+- Lower accuracy for very short texts (<50 chars) - mitigated by fallback logic
+- Ukrainian/Russian confusion possible - mitigated by confidence threshold
+- No active language model training - acceptable for 4-language use case
+
+**See**: `docs/architecture.md` (Language Detection section), `docs/tech-spec-epic-3.md` (ADR-013)
+
+### Performance
+
+**Typical Latency**:
+- Clear language text (>100 chars): 50-100ms
+- Short text (<50 chars): 100-150ms
+- HTML emails: +10-20ms (HTML stripping overhead)
+
+**Confidence Scores**:
+- High confidence (>0.9): Clear single-language text
+- Medium confidence (0.7-0.9): Acceptable, language detected correctly
+- Low confidence (<0.7): Triggers fallback to English
+
+### Error Handling
+
+**Edge Cases Handled**:
+- Empty email body: Raises `ValueError`
+- Very short text (<20 chars): Logs warning, attempts detection
+- HTML content: Automatically strips tags before detection
+- Ambiguous text: Catches `LangDetectException`, logs error
+- Mixed languages: Returns primary language (highest probability)
+
+```python
+# Example error handling
+try:
+    lang, conf = detector.detect(email_body)
+except ValueError as e:
+    # Empty body
+    lang = "en"  # Default
+except LangDetectException as e:
+    # Detection failed
+    lang, conf = detector.detect_with_fallback(email_body, fallback_lang="en")
+```
+
+### Database Schema
+
+The `detected_language` field is stored in the `email_processing_queue` table:
+
+```sql
+-- detected_language column (Story 3.5)
+ALTER TABLE email_processing_queue
+ADD COLUMN detected_language VARCHAR(5);  -- Stores 2-letter codes: ru, uk, en, de
+```
+
+**Migration**: `backend/alembic/versions/c6c872982e1e_add_detected_language_field.py`
+
+### Testing
+
+**Unit Tests**: `backend/tests/test_language_detection.py` (9 tests)
+**Integration Tests**: `backend/tests/integration/test_language_detection_integration.py` (4 tests)
+
+---
+
+## Response Generation Prompts (Epic 3 - Story 3.6)
+
+The Response Generation Prompt system creates structured, context-aware prompts for AI email response generation with multilingual support, tone detection, and RAG context integration.
+
+### Overview
+
+**Key Features:**
+- **Multilingual Support**: Russian (ru), Ukrainian (uk), English (en), German (de)
+- **Hybrid Tone Detection**: Rule-based (80% cases) + LLM-based (20% ambiguous cases)
+- **3 Tone Levels**: Formal (government), Professional (business), Casual (personal)
+- **RAG Context Integration**: Thread history + semantic search results
+- **Prompt Versioning**: Database-backed A/B testing and refinement
+- **Greeting/Closing Database**: 12 combinations (4 languages × 3 tones)
+
+### Installation
+
+All dependencies are already installed from previous Epic 3 stories:
+
+```bash
+# Already included in pyproject.toml
+google-generativeai>=0.8.3  # Gemini API for LLM-based tone detection
+langdetect>=1.0.9           # Language detection integration
+sqlmodel>=0.0.24            # Prompt version database storage
+```
+
+### Usage
+
+#### Basic Prompt Generation
+
+```python
+from app.prompts.response_generation import format_response_prompt
+from app.services.tone_detection import ToneDetectionService
+from app.services.language_detection import LanguageDetectionService
+
+# Initialize services
+tone_service = ToneDetectionService()
+lang_service = LanguageDetectionService()
+
+# Detect tone and language
+tone = tone_service.detect_tone(email, thread_history=[])
+language, confidence = lang_service.detect(email.body)
+
+# Generate complete prompt with RAG context
+prompt = format_response_prompt(
+    email=email,
+    rag_context=rag_context,  # {thread_history: [...], semantic_results: [...]}
+    language=language,
+    tone=tone
+)
+
+# Send to Gemini API for response generation
+response = gemini_model.generate_content(prompt)
+```
+
+#### Tone Detection Examples
+
+```python
+from app.services.tone_detection import ToneDetectionService
+
+service = ToneDetectionService()
+
+# Government email → "formal"
+gov_email.sender = "info@finanzamt.de"
+tone = service.detect_tone(gov_email)  # "formal"
+
+# Business email → "professional"
+biz_email.sender = "contact@startup.io"
+tone = service.detect_tone(biz_email)  # "professional"
+
+# Personal email → "casual"
+personal_email.sender = "friend@gmail.com"
+tone = service.detect_tone(personal_email)  # "casual"
+```
+
+#### Greeting/Closing Selection
+
+```python
+from app.prompts.response_generation import GREETING_EXAMPLES, CLOSING_EXAMPLES
+
+# Get appropriate greeting for language+tone
+greeting = GREETING_EXAMPLES["de"]["formal"]  # "Sehr geehrte Damen und Herren"
+closing = CLOSING_EXAMPLES["de"]["formal"]    # "Mit freundlichen Grüßen"
+
+# Professional English
+greeting = GREETING_EXAMPLES["en"]["professional"]  # "Hello {name}"
+closing = CLOSING_EXAMPLES["en"]["professional"]    # "Best regards"
+
+# Casual Russian
+greeting = GREETING_EXAMPLES["ru"]["casual"]  # "Привет, {name}"
+closing = CLOSING_EXAMPLES["ru"]["casual"]    # "Всего хорошего"
+```
+
+#### Prompt Version Management
+
+```python
+from app.config.prompts_config import save_prompt_version, load_prompt_version
+
+# Save new prompt version
+version = save_prompt_version(
+    template_name="response_generation",
+    template_content=RESPONSE_PROMPT_TEMPLATE,
+    version="1.0.0",
+    parameters={"token_budget": 6500, "max_paragraphs": 3}
+)
+
+# Load latest active version
+current_prompt = load_prompt_version("response_generation")
+
+# Load specific version
+v1_prompt = load_prompt_version("response_generation", version="1.0.0")
+```
+
+### Tone Detection Strategy (ADR-014)
+
+**Hybrid Approach** - Rule-based + LLM:
+
+1. **Rule-Based Detection (80% cases, fast)**:
+   - Government domains (finanzamt.de, auslaenderbehoerde.de) → "formal"
+   - Business domains (non-free providers, non-government) → "professional"
+   - Free email providers (gmail.com, yahoo.com) → "casual"
+
+2. **LLM-Based Detection (20% ambiguous cases)**:
+   - Unknown/ambiguous senders → Gemini analyzes thread tone
+   - Fallback to "professional" if LLM unavailable
+
+**Rationale**: Optimal balance of speed (rules), accuracy (known cases), and flexibility (LLM for edge cases)
+
+### Prompt Template Structure
+
+```
+ORIGINAL EMAIL:
+From: {sender}
+Subject: {subject}
+Language: {language_name}
+Body: {email_body}
+
+CONVERSATION CONTEXT:
+Thread History (Chronological):
+{thread_history}
+
+Relevant Context from Previous Emails (Semantic Search):
+{semantic_results}
+
+RESPONSE REQUIREMENTS:
+1. Language: Write the response in {language_name} ({language_code})
+2. Tone: {tone_description}
+3. Length: 2-3 paragraphs maximum
+4. Formality: {formality_instructions}
+
+GREETING AND CLOSING EXAMPLES:
+Appropriate Greeting: "{greeting_example}"
+Appropriate Closing: "{closing_example}"
+
+INSTRUCTIONS:
+[Generate complete email response following requirements...]
+```
+
+**Token Budget**: ~6.5K tokens for context (leaves 25K for response generation in Gemini 32K window)
+
+### Database Schema
+
+The `prompt_versions` table stores versioned prompt templates:
+
+```sql
+CREATE TABLE prompt_versions (
+    id SERIAL PRIMARY KEY,
+    template_name VARCHAR NOT NULL,
+    template_content TEXT NOT NULL,
+    version VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    parameters JSON,
+    is_active BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX ix_prompt_versions_template_name ON prompt_versions(template_name);
+```
+
+**Migration**: `backend/alembic/versions/f21dea91e261_add_prompt_versions_table.py`
+
+### Testing
+
+**Unit Tests**: `backend/tests/test_response_generation_prompts.py` (8 tests)
+- Tone detection (government, business, personal)
+- Prompt template formatting with all placeholders
+- Greeting/closing selection for all language+tone combinations
+- Length constraints and formality instructions
+- Multilingual support (de, en, ru, uk)
+- Prompt version storage and retrieval
+
+**Integration Tests**: `backend/tests/integration/test_prompt_generation_integration.py` (5 tests)
+- Formal German government email prompts
+- Professional English business email prompts
+- Casual Russian personal email prompts
+- Multilingual prompt quality across all 4 languages
+- Real Gemini API tone detection for ambiguous cases
+
+### Performance
+
+- **Tone Detection**: <50ms (rule-based), ~500ms (LLM-based for ambiguous)
+- **Prompt Generation**: <10ms (template formatting)
+- **Total Latency**: <60ms typical, <550ms worst case
+
+### Error Handling
+
+```python
+# Handle invalid language or tone
+try:
+    prompt = format_response_prompt(email, rag_context, "fr", "formal")
+except ValueError as e:
+    # Unsupported language: "fr"
+    pass
+
+# Fallback for LLM tone detection failure
+tone = tone_service.detect_tone(email)  # Returns "professional" if LLM fails
+```
+
+### Configuration
+
+**Government Domains** (configurable in `app/services/tone_detection.py`):
+```python
+GOVERNMENT_DOMAINS = [
+    "finanzamt.de",
+    "auslaenderbehoerde.de",
+    "bundesagentur-fuer-arbeit.de",
+    "stadt.de",
+    "gov.de",
+    # Add more as needed
+]
+```
+
+### API Documentation
+
+- **ToneDetectionService**: `backend/app/services/tone_detection.py`
+- **Prompt Template**: `backend/app/prompts/response_generation.py`
+- **Prompt Versioning**: `backend/app/config/prompts_config.py`
+- **Architecture Decision**: `docs/architecture.md#ADR-014`
+
+Run tests:
+```bash
+# Unit tests
+env DATABASE_URL="..." uv run pytest tests/test_language_detection.py -v
+
+# Integration tests (requires database)
+env DATABASE_URL="..." uv run pytest tests/integration/test_language_detection_integration.py -v
+```
+
+### Detailed Documentation
+
+For comprehensive language detection documentation, see:
+- **Technical Spec**: `docs/tech-spec-epic-3.md` (Language Detection Strategy, ADR-013)
+- **Story**: `docs/stories/3-5-language-detection.md`
+- **LanguageDetectionService API**: `backend/app/services/language_detection.py`
+- **Database Model**: `backend/app/models/email.py` (EmailProcessingQueue.detected_language)
+- **Unit Tests**: `backend/tests/test_language_detection.py`
+- **Integration Tests**: `backend/tests/integration/test_language_detection_integration.py`
+- **Architecture**: `docs/architecture.md` (Language Detection section)
+
+---
+
+## AI Response Generation Service (Epic 3 - Story 3.7)
+
+The AI Response Generation Service orchestrates the complete email response generation workflow by integrating all Epic 3 services: Context Retrieval (3.4), Language Detection (3.5), Tone Detection (3.6), Prompt Engineering (3.6), and Gemini LLM (2.1). The service generates contextually appropriate, multilingual email responses with proper tone and formality levels.
+
+### Overview
+
+**Key Features:**
+- **Response Need Classification**: Automatically determines if email requires response (skips newsletters, no-reply senders)
+- **Service Orchestration**: Integrates 5 specialized services for complete RAG workflow
+- **Multilingual Support**: Russian, Ukrainian, English, German with automatic language detection
+- **Response Quality Validation**: Length, language, and structure checks before presenting to users
+- **Database Persistence**: Saves drafts with status="awaiting_approval" for Telegram approval (Story 3.8)
+- **Privacy-Preserving Logging**: Email content truncated, structured logging with email_id references
+
+### Installation
+
+All dependencies are already installed from previous Epic 3 stories:
+
+```bash
+# Already included in pyproject.toml
+google-generativeai>=0.8.3  # Gemini API for response generation
+sqlmodel>=0.0.24            # Database ORM
+structlog>=25.2.0           # Structured logging
+langdetect>=1.0.9           # Language detection (Story 3.5)
+chromadb>=0.4.22            # Vector database (Story 3.1)
+```
+
+### Usage
+
+#### Basic Response Generation
+
+```python
+from app.services.response_generation import ResponseGenerationService
+
+# Initialize service for specific user
+service = ResponseGenerationService(user_id=123)
+
+# Process email for response (end-to-end workflow)
+success = await service.process_email_for_response(email_id=456)
+
+if success:
+    print("Response generated and saved to database")
+else:
+    print("No response needed (newsletter/no-reply)")
+```
+
+#### Response Need Classification
+
+```python
+from app.models.email import EmailProcessingQueue
+
+# Check if email requires response
+email = session.get(EmailProcessingQueue, email_id)
+should_respond = service.should_generate_response(email)
+
+# Returns False for:
+# - no-reply senders (noreply@example.com)
+# - newsletters (newsletter@company.com)
+# - automated notifications (notifications@system.com)
+
+# Returns True for:
+# - Personal emails with questions
+# - Business inquiries
+# - Emails in active conversation threads (>2 emails)
+```
+
+#### Manual Workflow Steps
+
+```python
+# Step 1: Generate response
+response_draft = await service.generate_response(email_id=456)
+
+if response_draft:
+    # Step 2: Validate response quality
+    is_valid = service.validate_response(response_draft, expected_language="de")
+
+    if is_valid:
+        # Step 3: Save to database
+        service.save_response_draft(
+            email_id=456,
+            response_draft=response_draft,
+            language="de",
+            tone="formal"
+        )
+```
+
+#### Custom Service Integration
+
+```python
+from app.services.context_retrieval import ContextRetrievalService
+from app.services.language_detection import LanguageDetectionService
+from app.services.tone_detection import ToneDetectionService
+from app.core.llm_client import LLMClient
+
+# Initialize with custom service instances (e.g., for testing)
+custom_context = ContextRetrievalService(user_id=123)
+custom_language = LanguageDetectionService()
+custom_tone = ToneDetectionService()
+custom_llm = LLMClient()
+
+service = ResponseGenerationService(
+    user_id=123,
+    context_service=custom_context,
+    language_service=custom_language,
+    tone_service=custom_tone,
+    llm_client=custom_llm
+)
+```
+
+### Service Workflow
+
+The complete response generation workflow executes these steps:
+
+1. **Response Need Classification** (AC #2)
+   - Check for no-reply/newsletter patterns
+   - Detect question indicators in 4 languages
+   - Analyze thread length for active conversations
+   - Default: generate response for unclear cases
+
+2. **RAG Context Retrieval** (AC #3) - Story 3.4
+   - Retrieve Gmail thread history (last 5 emails)
+   - Semantic search in ChromaDB (top k similar emails)
+   - Adaptive k logic: short threads get more semantic results
+   - Token budget management (~6.5K tokens)
+
+3. **Language Detection** (AC #4) - Story 3.5
+   - Detect email language using langdetect
+   - Confidence threshold: 0.7
+   - Fallback to thread history language if low confidence
+   - Supports: ru, uk, en, de
+
+4. **Tone Detection** (AC #5) - Story 3.6
+   - Rule-based for known domains (government → formal, business → professional)
+   - LLM-based for ambiguous cases
+   - Returns: "formal", "professional", or "casual"
+
+5. **Prompt Formatting** (AC #6) - Story 3.6
+   - format_response_prompt() constructs structured prompt
+   - Includes: email content, RAG context, language instructions, tone requirements
+   - Greeting/closing examples (12 combinations: 4 languages × 3 tones)
+
+6. **LLM Response Generation** (AC #7) - Story 2.1
+   - Send prompt to Gemini 2.5 Flash API
+   - Model: gemini-2.5-flash (fast, multilingual, free tier)
+   - Token budget: ~6.5K context + ~25K response = 32K total
+
+7. **Response Quality Validation** (AC #9)
+   - Length: 50-2000 characters
+   - Language: Matches expected using LanguageDetectionService
+   - Structure: Contains greeting and/or closing
+   - Empty check: Minimum 20 characters
+
+8. **Database Persistence** (AC #8, #10)
+   - Update EmailProcessingQueue:
+     - draft_response = generated text
+     - detected_language = language code
+     - status = "awaiting_approval"
+     - classification = "needs_response"
+     - updated_at = NOW()
+
+### Configuration
+
+**Response Validation Thresholds** (configurable in `app/services/response_generation.py`):
+
+```python
+MIN_RESPONSE_LENGTH = 50     # Minimum characters
+MAX_RESPONSE_LENGTH = 2000   # Maximum characters
+MIN_VALID_LENGTH = 20        # Absolute minimum (not empty)
+TARGET_GENERATION_TIME = 8.0 # Performance target (seconds)
+```
+
+**No-Reply Patterns** (configurable):
+
+```python
+NO_REPLY_PATTERNS = [
+    r"no-?reply",
+    r"noreply",
+    r"do-?not-?reply",
+    r"newsletter",
+    r"notifications?",
+    r"automated?",
+    r"mailer-daemon"
+]
+```
+
+**Question Indicators** (4 languages):
+
+```python
+QUESTION_INDICATORS = {
+    "en": ["?", "what", "when", "where", "who", "why", "how", "can you", "could you"],
+    "de": ["?", "was", "wann", "wo", "wer", "warum", "wie", "können sie"],
+    "ru": ["?", "что", "когда", "где", "кто", "почему", "как", "можете ли"],
+    "uk": ["?", "що", "коли", "де", "хто", "чому", "як", "чи можете"]
+}
+```
+
+### Database Schema
+
+The service updates the `email_processing_queue` table:
+
+```python
+# EmailProcessingQueue model fields
+draft_response: Optional[str]      # Generated response text (AC #8)
+detected_language: Optional[str]   # Language code: ru, uk, en, de
+status: str                        # "awaiting_approval" after generation (AC #10)
+classification: Optional[str]      # "needs_response" vs "sort_only" (AC #10)
+updated_at: datetime               # Last update timestamp
+```
+
+### Testing
+
+**Unit Tests**: `backend/tests/test_response_generation.py` (10 tests)
+
+```bash
+# Run unit tests
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+    uv run pytest tests/test_response_generation.py -v
+
+# Test coverage:
+# - Response need classification (personal, newsletter, no-reply)
+# - RAG context retrieval integration
+# - Language detection integration
+# - Tone detection integration
+# - Prompt formatting integration
+# - Response quality validation (success, failures)
+# - Database persistence and status updates
+```
+
+**Integration Tests**: `backend/tests/integration/test_response_generation_integration.py` (6 tests)
+
+```bash
+# Run integration tests (excludes slow tests)
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+    uv run pytest tests/integration/test_response_generation_integration.py -v -m "not slow"
+
+# Test scenarios:
+# 1. German formal government email (end-to-end)
+# 2. English professional business email (end-to-end)
+# 3. Newsletter correctly skips response generation
+# 4. Response quality validation rejects invalid responses
+# 5. Short thread triggers adaptive k=7 semantic search
+# 6. Real Gemini API integration (optional, marked @pytest.mark.slow)
+```
+
+### Performance
+
+**Latency Breakdown** (NFR001: <2 minutes total, response generation component):
+
+- RAG Context Retrieval: ~3s (Story 3.4)
+- Language Detection: ~0.1s (Story 3.5)
+- Tone Detection: ~0.2s (Story 3.6)
+- Prompt Formatting: ~0.01s (Story 3.6)
+- Gemini API Call: ~5s (model: gemini-2.5-flash)
+- Response Validation: ~0.5s
+- Database Persistence: ~0.1s
+- **Total**: ~8.8s (well within 2-minute target)
+
+### Error Handling
+
+```python
+# Handle email not found
+try:
+    response = await service.generate_response(999999)
+except ValueError as e:
+    print(f"Email not found: {e}")
+
+# Handle validation failure
+try:
+    success = await service.process_email_for_response(email_id)
+except ValueError as e:
+    print(f"Validation failed: {e}")
+
+# Handle service failures
+try:
+    response = await service.generate_response(email_id)
+except Exception as e:
+    # Service errors logged with structured logging
+    # Check logs for: email_id, error_type, error_message
+    print(f"Generation failed: {e}")
+```
+
+### Security
+
+**Privacy-Preserving Logging:**
+- Email sender truncated to 50 characters
+- Email subject used for classification (body not logged)
+- Structured logging with email_id references (no PII)
+
+**Input Validation:**
+- email_id existence checks before operations
+- Response length validation (50-2000 chars)
+- Language validation against supported languages
+
+**Credential Management:**
+- Gemini API key from environment: GEMINI_API_KEY
+- Database credentials from environment: DATABASE_URL
+- No hardcoded secrets in code
+
+### API Documentation
+
+**Service Class**: `backend/app/services/response_generation.py`
+
+Main Methods:
+- `should_generate_response(email) -> bool` - Classification logic
+- `generate_response(email_id) -> Optional[str]` - Core generation
+- `validate_response(draft, language) -> bool` - Quality checks
+- `save_response_draft(email_id, draft, language, tone)` - Persistence
+- `process_email_for_response(email_id) -> bool` - End-to-end workflow
+
+**Dependencies**:
+- Story 3.4: `backend/app/services/context_retrieval.py` (ContextRetrievalService)
+- Story 3.5: `backend/app/services/language_detection.py` (LanguageDetectionService)
+- Story 3.6: `backend/app/services/tone_detection.py` (ToneDetectionService)
+- Story 3.6: `backend/app/prompts/response_generation.py` (format_response_prompt)
+- Story 2.1: `backend/app/core/llm_client.py` (LLMClient)
+
+### Detailed Documentation
+
+For comprehensive AI Response Generation documentation, see:
+- **Technical Spec**: `docs/tech-spec-epic-3.md` (Response Generation Service, Algorithm)
+- **Story**: `docs/stories/3-7-ai-response-generation-service.md`
+- **Architecture**: `docs/architecture.md` (Response Generation section - to be added)
+- **Code Review**: Story file includes complete systematic review with evidence
+- **Unit Tests**: `backend/tests/test_response_generation.py` (10 tests, all passing)
+- **Integration Tests**: `backend/tests/integration/test_response_generation_integration.py` (6 tests)
+
+---
+
+## Response Draft Telegram Messages (Epic 3 - Story 3.8)
+
+The Response Draft Telegram Messages service delivers AI-generated email response drafts to users via Telegram with an interactive approval interface. The service formats drafts into structured messages with inline keyboards ([Send], [Edit], [Reject]) and persists workflow mappings for callback reconnection.
+
+### Overview
+
+**Key Features:**
+- **Message Formatting**: Structured Telegram messages with original email preview, AI draft, and visual separators
+- **Inline Keyboard**: Three-button approval interface (Send, Edit, Reject) with callback data
+- **Priority Flagging**: ⚠️ icon for urgent emails requiring immediate attention
+- **Language Indication**: Clear display of response language (English, German, Russian, Ukrainian)
+- **Workflow Mapping**: Persists Telegram message IDs with LangGraph thread IDs for callback reconnection
+- **Privacy-Preserving**: Email content truncated in logs, structured logging with email_id references
+- **Error Handling**: Graceful handling of unlinked Telegram accounts and API failures
+
+### Installation
+
+All dependencies are already installed from previous Epic 2 and 3 stories:
+
+```bash
+# Already included in pyproject.toml
+python-telegram-bot>=21.0  # Telegram Bot API (Epic 2)
+sqlmodel>=0.0.24           # Database ORM
+structlog>=25.2.0          # Structured logging
+```
+
+### Usage
+
+#### Basic Response Draft Notification
+
+```python
+from app.services.telegram_response_draft import TelegramResponseDraftService
+from app.core.telegram_bot import TelegramBotClient
+
+# Initialize bot and service
+telegram_bot = TelegramBotClient()
+service = TelegramResponseDraftService(telegram_bot=telegram_bot)
+
+# Send response draft notification (end-to-end workflow)
+success = await service.send_draft_notification(
+    email_id=456,
+    workflow_thread_id="thread_xyz_123"
+)
+
+if success:
+    print("Response draft sent to Telegram")
+else:
+    print("User hasn't linked Telegram account")
+```
+
+#### Message Formatting Only
+
+```python
+# Format message without sending (for testing/preview)
+message_text = service.format_response_draft_message(email_id=456)
+
+print(message_text)
+# Output:
+# ⚠️ 📧 Response Draft Ready
+#
+# 📨 Original Email:
+# From: urgent@example.com
+# Subject: URGENT: Action required
+#
+# ─────────────────
+# ✍️ AI-Generated Response (English):
+# Dear Sir/Madam,
+#
+# I will address this urgent matter immediately.
+#
+# Best regards
+# ─────────────────
+```
+
+#### Inline Keyboard Building
+
+```python
+# Build keyboard for manual message construction
+keyboard_buttons = service.build_response_draft_keyboard(email_id=456)
+
+# Returns list of button rows:
+# Row 1: [[✅ Send Button]]
+# Row 2: [[✏️ Edit Button], [❌ Reject Button]]
+```
+
+#### Manual Workflow Steps
+
+```python
+# Step 1: Send Telegram message
+telegram_message_id = await service.send_response_draft_to_telegram(email_id=456)
+
+# Step 2: Save workflow mapping for callback reconnection
+service.save_telegram_message_mapping(
+    email_id=456,
+    telegram_message_id=telegram_message_id,
+    thread_id="workflow_thread_xyz_123"
+)
+
+# Step 3: Update email status (done automatically by send_draft_notification)
+```
+
+#### Custom Service Integration
+
+```python
+from app.services.database import DatabaseService
+
+# Initialize with custom database service (e.g., for testing)
+custom_db = DatabaseService()
+
+service = TelegramResponseDraftService(
+    telegram_bot=telegram_bot,
+    db_service=custom_db
+)
+```
+
+### Service Workflow
+
+The complete response draft notification workflow executes these steps:
+
+1. **Message Formatting** (AC #1-4, #6, #9)
+   - Load email with draft_response from EmailProcessingQueue
+   - Format header with priority flag (⚠️) if is_priority=True
+   - Include original email: sender, subject (AC #2 partial: uses subject as preview)
+   - Add visual separators for clarity (AC #4)
+   - Display draft with language indication (AC #6)
+   - Handle Telegram length limits (4096 chars max - currently truncates, AC #8 partial)
+
+2. **Inline Keyboard Building** (AC #5)
+   - Row 1: [✅ Send] button with callback_data="send_response_{email_id}"
+   - Row 2: [✏️ Edit] button with callback_data="edit_response_{email_id}"
+   - Row 2: [❌ Reject] button with callback_data="reject_response_{email_id}"
+
+3. **Telegram Message Sending** (AC #1-9)
+   - Load user's telegram_id from Users table
+   - Send message via TelegramBotClient.send_message_with_buttons()
+   - Return telegram_message_id for workflow mapping
+
+4. **Workflow Mapping Persistence**
+   - Create WorkflowMapping record with:
+     - email_id (links to EmailProcessingQueue)
+     - user_id (from email.user_id)
+     - thread_id (LangGraph workflow instance ID)
+     - telegram_message_id (for message editing)
+     - workflow_state="awaiting_response_approval"
+
+5. **Email Status Update**
+   - Update EmailProcessingQueue.status = "awaiting_response_approval"
+   - Timestamp updated_at field
+
+### Configuration
+
+**Message Formatting Constants** (configurable in `app/services/telegram_response_draft.py`):
+
+```python
+MAX_BODY_PREVIEW_CHARS = 100  # Original email preview length
+TELEGRAM_MAX_LENGTH = 4096    # Telegram message length limit
+VISUAL_SEPARATOR = "─────────────────"  # Visual separation
+
+LANGUAGE_NAMES = {
+    "en": "English",
+    "de": "German",
+    "ru": "Russian",
+    "uk": "Ukrainian"
+}
+```
+
+### Database Schema
+
+The service uses these tables:
+
+**EmailProcessingQueue** (reads from):
+```python
+draft_response: Optional[str]      # Generated response text (from Story 3.7)
+detected_language: Optional[str]   # Language code: ru, uk, en, de
+is_priority: bool                  # Priority flag for ⚠️ icon
+status: str                        # Updated to "awaiting_response_approval"
+```
+
+**WorkflowMapping** (writes to):
+```python
+email_id: int                      # Links to EmailProcessingQueue
+user_id: int                       # User who owns the email
+thread_id: str                     # LangGraph workflow instance ID
+telegram_message_id: str           # Telegram message ID for editing
+workflow_state: str                # "awaiting_response_approval"
+```
+
+### Testing
+
+**Unit Tests**: `backend/tests/test_telegram_response_draft.py` (9 tests)
+
+```bash
+# Run unit tests
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+    uv run pytest tests/test_telegram_response_draft.py -v
+
+# Test coverage:
+# - Message formatting (standard, priority, long drafts, no context)
+# - Inline keyboard building (3-button layout)
+# - Telegram message sending
+# - Workflow mapping persistence
+# - End-to-end orchestration
+# - Error handling (user blocked, not linked)
+```
+
+**Integration Tests**: `backend/tests/integration/test_response_draft_telegram_integration.py` (6 tests)
+
+```bash
+# Run integration tests
+env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" \
+    uv run pytest tests/integration/test_response_draft_telegram_integration.py -v
+
+# Test scenarios:
+# 1. German formal response with priority flag (end-to-end)
+# 2. English professional response without priority (end-to-end)
+# 3. Very long draft handling (>4096 chars truncation)
+# 4. Context summary display (placeholder - AC #7 not implemented)
+# 5. Priority email flagging with ⚠️ icon
+# 6. Telegram user not linked error handling
+```
+
+### Performance
+
+**Latency Breakdown** (NFR001: <2 minutes total, Telegram notification component):
+
+- Load email from database: ~0.01s
+- Format message: ~0.001s
+- Build keyboard: ~0.001s
+- Send Telegram API call: ~0.5-1s
+- Save workflow mapping: ~0.01s
+- Update email status: ~0.01s
+- **Total**: ~1s (well within 2-minute target)
+
+### Error Handling
+
+```python
+# Handle email not found
+try:
+    message = service.format_response_draft_message(999999)
+except ValueError as e:
+    print(f"Email not found: {e}")
+
+# Handle user without Telegram account
+try:
+    success = await service.send_draft_notification(email_id, thread_id)
+except ValueError as e:
+    print(f"User not linked: {e}")
+
+# Handle Telegram API errors
+from app.utils.errors import TelegramUserBlockedError
+
+try:
+    message_id = await service.send_response_draft_to_telegram(email_id)
+except TelegramUserBlockedError as e:
+    print(f"User blocked bot: {e}")
+    # Service logs this with structured logging
+```
+
+### Security
+
+**Privacy-Preserving Logging:**
+- Email content NOT logged in full (only email_id referenced)
+- Sender/subject truncated in message formatting logs
+- Structured logging: email_id, user_id, telegram_message_id
+
+**Input Validation:**
+- email_id existence checks before operations
+- User telegram_id validation (ValueError if not set)
+- SQLModel ORM for parameterized queries (no SQL injection)
+
+**Credential Management:**
+- Telegram bot token from environment: TELEGRAM_BOT_TOKEN
+- Database credentials from environment: DATABASE_URL
+- No hardcoded secrets in code
+
+### API Documentation
+
+**Service Class**: `backend/app/services/telegram_response_draft.py`
+
+Main Methods:
+- `format_response_draft_message(email_id) -> str` - Message formatting
+- `build_response_draft_keyboard(email_id) -> List[List[InlineKeyboardButton]]` - Keyboard building
+- `send_response_draft_to_telegram(email_id) -> str` - Send message, return telegram_message_id
+- `save_telegram_message_mapping(email_id, telegram_message_id, thread_id)` - Persist mapping
+- `send_draft_notification(email_id, workflow_thread_id) -> bool` - End-to-end workflow
+
+**Dependencies**:
+- Story 3.7: `backend/app/services/response_generation.py` (Response draft source)
+- Story 2.6: `backend/app/core/telegram_bot.py` (TelegramBotClient)
+- Story 2.6: `backend/app/models/workflow_mapping.py` (WorkflowMapping)
+- Epic 2: `backend/app/models/user.py` (User.telegram_id)
+
+### Known Limitations (v1)
+
+**Partially Implemented Features:**
+1. **AC #2 (Email Body Preview)**: Uses subject text instead of first 100 chars of email body (EmailProcessingQueue doesn't store body field)
+2. **AC #7 (Context Summary)**: NOT implemented - "Based on N emails" context display not included
+3. **AC #8 (Message Splitting)**: Truncates instead of splits - long drafts (>4096 chars) are cut off by TelegramBotClient
+
+**Future Enhancements** (if needed in future stories):
+- Add body field to EmailProcessingQueue for AC #2 completion
+- Pass RAG context metadata for AC #7 display
+- Implement paragraph-boundary splitting for AC #8 enhancement
+
+### Detailed Documentation
+
+For comprehensive Response Draft Telegram Messages documentation, see:
+- **Technical Spec**: `docs/tech-spec-epic-3.md` (Response Draft Telegram Delivery)
+- **Story**: `docs/stories/3-8-response-draft-telegram-messages.md`
+- **Architecture**: `docs/architecture.md` (Telegram Response Draft section - to be added)
+- **Code Review**: Story file includes complete systematic review with evidence
+- **Unit Tests**: `backend/tests/test_telegram_response_draft.py` (9 tests, all passing)
+- **Integration Tests**: `backend/tests/integration/test_response_draft_telegram_integration.py` (6 tests, all passing)
+
+---
+
+## Context Retrieval Service (Epic 3 - Story 3.4)
+
+The Context Retrieval Service implements Smart Hybrid RAG for retrieving relevant conversation context to power AI response generation. It combines Gmail thread history with semantic search in ChromaDB, using adaptive k logic and token budget management.
+
+### Installation
+
+Dependencies automatically installed with project:
+
+```bash
+# Included in pyproject.toml
+tiktoken>=0.5.0  # For accurate token counting
+```
+
+### Configuration
+
+Uses existing environment variables from previous stories:
+
+```bash
+# Already configured in Epic 2-3
+GEMINI_API_KEY="your-key-here"          # For embeddings
+CHROMA_PERSIST_DIR="./data/chroma"      # For vector search
+DATABASE_URL="postgresql://..."         # For email queue
+```
+
+### Usage
+
+#### Basic Usage
+
+```python
+from app.services.context_retrieval import ContextRetrievalService
+
+# Initialize service for user
+service = ContextRetrievalService(user_id=123)
+
+# Retrieve context for incoming email
+context = await service.retrieve_context(email_id=456)
+
+# Access context components
+thread_history = context["thread_history"]     # Last 5 emails in thread
+semantic_results = context["semantic_results"]  # Top 3-7 similar emails
+metadata = context["metadata"]                 # Statistics
+
+print(f"Thread length: {metadata['thread_length']}")
+print(f"Semantic count: {metadata['semantic_count']}")
+print(f"Total tokens: {metadata['total_tokens_used']}")
+print(f"Adaptive k: {metadata['adaptive_k']}")
+```
+
+#### Advanced Usage with Dependency Injection
+
+```python
+# For testing or custom configurations
+from app.core.gmail_client import GmailClient
+from app.core.embedding_service import EmbeddingService
+from app.core.vector_db import VectorDBClient
+
+service = ContextRetrievalService(
+    user_id=123,
+    gmail_client=custom_gmail_client,
+    embedding_service=custom_embedding_service,
+    vector_db_client=custom_vector_db
+)
+```
+
+### Smart Hybrid RAG Strategy
+
+The service combines two complementary context sources:
+
+1. **Thread History**: Last 5 emails from Gmail thread (conversation continuity)
+2. **Semantic Search**: Top 3-7 similar emails from ChromaDB (broader context)
+
+**Adaptive k Logic** dynamically adjusts semantic search based on thread length:
+
+| Thread Length | Adaptive k | Strategy Reason |
+|--------------|------------|-----------------|
+| <3 emails (short) | k=7 | Need more semantic context |
+| 3-5 emails (standard) | k=3 | Balanced hybrid approach |
+| >5 emails (long) | k=0 | Skip semantic, thread sufficient |
+
+### Token Budget Management
+
+- **Budget**: ~6.5K tokens total (leaves 25K for Gemini response in 32K window)
+- **Token Counter**: Uses tiktoken (GPT-4 tokenizer, accurate for Gemini)
+- **Truncation Strategy**:
+  1. Truncate thread_history first (keep most recent)
+  2. If still over, truncate semantic_results (remove low-ranked)
+
+### Performance
+
+- **Target**: <3 seconds total retrieval time (NFR001)
+- **Execution Strategy**: Sequential execution (thread history → adaptive k → semantic search)
+  - **Rationale (ADR-015)**: Adaptive k calculation requires thread_length, preventing true parallelization
+- **Actual latency**:
+  - Gmail thread fetch: ~1000ms
+  - Adaptive k calculation: <1ms
+  - Semantic search (if k>0): ~500ms
+  - Assembly: ~100ms
+  - **Total**: ~1600ms (well under 3s target ✅)
+
+Performance metrics logged automatically:
+```python
+{
+  "latency_ms": 1850.23,
+  "thread_count": 4,
+  "semantic_count": 3,
+  "total_tokens": 4200,
+  "adaptive_k": 3
+}
+```
+
+### Data Models
+
+**RAGContext TypedDict:**
+```python
+{
+    "thread_history": [EmailMessage, ...],   # Chronological order
+    "semantic_results": [EmailMessage, ...],  # Ranked by relevance
+    "metadata": {
+        "thread_length": 4,
+        "semantic_count": 3,
+        "oldest_thread_date": "2025-11-01T10:00:00Z",
+        "total_tokens_used": 4200,
+        "adaptive_k": 3,
+        "thread_tokens": 2800,
+        "semantic_tokens": 1400
+    }
+}
+```
+
+**EmailMessage TypedDict:**
+```python
+{
+    "message_id": "18b7c8d9e0f1a2b3",
+    "sender": "sender@example.com",
+    "subject": "Email subject",
+    "body": "Full email body text...",
+    "date": "2025-11-09T10:00:00Z",  # ISO 8601 format
+    "thread_id": "thread123"
+}
+```
+
+### Security & Multi-Tenancy
+
+- **User Isolation**: ChromaDB queries filtered by `user_id`
+- **Input Validation**: email_id and user_id validated
+- **Error Handling**: No email content leaked in errors
+- **No Hardcoded Credentials**: All keys from environment
+
+### Integration Points
+
+**Upstream Dependencies** (Stories 3.1-3.3):
+- `VectorDBClient.query_embeddings()` - Semantic search
+- `EmbeddingService.embed_text()` - Query embeddings
+- `GmailClient.get_thread()` - Thread history
+
+**Downstream Consumers** (Story 3.7):
+- `ResponseGenerationService` will use RAGContext for AI responses
+
+### Testing
+
+Run unit tests (8 test functions):
+```bash
+pytest tests/test_context_retrieval.py -v
+```
+
+Run integration tests (5 test functions):
+```bash
+pytest tests/integration/test_context_retrieval_integration.py -v -m integration
+```
+
+### Documentation
+
+- **Story**: `docs/stories/3-4-context-retrieval-service.md`
+- **Service API**: `backend/app/services/context_retrieval.py`
+- **Data Models**: `backend/app/models/context_models.py`
+- **Unit Tests**: `backend/tests/test_context_retrieval.py`
+- **Integration Tests**: `backend/tests/integration/test_context_retrieval_integration.py`
+- **Architecture**: `docs/architecture.md` (Context Retrieval Service section)
 
 ---
 

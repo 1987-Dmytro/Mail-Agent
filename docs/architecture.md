@@ -217,7 +217,7 @@ mail-agent/
 | ---- | ---------- | --------- | ------------------ |
 | **Epic 1: Foundation & Gmail Integration** | Gmail API client, OAuth flow, database models, email polling service | `app/core/gmail_client.py`, `app/api/auth.py`, `app/models/user.py`, `app/tasks/email_tasks.py` | Gmail API REST endpoints, PostgreSQL for user tokens |
 | **Epic 2: AI Sorting & Telegram Approval** | LangGraph workflow, Telegram bot, AI classification service, approval handlers | `app/workflows/email_workflow.py`, `app/core/telegram_bot.py`, `app/services/classification.py`, `app/models/workflow_mapping.py` | Gemini API for classification, Telegram Bot API, PostgreSQL checkpointing |
-| **Epic 3: RAG & Response Generation** | Vector store, RAG service, response generation, language detection, embedding | `app/core/vector_store.py`, `app/services/rag_service.py`, `app/services/response_generation.py`, `app/tasks/indexing_tasks.py` | ChromaDB for embeddings, Gemini API for generation & embeddings |
+| **Epic 3: RAG & Response Generation** | Vector store, RAG service, response generation, language detection, embedding, email history indexing | `app/core/vector_db.py`, `app/services/rag_service.py`, `app/services/response_generation.py`, `app/services/email_indexing.py`, `app/tasks/indexing_tasks.py`, `app/models/indexing_progress.py` | ChromaDB for embeddings, Gemini API for generation & embeddings |
 | **Epic 4: Configuration UI & Onboarding** | Next.js frontend, onboarding wizard, dashboard, settings management | `frontend/src/app/onboarding/`, `frontend/src/components/`, `frontend/src/lib/api-client.ts` | FastAPI REST API, OAuth redirect handling |
 
 ## Technology Stack Details
@@ -996,6 +996,17 @@ async def execute_action_node(state: EmailWorkflowState) -> EmailWorkflowState:
     return {**state, "final_action": "completed"}
 ```
 
+**Implementation Status:**
+
+✅ **Story 3.11 (Workflow Integration & Conditional Routing) - Completed 2025-11-10**
+
+The conditional routing architecture described above has been fully implemented in Story 3.11. The implementation includes:
+- `route_by_classification()` function that returns classification values for path mapping
+- Conditional edges from classify node routing to either `generate_response` node (for emails needing responses) or `send_telegram` node (for sort-only emails)
+- `generate_response` node (registered as "generate_response") that calls `ResponseGenerationService.generate_response_draft()`
+- Updated `classify` node that sets classification field using `ResponseGenerationService.should_generate_response()`
+- Updated `send_telegram` node that selects appropriate template based on `draft_response` field existence
+
 **2. Workflow Instance Tracker**
 
 ```python
@@ -1280,6 +1291,201 @@ When implementing stories that touch this pattern:
 5. **NEVER create new workflow instances** for existing emails (check WorkflowMapping first)
 6. **ALWAYS handle workflow errors** with user notifications and error state updates
 7. **ALWAYS clean up completed workflows** (delete WorkflowMapping after terminal state)
+
+### Telegram Callback Routing Patterns (Epic 2 & 3)
+
+**Callback Data Format:**
+
+All Telegram inline button callbacks use a consistent format for routing:
+```
+{action}_{resource}_{id}
+```
+
+**Examples:**
+```python
+# Epic 2 - Email Sorting (Story 2.7)
+"approve_{email_id}"         # Approve sorting proposal
+"reject_{email_id}"          # Reject sorting proposal
+"change_folder_{email_id}"   # Request folder change
+"folder_{folder_id}_{email_id}"  # Select specific folder
+
+# Epic 3 - Response Editing & Sending (Story 3.9)
+"send_response_{email_id}"   # Send AI-generated response
+"edit_response_{email_id}"   # Edit response draft
+"reject_response_{email_id}" # Reject response draft
+```
+
+**Callback Router Implementation (`telegram_handlers.py`):**
+
+```python
+async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Central callback router for all Telegram button interactions."""
+    query = update.callback_query
+    callback_data = query.data
+
+    # Parse callback data
+    parts = callback_data.split("_")
+    action = parts[0]  # First part is always the action
+
+    # Route to appropriate handler
+    if action == "approve":
+        email_id = int(parts[1])
+        await handle_approve(query, email_id, db)
+
+    elif action == "send" and parts[1] == "response":
+        email_id = int(parts[2])
+        await handle_send_response(update, context, email_id, db)
+
+    elif action == "edit" and parts[1] == "response":
+        email_id = int(parts[2])
+        await handle_edit_response(update, context, email_id, db)
+
+    elif action == "reject" and parts[1] == "response":
+        email_id = int(parts[2])
+        await handle_reject_response(update, context, email_id, db)
+
+    # ... other handlers
+```
+
+**Response Editing & Sending Workflow (Story 3.9):**
+
+**Edit Workflow:**
+1. User clicks [Edit] button → `callback_data = "edit_response_{email_id}"`
+2. `handle_edit_response()` sends prompt: "Reply to this message with your edited text"
+3. User replies with edited text
+4. `handle_message()` captures reply via edit session tracking
+5. `ResponseEditingService.handle_message_reply()` updates `EmailProcessingQueue.draft_response`
+6. Bot re-sends draft message with updated text and same buttons
+7. `WorkflowMapping.workflow_state` updated to "draft_edited"
+
+**Send Workflow:**
+1. User clicks [Send] button → `callback_data = "send_response_{email_id}"`
+2. `handle_send_response()` loads `draft_response` from database
+3. `ResponseSendingService.handle_send_response_callback()` sends via Gmail API:
+   - Calls `GmailClient.send_email(to, subject, body, thread_id=gmail_thread_id)`
+   - Gmail API adds In-Reply-To header for proper threading
+4. Updates `EmailProcessingQueue.status = "completed"`
+5. Sends Telegram confirmation: "✅ Response sent to {recipient}"
+6. Generates embedding via `EmbeddingService.embed_text()`
+7. Indexes to ChromaDB via `VectorDBClient.insert_embedding()`
+8. `WorkflowMapping.workflow_state` updated to "sent"
+
+**Reject Workflow:**
+1. User clicks [Reject] button → `callback_data = "reject_response_{email_id}"`
+2. `handle_reject_response()` updates status
+3. `ResponseSendingService.handle_reject_response_callback()`:
+   - Updates `EmailProcessingQueue.status = "rejected"`
+   - Updates `WorkflowMapping.workflow_state = "rejected"`
+4. Sends Telegram confirmation: "❌ Response draft rejected"
+
+**State Machine:**
+
+```
+Response Draft Created (Story 3.8)
+        ↓
+[awaiting_response_approval]
+        ↓
+    ┌───┴───┬─────────┐
+    │       │         │
+ [Edit]  [Send]   [Reject]
+    │       │         │
+    ↓       ↓         ↓
+[draft_edited] [sent] [rejected]
+    │
+    ↓
+ [Send]
+    ↓
+  [sent]
+```
+
+**WorkflowMapping Usage:**
+
+```python
+# Story 3.8: Create mapping when sending draft
+workflow_mapping = WorkflowMapping(
+    email_id=email.id,
+    user_id=user.id,
+    thread_id=thread_id,
+    telegram_message_id=message.message_id,
+    workflow_state="awaiting_response_approval"
+)
+
+# Story 3.9: Update state on edit
+workflow_mapping.workflow_state = "draft_edited"
+
+# Story 3.9: Update state on send
+workflow_mapping.workflow_state = "sent"
+
+# Story 3.9: Update state on reject
+workflow_mapping.workflow_state = "rejected"
+```
+
+**Error Handling Patterns:**
+
+```python
+# Validate user owns email before allowing edits/sends
+user = await session.get(User, email.user_id)
+if not user or user.telegram_id != telegram_id:
+    await query.answer("❌ Unauthorized", show_alert=True)
+    return
+
+# Graceful degradation for indexing failures
+try:
+    await self.index_sent_response(email_id)
+except Exception as e:
+    logger.error("indexing_failed", error=str(e))
+    # Don't fail send operation if indexing fails
+```
+
+**Session Management for Edit Workflow:**
+
+```python
+# Global session storage (MVP - replace with Redis for production)
+_edit_sessions = {}  # {telegram_id: email_id}
+
+# On edit button click
+_edit_sessions[telegram_id] = email_id
+
+# On message reply
+if telegram_id in _edit_sessions:
+    email_id = _edit_sessions[telegram_id]
+    # Process edited text...
+    del _edit_sessions[telegram_id]  # Clear session
+```
+
+**Vector DB Indexing for Sent Responses:**
+
+After successful email send, Story 3.9 indexes the sent response for future RAG context:
+
+```python
+# Generate embedding
+embedding = embedding_service.embed_text(draft_response)
+
+# Prepare metadata
+metadata = {
+    "message_id": f"sent_{email_id}_{timestamp}",
+    "user_id": user_id,
+    "thread_id": gmail_thread_id,
+    "sender": original_sender,
+    "subject": f"Re: {original_subject}",
+    "date": datetime.now(UTC).isoformat(),
+    "language": detected_language,
+    "is_sent_response": True  # Flag to distinguish from received emails
+}
+
+# Store in ChromaDB
+vector_db_client.insert_embedding(
+    collection_name="email_embeddings",
+    embedding=embedding,
+    metadata=metadata,
+    id=metadata["message_id"]
+)
+```
+
+**Benefits:**
+- Sent responses available for future AI context retrieval
+- AI can reference user's own sent responses in future drafts
+- Maintains complete conversation history in vector database
 
 ## Implementation Patterns
 
@@ -1605,6 +1811,26 @@ CREATE TABLE notification_preferences (
 );
 ```
 
+**IndexingProgress Table** (Epic 3 - Story 3.3):
+```sql
+CREATE TABLE indexing_progress (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    total_emails INTEGER DEFAULT 0 NOT NULL,
+    processed_count INTEGER DEFAULT 0 NOT NULL,
+    status VARCHAR(50) NOT NULL,  -- in_progress, completed, failed, paused
+    last_processed_message_id VARCHAR(255),  -- Gmail message ID for checkpoint
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT uq_indexing_progress_user_id UNIQUE (user_id)
+);
+CREATE INDEX idx_indexing_progress_user_id ON indexing_progress(user_id);
+CREATE INDEX idx_indexing_progress_status ON indexing_progress(status);
+```
+
 ### Data Relationships
 
 ```
@@ -1616,7 +1842,9 @@ users (1) ──────────┬─────────> (N) fold
                     │
                     ├─────────> (N) approval_history
                     │
-                    └─────────> (1) notification_preferences
+                    ├─────────> (1) notification_preferences
+                    │
+                    └─────────> (1) indexing_progress
 
 folder_categories (1) ─────────> (N) email_processing_queue (proposed_folder_id)
                       └─────────> (N) approval_history (ai_suggested, user_selected)
@@ -1632,8 +1860,8 @@ email_processing_queue (1) ────> (1) workflow_mappings
 **Document Structure:**
 ```python
 {
-    "id": "email_abc123",  # email_id
-    "embedding": [0.123, -0.456, ...],  # 1536-dimensional vector
+    "id": "email_abc123",  # email_id (Gmail message ID)
+    "embedding": [0.123, -0.456, ...],  # 768-dimensional vector (Gemini text-embedding-004)
     "metadata": {
         "email_id": "email_abc123",
         "user_id": "user_123",
@@ -1641,17 +1869,32 @@ email_processing_queue (1) ────> (1) workflow_mappings
         "sender": "sender@example.com",
         "subject": "Email subject",
         "received_at": "2025-11-03T10:15:30Z",
-        "language": "de"
+        "language": "de",
+        "has_attachments": false,
+        "is_reply": true,
+        "word_count": 250
     },
     "document": "First 500 chars of email body for debugging"
 }
 ```
 
-**Indexing Strategy:**
-- **Initial Indexing:** Bulk index all historical emails on user signup (Celery task)
-- **Incremental Indexing:** Index new emails after classification (triggered by workflow)
+**Indexing Strategy (Epic 3 - Story 3.3):**
+- **90-Day Initial Indexing:** Background job indexes last 90 days of email history on first indexing request
+  - Rationale: Fast onboarding (<10 min for 5,000 emails), sufficient context for most users
+  - Triggered via: `POST /api/v1/indexing/start` or Celery task `index_user_emails.delay(user_id, days_back=90)`
+  - Progress tracked in `indexing_progress` table with checkpoint support for resumption
+  - Batch size: 50 emails per batch with 60-second rate limiting (50 requests/min to Gemini API)
+  - Gmail pagination: 100 emails per page with date filtering (`after:{unix_timestamp}`)
+  - Telegram notification sent on completion with indexing statistics
+- **Checkpoint & Resumption:** Interrupted jobs can be resumed from last processed email
+  - Checkpoint saved every batch (50 emails) with `last_processed_message_id`
+  - Automatic resumption on service restart or manual trigger via `resume_user_indexing` task
+- **Incremental Indexing:** New emails indexed immediately after arriving (post-classification)
+  - Triggered automatically by email polling service after classification workflow
+  - No batch delay - single email indexed on-demand for real-time context updates
+  - Skipped if initial indexing is not yet completed
 - **Update Strategy:** Emails are immutable - no updates needed
-- **Deletion Strategy:** User deletion triggers cascade delete of all embeddings
+- **Deletion Strategy:** User deletion triggers cascade delete of all embeddings via ChromaDB `delete()` API
 
 **Query Pattern:**
 ```python
@@ -1663,6 +1906,302 @@ results = chroma_collection.query(
     include=["metadatas", "documents", "distances"]
 )
 ```
+
+### Email Embedding Service (Epic 3 - Story 3.2)
+
+**Component:** `EmbeddingService` (`backend/app/core/embedding_service.py`)
+
+The Email Embedding Service converts email content into 768-dimensional vector embeddings using Google Gemini's `text-embedding-004` model for semantic search and RAG-based response generation.
+
+**Key Features:**
+- **Gemini text-embedding-004 Integration**: 768 dimensions, unlimited free tier
+- **Email Preprocessing Pipeline**: Automatic HTML stripping, token truncation (2048 max)
+- **Batch Processing**: Efficient batch embedding generation (up to 50 emails per batch)
+- **Error Handling**: Automatic retry with exponential backoff (3 attempts for transient errors)
+- **Multilingual Support**: Native support for 50+ languages (ru/uk/en/de)
+- **Usage Tracking**: Built-in metrics for free-tier monitoring
+
+**Preprocessing Pipeline** (`backend/app/core/preprocessing.py`):
+```python
+# 1. HTML Stripping
+clean_text = strip_html("<p>Email content</p>")  # → "Email content"
+
+# 2. Text Extraction
+text = extract_email_text(email_body, content_type="text/html")
+
+# 3. Token Truncation (2048 limit for Gemini API)
+truncated = truncate_to_tokens(text, max_tokens=2048)
+```
+
+**Usage Example:**
+```python
+from app.core.embedding_service import EmbeddingService
+
+# Initialize service (uses GEMINI_API_KEY from environment)
+service = EmbeddingService()
+
+# Single embedding
+embedding = service.embed_text("Email content")
+# Returns: List[float] with 768 dimensions
+
+# Batch embedding
+embeddings = service.embed_batch(["Email 1", "Email 2"], batch_size=50)
+# Returns: List[List[float]], each with 768 dimensions
+
+# Usage statistics
+stats = service.get_usage_stats()
+# Returns: {"total_requests": N, "total_embeddings_generated": M, "avg_latency_ms": X}
+```
+
+**Integration with ChromaDB:**
+```python
+from app.core.embedding_service import EmbeddingService
+from app.core.vector_db import VectorDBClient
+
+embedding_service = EmbeddingService()
+vector_db_client = VectorDBClient()
+
+# Generate embedding
+embedding = embedding_service.embed_text(email_text)
+
+# Store in ChromaDB
+vector_db_client.insert_embeddings_batch(
+    collection_name="email_embeddings",
+    embeddings=[embedding],
+    metadatas=[metadata],
+    ids=[message_id]
+)
+```
+
+**Performance:**
+- Single embedding latency: ~200-500ms
+- Batch (50 emails): <60 seconds total
+- Throughput: ~50 emails/minute
+- Dimensions: 768 (matches ChromaDB collection)
+
+**Error Handling:**
+- **Retried Errors** (3 attempts): Rate limits (429), Timeouts
+- **Not Retried**: Invalid requests (400), Blocked prompts (403)
+- **Backoff Strategy**: Exponential (2s, 4s, 8s delays)
+
+**Test Endpoint:**
+```bash
+GET /api/v1/test/embedding-stats
+
+Response:
+{
+  "total_requests": 42,
+  "total_embeddings_generated": 128,
+  "avg_latency_ms": 234.56,
+  "service_initialized": true
+}
+```
+
+**Documentation:**
+- Setup Guide: `docs/embedding-service-setup.md`
+- Unit Tests: `backend/tests/test_embedding_service.py`, `backend/tests/test_preprocessing.py`
+- Integration Tests: `backend/tests/integration/test_embedding_integration.py`
+
+### Email History Indexing Service (Epic 3 - Story 3.3)
+
+**Component:** `EmailIndexingService` (`backend/app/services/email_indexing.py`)
+
+The Email History Indexing Service orchestrates bulk indexing of user's Gmail history into ChromaDB vector database for RAG-based context retrieval. Designed for fast onboarding with checkpoint-based resumption and comprehensive error handling.
+
+**Key Features:**
+- **90-Day Historical Indexing**: Indexes last 90 days of emails (configurable) for fast onboarding
+- **Gmail Pagination**: Efficient batched retrieval with date filtering (`after:{timestamp}`)
+- **Batch Processing**: 50 emails per batch with rate limiting (50 requests/min to Gemini API)
+- **Checkpoint Mechanism**: Resumable indexing with `last_processed_message_id` tracking
+- **Error Handling**: Retry logic for transient errors (Gmail/Gemini API rate limits)
+- **Progress Tracking**: Real-time progress updates in `indexing_progress` table
+- **Telegram Notifications**: User notification on completion with statistics
+- **Incremental Indexing**: Automatic indexing of new emails post-classification
+- **Metadata Extraction**: Thread ID, sender, language detection, attachment flags, reply detection
+
+**Architecture Flow:**
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Email History Indexing Workflow                      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+User/System Trigger
+    │
+    │ POST /api/v1/indexing/start
+    │ OR Celery task: index_user_emails.delay(user_id, days_back=90)
+    │
+    ▼
+EmailIndexingService.start_indexing()
+    │
+    ├─> 1. Check for existing job (prevent duplicates)
+    │   └─> ValueError if job already running
+    │
+    ├─> 2. Create IndexingProgress record (status=in_progress)
+    │
+    ├─> 3. Retrieve Gmail emails (90-day lookback)
+    │   │
+    │   ├─> Gmail API pagination (100 emails/page)
+    │   ├─> Date filter: after:{90_days_ago_unix_timestamp}
+    │   └─> Return: List[Dict] with full email metadata
+    │
+    ├─> 4. Process in batches (50 emails/batch)
+    │   │
+    │   ├─> For each batch:
+    │   │   │
+    │   │   ├─> Extract metadata (thread, sender, language, flags)
+    │   │   ├─> Preprocess email body (HTML strip, truncate 2048 tokens)
+    │   │   ├─> Generate embeddings (EmbeddingService.embed_batch)
+    │   │   ├─> Store in ChromaDB (VectorDBClient.insert_embeddings_batch)
+    │   │   ├─> Update progress checkpoint (last_processed_message_id)
+    │   │   └─> Rate limit delay (60 seconds between batches)
+    │   │
+    │   └─> Return: processed_count
+    │
+    ├─> 5. Mark as completed
+    │   │
+    │   ├─> Update IndexingProgress (status=completed, completed_at=now)
+    │   └─> Send Telegram notification with statistics
+    │
+    └─> 6. Error Handling
+        │
+        ├─> GmailAPIError / GeminiAPIError
+        │   └─> Celery retry (3 attempts, exponential backoff: 60s, 120s, 240s)
+        │
+        └─> Unexpected error
+            └─> Mark as failed, log error, no retry
+```
+
+**Checkpoint & Resumption Strategy:**
+- **Checkpoint Frequency**: Every batch (50 emails)
+- **Checkpoint Data**: `last_processed_message_id` (Gmail message ID)
+- **Resumption Logic**:
+  1. Check for interrupted job (`status=in_progress`)
+  2. Retrieve Gmail emails from checkpoint: `after:{last_processed_message_id}`
+  3. Continue processing from next batch
+  4. Progress accumulates on top of previous run
+- **Manual Resume**: `POST /api/v1/indexing/resume` or Celery task `resume_user_indexing.delay(user_id)`
+
+**Incremental Indexing (New Emails):**
+- **Trigger**: Email polling service detects new email after classification
+- **Endpoint**: `EmailIndexingService.index_new_email(message_id)`
+- **Flow**:
+  1. Check if initial indexing completed (skip if not)
+  2. Retrieve single email from Gmail API
+  3. Extract metadata, generate embedding, store in ChromaDB
+  4. No batch delay - real-time indexing
+- **Celery Task**: `index_new_email_background.delay(user_id, message_id)`
+
+**Usage Example:**
+```python
+from app.services.email_indexing import EmailIndexingService
+
+# Initialize service
+service = EmailIndexingService(user_id=123)
+
+# Start indexing (90 days)
+progress = await service.start_indexing(days_back=90)
+# Returns: IndexingProgress(total_emails=437, processed_count=437, status="completed")
+
+# Resume interrupted job
+progress = await service.resume_indexing()
+# Returns: IndexingProgress or None if no interrupted job
+
+# Index new email (incremental)
+success = await service.index_new_email(message_id="abc123")
+# Returns: True if indexed, False if skipped
+```
+
+**Metadata Extraction:**
+```python
+{
+    "email_id": "abc123",
+    "user_id": 123,
+    "thread_id": "thread_xyz789",
+    "sender": "sender@example.com",
+    "subject": "Email subject",
+    "received_at": "2025-11-03T10:15:30Z",
+    "language": "de",  # Detected via langdetect library
+    "has_attachments": false,
+    "is_reply": true,  # Detected via "Re:" or "RE:" prefix
+    "word_count": 250
+}
+```
+
+**Performance Characteristics:**
+- **Gmail API**: 100 emails/page, date filtering for 90-day window
+- **Batch Processing**: 50 emails per batch
+- **Rate Limiting**: 60-second delay between batches (50 requests/min to Gemini API)
+- **Checkpoint Overhead**: ~50ms per batch (PostgreSQL update)
+- **Total Time**: ~10 minutes for 5,000 emails (100 batches × 60s + API latency)
+- **Database Queries**: 1 progress create + N progress updates + 1 completion update
+
+**Error Handling & Retry:**
+- **Transient Errors** (retried 3 times with exponential backoff):
+  - `GmailAPIError`: Rate limits (429), network timeouts
+  - `GeminiAPIError`: Rate limits, embedding generation failures
+  - Backoff delays: 60s → 120s → 240s
+- **Permanent Errors** (not retried):
+  - `ValueError`: Indexing job already exists for user
+  - Invalid user credentials
+  - Database constraint violations
+- **Max Retries**: 3 attempts, then mark as failed and notify user
+
+**Celery Background Tasks:**
+```python
+# 1. Start indexing (long-running task)
+@celery_app.task(
+    name="app.tasks.indexing_tasks.index_user_emails",
+    time_limit=3600,  # 1 hour
+    soft_time_limit=3540,  # 59 minutes
+    max_retries=3,
+    default_retry_delay=60
+)
+def index_user_emails(user_id: int, days_back: int = 90) -> dict
+
+# 2. Resume interrupted indexing
+@celery_app.task(name="app.tasks.indexing_tasks.resume_user_indexing")
+def resume_user_indexing(user_id: int) -> dict
+
+# 3. Incremental indexing (new emails)
+@celery_app.task(
+    name="app.tasks.indexing_tasks.index_new_email_background",
+    time_limit=120,  # 2 minutes
+    max_retries=2
+)
+def index_new_email_background(user_id: int, message_id: str) -> dict
+```
+
+**Database Model:**
+```python
+class IndexingProgress(BaseModel, table=True):
+    __tablename__ = "indexing_progress"
+
+    user_id: int  # FK to users.id, unique constraint
+    total_emails: int
+    processed_count: int
+    status: IndexingStatus  # in_progress, completed, failed, paused
+    last_processed_message_id: Optional[str]  # Checkpoint
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    error_message: Optional[str]
+```
+
+**Test Coverage:**
+- **Unit Tests**: `backend/tests/test_email_indexing.py` (8 test functions covering all 12 ACs)
+- **Celery Task Tests**: `backend/tests/test_indexing_tasks.py` (5 test functions)
+- **Total Coverage**: 13 test functions, all passing
+
+**Security Considerations:**
+- **Gmail OAuth Tokens**: Never logged or exposed in error messages
+- **Gemini API Key**: Loaded from environment variables, not hardcoded
+- **Rate Limiting**: Prevents API abuse and quota exhaustion
+- **User Isolation**: Multi-tenant filtering via `user_id` in ChromaDB queries
+- **Error Sanitization**: Sensitive data (tokens, keys) removed from exception messages
+
+**Documentation:**
+- Technical Spec: `docs/tech-spec-epic-3.md`
+- Story: `docs/stories/3-3-email-history-indexing.md`
+- Unit Tests: `backend/tests/test_email_indexing.py`, `backend/tests/test_indexing_tasks.py`
 
 ## API Contracts
 
@@ -2457,6 +2996,680 @@ npm run test:coverage
 - Custom pattern increases complexity
 - Requires careful implementation in Stories 2.6, 2.7, 3.8, 3.9
 - Provides unique architectural value (demonstrable in portfolio)
+
+### ADR-014: Hybrid Tone Detection (Rules + LLM)
+
+**Status:** Accepted
+
+**Context:** Need accurate tone detection (formal/professional/casual) for appropriate email responses across government, business, and personal emails. Pure rule-based systems lack flexibility; pure LLM systems are slow and costly.
+
+**Decision:** Implement hybrid tone detection - rule-based for 80% of cases (known patterns) + LLM-based for 20% ambiguous cases.
+
+**Rationale:**
+- **Rule-Based (Fast Path):** Government domains (finanzamt.de, etc.) → formal; Business domains → professional; Free providers → casual
+- **LLM-Based (Flexible Path):** Unknown/ambiguous senders analyzed by Gemini for tone
+- **Performance:** <50ms typical (rules), ~500ms worst case (LLM fallback)
+- **Cost Efficiency:** 80% of emails use free rule-based detection, only 20% require API calls
+- **Accuracy:** Rules handle well-defined cases (95%+ accuracy), LLM provides flexibility for edge cases
+
+**Consequences:**
+- Best balance of speed, cost, and accuracy
+- Requires maintaining government domain list (extensible)
+- Provides fallback to "professional" if LLM unavailable (graceful degradation)
+- Enables future refinement through prompt versioning system
+
+## Context Retrieval Service (Story 3.4)
+
+The Context Retrieval Service implements Smart Hybrid RAG (ADR-011) for retrieving relevant conversation context to power AI response generation.
+
+### Smart Hybrid RAG Strategy
+
+The service combines two complementary context sources:
+
+1. **Thread History**: Last 5 emails from Gmail thread (conversation continuity)
+2. **Semantic Search**: Top 3-7 similar emails from vector DB (broader context)
+
+**Adaptive k Logic** dynamically adjusts semantic search count based on thread length:
+- **Short threads (<3 emails)**: k=7 (need more semantic context)
+- **Standard threads (3-5 emails)**: k=3 (balanced hybrid)
+- **Long threads (>5 emails)**: k=0 (skip semantic, thread sufficient)
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ContextRetrievalService.retrieve_context(email_id)              │
+└────────────────┬────────────────────────────────────────────────┘
+                 │
+                 ├──► Load email from EmailProcessingQueue (DB)
+                 │
+                 ├──► Sequential Retrieval (ADR-015):
+                 │    ├─► Step 1: Thread History (GmailClient)
+                 │    │   └─► Get last 5 emails in thread
+                 │    │
+                 │    ├─► Step 2: Calculate adaptive k (based on thread_length)
+                 │    │   └─► k=0/3/7 depending on thread length
+                 │    │
+                 │    └─► Step 3: Semantic Search (if k > 0)
+                 │        ├─► Generate query embedding (Gemini)
+                 │        ├─► Query ChromaDB (top k similar)
+                 │        └─► Fetch full bodies from Gmail
+                 │
+                 ├──► Rank semantic results (relevance + recency)
+                 │
+                 ├──► Enforce token budget (~6.5K tokens)
+                 │    ├─► Truncate thread history (keep recent)
+                 │    └─► Truncate semantic results (remove low-ranked)
+                 │
+                 └──► Return RAGContext:
+                      {
+                        "thread_history": [...],
+                        "semantic_results": [...],
+                        "metadata": {
+                          "thread_length": int,
+                          "semantic_count": int,
+                          "oldest_thread_date": str,
+                          "total_tokens_used": int,
+                          "adaptive_k": int
+                        }
+                      }
+```
+
+### Token Budget Management
+
+**Budget:** ~6.5K tokens total for context (leaving 25K for Gemini response generation within 32K context window)
+
+**Token Counting:** Uses tiktoken library (GPT-4 compatible tokenizer, accurate for Gemini)
+
+**Truncation Strategy:**
+1. Count tokens in all email bodies (thread_history + semantic_results)
+2. If total > 6500 tokens:
+   - Truncate thread_history first (keep most recent N emails)
+   - If still over, truncate semantic_results (remove lowest ranked)
+3. Log final token usage to metadata
+
+### Performance Optimization
+
+**Target:** <3 seconds total retrieval time (NFR001)
+
+**Execution Strategy (ADR-015):**
+- **Sequential execution** (thread history → adaptive k → semantic search)
+- **Design rationale**: Adaptive k calculation REQUIRES thread_length from thread history, creating data dependency that prevents true parallelization (see ADR-015 for full analysis)
+- **Performance impact**: Sequential execution ~500ms slower than parallel, but performance target still met
+
+**Actual latency breakdown:**
+- Gmail thread fetch: ~1000ms
+- Adaptive k calculation: <1ms
+- Semantic search (if k>0): ~500ms
+- Context assembly: ~100ms
+- **Total**: ~1600ms (well under 3s target ✅)
+
+**Performance monitoring**: Logs latency_ms, thread_count, semantic_count, total_tokens with every retrieval
+
+### Data Models
+
+**RAGContext TypedDict:**
+```python
+{
+    "thread_history": List[EmailMessage],  # Last 5 emails (chronological)
+    "semantic_results": List[EmailMessage], # Top 3-7 similar (ranked)
+    "metadata": Dict[str, Any]             # Statistics and token usage
+}
+```
+
+**EmailMessage TypedDict:**
+```python
+{
+    "message_id": str,
+    "sender": str,
+    "subject": str,
+    "body": str,
+    "date": str,  # ISO 8601 format
+    "thread_id": str
+}
+```
+
+### Security & Multi-Tenancy
+
+- **User isolation**: ChromaDB queries filtered by `user_id` (prevent cross-user access)
+- **Input validation**: email_id and user_id parameters validated
+- **Error handling**: No email content leaked in error messages
+- **No hardcoded credentials**: All API keys from environment variables
+
+### Integration Points
+
+**Upstream (Story 3.1, 3.2, 3.3):**
+- `VectorDBClient.query_embeddings()` - Semantic search in ChromaDB
+- `EmbeddingService.embed_text()` - Generate query embeddings (Gemini)
+- `GmailClient.get_thread()` - Retrieve thread history
+
+**Downstream (Story 3.7):**
+- `ResponseGenerationService` will consume RAGContext for AI response generation
+
+### Testing
+
+**Unit Tests (8 functions)**: Test each method in isolation with mocked dependencies
+**Integration Tests (5 functions)**: End-to-end scenarios with real ChromaDB, mocked Gmail
+
+Test coverage: 80%+ for new code
+
+---
+
+## AI Response Generation Service (Story 3.7)
+
+The AI Response Generation Service orchestrates the complete email response generation workflow by integrating all Epic 3 services: Context Retrieval (3.4), Language Detection (3.5), Tone Detection (3.6), Prompt Engineering (3.6), and Gemini LLM (2.1).
+
+### Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ ResponseGenerationService.process_email_for_response(email_id)   │
+└────────────────┬─────────────────────────────────────────────────┘
+                 │
+                 ├──► Step 1: Response Need Classification
+                 │    ├─► Check no-reply/newsletter patterns
+                 │    ├─► Detect question indicators (4 languages)
+                 │    ├─► Analyze thread length (>2 = active)
+                 │    └─► Default: generate (better to offer than miss)
+                 │
+                 ├──► Step 2: RAG Context Retrieval (Story 3.4)
+                 │    └─► ContextRetrievalService.retrieve_context(email_id)
+                 │        └─► Returns RAGContext {thread_history, semantic_results}
+                 │
+                 ├──► Step 3: Language Detection (Story 3.5)
+                 │    └─► LanguageDetectionService.detect(email_subject)
+                 │        └─► Returns (language_code, confidence)
+                 │
+                 ├──► Step 4: Tone Detection (Story 3.6)
+                 │    └─► ToneDetectionService.detect_tone(email, thread_history)
+                 │        └─► Returns "formal"/"professional"/"casual"
+                 │
+                 ├──► Step 5: Prompt Formatting (Story 3.6)
+                 │    └─► format_response_prompt(email, rag_context, language, tone)
+                 │        └─► Returns formatted prompt with all context
+                 │
+                 ├──► Step 6: LLM Response Generation (Story 2.1)
+                 │    └─► LLMClient.send_prompt(prompt, response_format="text")
+                 │        └─► Returns generated response text
+                 │
+                 ├──► Step 7: Response Quality Validation
+                 │    ├─► Length: 50-2000 characters
+                 │    ├─► Language: Matches expected (using LanguageDetectionService)
+                 │    └─► Structure: Contains greeting and/or closing
+                 │
+                 └──► Step 8: Database Persistence
+                      └─► Update EmailProcessingQueue:
+                          ├─► draft_response = generated text
+                          ├─► detected_language = language code
+                          ├─► status = "awaiting_approval"
+                          └─► classification = "needs_response"
+```
+
+### Response Need Classification
+
+**Decision Logic:**
+
+1. **Skip response** for:
+   - No-reply senders matching patterns: `no-?reply`, `noreply`, `newsletter`, `notifications?`, `automated?`
+   - Example: `noreply@newsletter.com`, `notifications@system.io`
+
+2. **Generate response** for:
+   - Emails containing question indicators in any of 4 languages:
+     - English: `?`, `what`, `when`, `where`, `who`, `why`, `how`, `can you`, `could you`
+     - German: `?`, `was`, `wann`, `wo`, `wer`, `warum`, `wie`, `können sie`
+     - Russian: `?`, `что`, `когда`, `где`, `кто`, `почему`, `как`, `можете ли`
+     - Ukrainian: `?`, `що`, `коли`, `де`, `хто`, `чому`, `як`, `чи можете`
+   - Emails in active conversations (thread length > 2)
+   - Default for unclear cases (better to offer response than miss important email)
+
+**Rationale:** Reduces unnecessary LLM API calls and focuses user attention on emails requiring replies.
+
+### Service Orchestration Pattern
+
+**Dependency Injection for Testability:**
+
+```python
+class ResponseGenerationService:
+    def __init__(
+        self,
+        user_id: int,
+        context_service: Optional[ContextRetrievalService] = None,
+        language_service: Optional[LanguageDetectionService] = None,
+        tone_service: Optional[ToneDetectionService] = None,
+        llm_client: Optional[LLMClient] = None,
+        db_service = None,
+    ):
+        # Initialize services with optional dependency injection
+        self.context_service = context_service or ContextRetrievalService(user_id)
+        self.language_service = language_service or LanguageDetectionService()
+        self.tone_service = tone_service or ToneDetectionService()
+        self.llm_client = llm_client or LLMClient()
+```
+
+**Benefits:**
+- Testability: Mock external services for unit tests
+- Separation of concerns: Each service has single responsibility
+- Reusability: Services can be used independently
+- Maintainability: Changes to one service don't affect others
+
+### Response Quality Validation Strategy
+
+**Multi-Level Validation:**
+
+1. **Not Empty Check**: Minimum 20 characters (absolute minimum)
+2. **Length Range**: 50-2000 characters (typical email response range)
+3. **Language Match**: Detected language matches expected (using LanguageDetectionService)
+4. **Structure Check**: Contains greeting and/or closing patterns
+   - German: `sehr geehrte`, `liebe`, `mit freundlichen grüßen`, `viele grüße`
+   - English: `dear`, `hello`, `sincerely`, `best regards`
+   - Russian: `уважаем`, `здравствуй`, `с уважением`
+   - Ukrainian: `доброго дня`, `з повагою`
+
+**Rationale:** Prevents low-quality responses from reaching users, maintains trust in AI system.
+
+### Database Status Management
+
+**EmailProcessingQueue Fields Updated:**
+
+```python
+# After response generation (AC #8, #10)
+email.draft_response = response_draft       # Generated response text
+email.detected_language = language_code     # ru, uk, en, de
+email.status = "awaiting_approval"          # Signals Telegram bot (Story 3.8)
+email.classification = "needs_response"     # vs "sort_only" emails
+email.updated_at = datetime.now()           # Update timestamp
+```
+
+**Status Transition:** `processing` → `awaiting_approval`
+
+**Rationale:** Enables Telegram bot (Story 3.8) to retrieve and present response drafts for user approval.
+
+### Performance Targets
+
+**Latency Breakdown (NFR001: <2 minutes total):**
+
+| Step | Service | Target Latency |
+|------|---------|----------------|
+| Classification | ResponseGenerationService | <0.1s |
+| Context Retrieval | ContextRetrievalService (Story 3.4) | ~3s |
+| Language Detection | LanguageDetectionService (Story 3.5) | ~0.1s |
+| Tone Detection | ToneDetectionService (Story 3.6) | ~0.2s |
+| Prompt Formatting | format_response_prompt (Story 3.6) | ~0.01s |
+| Gemini API | LLMClient (Story 2.1) | ~5s |
+| Validation | ResponseGenerationService | ~0.5s |
+| Database Save | ResponseGenerationService | ~0.1s |
+| **Total** | | **~8.8s** |
+
+**Result:** Well within 2-minute performance requirement ✅
+
+### Error Handling Patterns
+
+**Comprehensive Error Logging:**
+
+```python
+# Classification errors: Log decision rationale
+logger.info("response_classification_no_reply", email_id=id, reason="automated_sender")
+
+# Generation errors: Log error type and context
+logger.error("response_generation_failed", email_id=id, error_type=type(e).__name__)
+
+# Validation errors: Log specific failure reason
+logger.warning("response_validation_failed", reason="too_short", length=len(draft))
+```
+
+**Privacy-Preserving Logging:**
+- Email sender truncated to 50 characters
+- Email subject used for classification (body not logged in full)
+- Structured logging with email_id references (no PII)
+
+### Security Considerations
+
+**Credential Management:**
+- Gemini API key: From environment variable `GEMINI_API_KEY`
+- Database credentials: From environment variable `DATABASE_URL`
+- No hardcoded secrets in code
+
+**Input Validation:**
+- email_id existence checks before operations (lines 248-249, 492-493, 564-565)
+- Response length validation (50-2000 characters)
+- Language validation against supported languages (ru, uk, en, de)
+
+**SQL Injection Prevention:**
+- Parameterized queries via SQLModel ORM
+- Session.get() and session.exec(select()) with bound parameters
+- No string concatenation in database queries
+
+### Integration Points
+
+**Upstream (Previous Stories):**
+- Story 3.4: ContextRetrievalService provides RAGContext
+- Story 3.5: LanguageDetectionService provides language detection
+- Story 3.6: ToneDetectionService provides tone detection
+- Story 3.6: format_response_prompt provides prompt formatting
+- Story 2.1: LLMClient provides Gemini API integration
+
+**Downstream (Next Story):**
+- Story 3.8: Telegram bot retrieves draft_response for approval messages
+
+### Testing Strategy
+
+**Unit Tests (10 functions):**
+- Response need classification (personal, newsletter, no-reply)
+- Service integration (RAG context, language, tone, prompt, LLM)
+- Response quality validation (valid, empty, short, long, wrong language)
+- Database persistence and status updates
+
+**Integration Tests (6 functions):**
+- End-to-end workflows: German formal, English professional
+- Classification edge cases: Newsletter skip, validation rejection
+- RAG adaptive logic: Short thread triggers k=7 semantic search
+- Real Gemini API integration (optional, marked @pytest.mark.slow)
+
+**Test Coverage:** 80%+ for new code ✅
+
+### Data Models
+
+**ResponseGenerationService Methods:**
+
+```python
+class ResponseGenerationService:
+    # Classification
+    should_generate_response(email: EmailProcessingQueue) -> bool
+
+    # Core generation workflow
+    async generate_response(email_id: int) -> Optional[str]
+
+    # Quality validation
+    validate_response(response_draft: str, expected_language: str) -> bool
+
+    # Database persistence
+    save_response_draft(email_id: int, response_draft: str, language: str, tone: str) -> None
+
+    # End-to-end orchestration
+    async process_email_for_response(email_id: int) -> bool
+```
+
+### ADR-015: Response Generation Service Architecture
+
+**Context:**
+Story 3.7 requires orchestrating 5 specialized services (Context Retrieval, Language Detection, Tone Detection, Prompt Engineering, Gemini LLM) to generate contextually appropriate email responses.
+
+**Decision:**
+Implement ResponseGenerationService as orchestrator with dependency injection pattern, following Epic 2/3 service architecture patterns.
+
+**Alternatives Considered:**
+
+1. **Monolithic Service**: Single service handles all logic (context, language, tone, prompts)
+   - ❌ Rejected: Violates separation of concerns, difficult to test, poor reusability
+
+2. **Event-Driven Pipeline**: Each service publishes events, next service subscribes
+   - ❌ Rejected: Adds complexity (message queue), harder to debug, overkill for sequential workflow
+
+3. **Orchestrator with Dependency Injection** ✅ **CHOSEN**
+   - ✅ Testability: Mock services for unit tests
+   - ✅ Separation of concerns: Each service has single responsibility
+   - ✅ Reusability: Services can be used independently
+   - ✅ Maintainability: Changes isolated to specific services
+   - ✅ Performance: Sequential execution with clear latency breakdown
+
+**Consequences:**
+
+**Positive:**
+- Clear separation of concerns
+- Easy to test with mocked dependencies
+- Services can be developed and tested independently
+- Clear performance characteristics (latency additive)
+- Consistent with Epic 2/3 patterns (ToneDetectionService, LanguageDetectionService)
+
+**Negative:**
+- Sequential execution (can't parallelize independent services)
+- Slightly more boilerplate (dependency injection setup)
+
+**Mitigation:**
+- Performance is acceptable (~8.8s well within 2-minute target)
+- Dependency injection boilerplate is minimal and improves testability
+
+**Status:** Accepted and Implemented (Story 3.7)
+
+---
+
+## Telegram Response Draft Messages (Story 3.8)
+
+The Telegram Response Draft Messages service delivers AI-generated email response drafts to users via Telegram with an interactive approval interface. The service formats drafts into structured messages with inline keyboards ([Send], [Edit], [Reject]) and persists workflow mappings for callback reconnection.
+
+### Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ TelegramResponseDraftService.send_draft_notification(email_id, thread_id) │
+└────────────────┬─────────────────────────────────────────────────────────┘
+                 │
+                 ├──► Step 1: Message Formatting (AC #1-4, #6, #9)
+                 │    └─► format_response_draft_message(email_id)
+                 │        ├─► Load email with draft_response from EmailProcessingQueue
+                 │        ├─► Format header with priority flag (⚠️ if is_priority=True)
+                 │        ├─► Include original email: sender, subject (AC #2)
+                 │        ├─► Add visual separators ("─────────────────")
+                 │        ├─► Display draft with language indication (AC #6)
+                 │        └─► Handle Telegram length limits (4096 chars max)
+                 │
+                 ├──► Step 2: Inline Keyboard Building (AC #5)
+                 │    └─► build_response_draft_keyboard(email_id)
+                 │        ├─► Row 1: [✅ Send] button (callback_data="send_response_{email_id}")
+                 │        ├─► Row 2: [✏️ Edit] button (callback_data="edit_response_{email_id}")
+                 │        └─► Row 2: [❌ Reject] button (callback_data="reject_response_{email_id}")
+                 │
+                 ├──► Step 3: Telegram Message Sending (AC #1-9)
+                 │    └─► send_response_draft_to_telegram(email_id)
+                 │        ├─► Load user's telegram_id from Users table
+                 │        ├─► Send via TelegramBotClient.send_message_with_buttons()
+                 │        └─► Return telegram_message_id for mapping
+                 │
+                 ├──► Step 4: Workflow Mapping Persistence
+                 │    └─► save_telegram_message_mapping(email_id, telegram_message_id, thread_id)
+                 │        ├─► Create WorkflowMapping record
+                 │        ├─► Link: email_id, user_id, thread_id, telegram_message_id
+                 │        └─► Set workflow_state="awaiting_response_approval"
+                 │
+                 └──► Step 5: Email Status Update
+                      └─► Update EmailProcessingQueue:
+                          └─► status = "awaiting_response_approval"
+```
+
+### Message Format Structure
+
+**Telegram Message Template:**
+
+```
+⚠️ 📧 Response Draft Ready       # Priority flag if is_priority=True (AC #9)
+
+📨 Original Email:
+From: sender@example.com
+Subject: Email subject text      # AC #2 partial: uses subject instead of body
+
+─────────────────                # Visual separator (AC #4)
+✍️ AI-Generated Response (German):  # Language indication (AC #6)
+Dear Sir/Madam,
+
+[AI-generated response text]    # Full draft text (AC #3)
+
+Best regards
+─────────────────                # Visual separator
+
+[Inline Keyboard]
+┌──────────────┐
+│  ✅ Send      │  # Row 1: Send button
+├──────┬───────┤
+│ ✏️ Edit│ ❌ Reject│  # Row 2: Edit + Reject buttons (AC #5)
+└──────┴───────┘
+```
+
+### Service Integration Patterns
+
+**Integration with Story 3.7 (Response Generation):**
+- Reads `EmailProcessingQueue.draft_response` (populated by ResponseGenerationService)
+- Reads `EmailProcessingQueue.detected_language` for language indication
+- Reads `EmailProcessingQueue.is_priority` for priority flag display
+- Monitors `status="awaiting_approval"` to trigger notifications
+
+**Integration with Epic 2 (TelegramHITLWorkflow):**
+- Extends TelegramBotClient (Story 2.6) with response draft message formatting
+- Follows WorkflowMapping pattern for callback reconnection (ADR-006)
+- Uses same inline keyboard structure as email sorting proposals
+
+**Integration with LangGraph Workflows:**
+- Persists `thread_id` in WorkflowMapping for workflow resumption
+- Enables callback data → workflow instance reconnection
+- Supports cross-channel resumption (pause in backend, resume from Telegram)
+
+### WorkflowMapping Pattern (TelegramHITLWorkflow)
+
+**Database Record Structure:**
+
+```python
+WorkflowMapping(
+    email_id=456,                    # Links to EmailProcessingQueue
+    user_id=123,                     # User who owns the email
+    thread_id="workflow_thread_xyz",  # LangGraph workflow instance ID
+    telegram_message_id="msg_789",    # Telegram message with buttons
+    workflow_state="awaiting_response_approval"  # Current state
+)
+```
+
+**Callback Reconnection Flow:**
+
+```
+1. User clicks [Send] button in Telegram
+   └─► Telegram sends callback_query with data="send_response_456"
+       └─► Extract email_id=456 from callback_data
+
+2. Backend webhook handler receives callback
+   └─► Query WorkflowMapping WHERE email_id=456
+       └─► Retrieve thread_id="workflow_thread_xyz"
+
+3. Resume LangGraph workflow
+   └─► LangGraph.resume(thread_id, user_decision="send")
+       └─► Workflow continues from pause point
+```
+
+**Rationale:** Enables stateless callback handling - no session state required. Single database query reconnects Telegram button click to paused workflow.
+
+### Performance Characteristics
+
+**Latency Breakdown (NFR001: <2 minutes total, Story 3.8 component):**
+
+| Step | Service | Target Latency |
+|------|---------|----------------|
+| Load email from database | EmailProcessingQueue | ~0.01s |
+| Format message | TelegramResponseDraftService | ~0.001s |
+| Build keyboard | TelegramResponseDraftService | ~0.001s |
+| Send Telegram API call | TelegramBotClient | ~0.5-1s |
+| Save workflow mapping | WorkflowMapping | ~0.01s |
+| Update email status | EmailProcessingQueue | ~0.01s |
+| **Total** | | **~1s** |
+
+**Result:** Well within 2-minute performance requirement ✅
+
+### Known Limitations (v1)
+
+**Partially Implemented Features:**
+
+1. **AC #2 (Email Body Preview):**
+   - **Current:** Uses email subject text as preview
+   - **Spec:** First 100 characters of email body
+   - **Reason:** `EmailProcessingQueue` doesn't store `body` field
+   - **Impact:** Users see subject instead of body preview (minor UX impact)
+   - **Future:** Add `body` field to `EmailProcessingQueue` if needed in future stories
+
+2. **AC #7 (Context Summary):**
+   - **Current:** NOT implemented - context summary line omitted
+   - **Spec:** Display "Based on N previous emails in this thread"
+   - **Reason:** RAG context metadata not passed to Story 3.8 service
+   - **Impact:** Users don't see context provenance (low priority feature)
+   - **Future:** Pass `rag_context.thread_email_count` from Story 3.7 if needed
+
+3. **AC #8 (Message Splitting):**
+   - **Current:** Truncates at 4096 chars (TelegramBotClient handles truncation)
+   - **Spec:** Split at paragraph boundaries with continuation indicators
+   - **Reason:** TelegramBotClient abstracts length handling (Epic 2 design)
+   - **Impact:** Very long drafts (>4096 chars) cut off abruptly (rare edge case)
+   - **Future:** Implement paragraph-boundary splitting in TelegramBotClient if needed
+
+**Rationale for Limitations:**
+- All 3 features are **low-priority** and not critical for MVP user value
+- Core user flow works: Users receive drafts and can approve/edit/reject
+- Fixes would require changes to other stories (Story 3.4, 3.7, Epic 2)
+- Trade-off: Ship Story 3.8 faster vs. perfect feature completeness
+
+### Integration Points
+
+**Upstream (Dependencies):**
+- Story 3.7: `ResponseGenerationService` populates `EmailProcessingQueue.draft_response`, `detected_language`
+- Story 2.6: `TelegramBotClient` provides `send_message_with_buttons()` method
+- Story 2.6: `WorkflowMapping` model provides callback reconnection pattern
+- Epic 2: `User.telegram_id` links users to Telegram accounts
+
+**Downstream (Next Stories):**
+- Epic 4: LangGraph workflow resumes when user clicks [Send]/[Edit]/[Reject] buttons
+- Epic 4: Response approval/editing flows consume `WorkflowMapping` records
+
+### Testing Strategy
+
+**Unit Tests (9 functions - exceeds requirement of 8):**
+- Message formatting (standard, priority, long drafts, no context)
+- Inline keyboard building (3-button layout verification)
+- Telegram message sending (mock TelegramBotClient)
+- Workflow mapping persistence (database operations)
+- End-to-end orchestration (all steps integrated)
+- Error handling (user blocked, not linked, email not found)
+
+**Integration Tests (6 functions):**
+1. German formal response with priority flag (end-to-end workflow)
+2. English professional response without priority (end-to-end workflow)
+3. Very long draft handling (>4096 chars truncation verification)
+4. Context summary display placeholder (feature not implemented - test documents expected behavior)
+5. Priority email flagging with ⚠️ icon
+6. Telegram user not linked error handling
+
+**Test Coverage:** All integration tests use real PostgreSQL database with sync engine pattern (fixed in Story 3.8 code review)
+
+### Architecture Decision Record
+
+**ADR-016: Response Draft Telegram Message Service**
+
+**Context:**
+Story 3.8 requires delivering AI-generated email response drafts to users via Telegram with an interactive approval interface. The service must format drafts with original email context, provide [Send]/[Edit]/[Reject] buttons, and persist workflow mappings for callback reconnection.
+
+**Decision:**
+Implement `TelegramResponseDraftService` as a standalone service that:
+1. Formats messages with original email preview, draft text, visual separators, language indication
+2. Builds inline keyboards with 3-button layout (Send, Edit, Reject)
+3. Persists `WorkflowMapping` records for Telegram callback reconnection to LangGraph workflows
+4. Updates `EmailProcessingQueue.status` to signal workflow progression
+
+**Alternatives Considered:**
+1. **Extend EmailWorkflow with Telegram node** - Rejected: Tight coupling, harder to test
+2. **Generic Telegram message service** - Rejected: Too abstract, duplicates Epic 2 patterns
+3. **Inline approval in Story 3.7** - Rejected: Violates separation of concerns
+
+**Consequences:**
+
+**Positive:**
+- Clear separation: Story 3.7 generates drafts, Story 3.8 delivers them
+- Reuses Epic 2 patterns: WorkflowMapping, TelegramBotClient, inline keyboards
+- Testable: Inject mocked TelegramBotClient for unit tests
+- Follows TelegramHITLWorkflow pattern (ADR-006)
+
+**Negative:**
+- Additional service adds complexity
+- Three partially implemented ACs (trade-off for faster delivery)
+
+**Mitigation:**
+- Service is simple (5 methods, clear responsibilities)
+- Limitations documented with future enhancement paths
+- Core user value delivered: Users receive drafts and can approve
+
+**Status:** Accepted and Implemented (Story 3.8)
 
 ---
 

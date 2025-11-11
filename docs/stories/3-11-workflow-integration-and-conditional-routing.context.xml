@@ -1,0 +1,284 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>11</storyId>
+    <title>Workflow Integration & Conditional Routing</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-11-workflow-integration-and-conditional-routing.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>system</asA>
+    <iWant>emails to be conditionally routed based on whether they need responses</iWant>
+    <soThat>only relevant emails trigger response generation and users receive appropriate Telegram messages</soThat>
+    <tasks>
+      ### Task 1: Workflow Conditional Routing Implementation (AC: #1, #2, #4, #5)
+
+      - Subtask 1.1: Implement `route_by_classification()` function in `email_workflow.py`
+        - Create function that takes `EmailWorkflowState` as input
+        - Return "draft_response" if `state["classification"] == "needs_response"`
+        - Return "send_telegram" if `state["classification"] == "sort_only"`
+        - Add type hints and docstring
+
+      - Subtask 1.2: Update workflow graph edges for conditional routing (AC #4, #5)
+        - Add `workflow.add_conditional_edges("classify", route_by_classification, {...})`
+        - Define routing dict: `{"needs_response": "draft_response", "sort_only": "send_telegram"}`
+        - Add edge: `workflow.add_edge("draft_response", "send_telegram")`
+        - Verify workflow compiles without errors
+
+      - Subtask 1.3: Write unit tests for routing logic
+        - Implement exactly 2 unit test functions:
+          1. `test_route_by_classification_needs_response()` (AC: #2)
+          2. `test_route_by_classification_sort_only()` (AC: #2)
+        - Verify all unit tests passing
+
+      ### Task 2: Workflow Nodes Implementation (AC: #1, #3, #6)
+
+      - Subtask 2.1: Update `classify` node in `nodes.py` (AC #1)
+        - Import `ResponseGenerationService`
+        - After classification logic, call `should_generate_response(email)`
+        - Set `state["classification"]` to "needs_response" or "sort_only"
+        - Add structured logging
+
+      - Subtask 2.2: Create `draft_response` node in `nodes.py` (AC #3)
+        - Create async function `draft_response(state, db, response_service)`
+        - Extract email_id and user_id from state
+        - Call `response_service.generate_response_draft(email_id, user_id)`
+        - Update state with draft_response, detected_language, tone
+        - Add error handling and structured logging
+
+      - Subtask 2.3: Update `send_telegram` node in `nodes.py` (AC #6)
+        - Check if `state.get("draft_response")` exists
+        - If exists: use TelegramResponseDraftService.send_response_draft() template
+        - If not exists: use existing sorting proposal template
+        - Ensure both paths include proper inline keyboards
+
+      - Subtask 2.4: Update workflow node registration in `email_workflow.py`
+        - Add `draft_response` node with dependency injection
+        - Verify ResponseGenerationService injection
+
+      - Subtask 2.5: Write unit tests for nodes
+        - Implement exactly 3 unit test functions:
+          1. `test_classify_sets_classification_needs_response()` (AC: #1)
+          2. `test_draft_response_calls_service()` (AC: #3)
+          3. `test_send_telegram_uses_correct_template()` (AC: #6)
+        - Use mocks for external services
+
+      ### Task 3: Integration Tests (AC: #7, #8)
+
+      - Subtask 3.1: Set up integration test infrastructure
+        - Create file: `backend/tests/integration/test_epic_3_workflow_integration.py`
+        - Set up fixtures: database session, Gmail mocks, Telegram mocks
+
+      - Subtask 3.2: Implement "needs_response" path integration test (AC #7)
+        - `test_needs_response_workflow_path()` - Email with question → classify → draft_response → send_telegram
+        - Verify classification, draft generation, Telegram template
+
+      - Subtask 3.3: Implement "sort_only" path integration test (AC #8)
+        - `test_sort_only_workflow_path()` - Newsletter → classify → send_telegram (NO draft)
+        - Verify classification, no draft, sorting template
+
+      - Subtask 3.4: Verify all integration tests passing
+
+      ### Task 4: Documentation + Security Review (AC: #9)
+
+      - Subtask 4.1: Update architecture documentation (AC #9)
+        - Update `docs/architecture.md` Epic 3 workflow section
+        - Add note: "Story 3.11 implements conditional routing per documented design"
+
+      - Subtask 4.2: Security review
+        - Verify no hardcoded secrets
+        - Verify environment variables for API keys
+        - Verify proper error handling
+
+      - Subtask 4.3: Code quality review
+        - Verify type hints, structured logging, async/await patterns
+
+      ### Task 5: Final Validation (AC: all)
+
+      - Subtask 5.1: Run complete test suite (5 unit + 2 integration tests)
+      - Subtask 5.2: Manual end-to-end testing
+      - Subtask 5.3: Verify DoD checklist
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Update `classify` node to call `ResponseGenerationService.should_generate_response()` and set `classification` field ("sort_only" or "needs_response")
+
+    2. Implement `route_by_classification()` conditional edge function that returns "draft_response" or "send_telegram"
+
+    3. Create `draft_response` node that calls `ResponseGenerationService.generate_response_draft()` and updates state
+
+    4. Add conditional edges in workflow graph: classify → route_by_classification → {needs_response: draft_response, sort_only: send_telegram}
+
+    5. Add edge: draft_response → send_telegram
+
+    6. Update `send_telegram` node to use response draft template when `state["draft_response"]` exists, sorting template otherwise
+
+    7. Integration test verifies "needs_response" path: email with question → classify → draft → telegram (shows draft)
+
+    8. Integration test verifies "sort_only" path: newsletter → classify → telegram (sorting only, no draft)
+
+    9. Update Epic 3 documentation marking workflow integration complete
+
+    ### Standard Quality & Security Criteria (Auto-included)
+
+    - Input Validation: All user inputs and external data validated before processing
+    - Security Review: No hardcoded secrets, credentials in environment variables, parameterized queries, rate limiting where applicable
+    - Code Quality: No deprecated APIs, comprehensive type hints/annotations, structured logging, proper error handling
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Epic 3 - RAG System & Response Generation (lines 914-997)</section>
+        <snippet>Defines EmailWorkflowState with classification field (Literal["sort_only", "needs_response"]) and draft_response field. Documents conditional workflow routing: classify → route_by_classification() → draft_response (for emails needing responses) OR send_telegram (for sort-only emails). Story 3.11 implements this documented architecture.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-change-proposal-2025-11-10.md</path>
+        <title>Sprint Change Proposal - Story 3.11</title>
+        <section>Issue Summary & Solution Design</section>
+        <snippet>Identifies workflow integration gap: all Epic 3 services exist but are not orchestrated in main LangGraph workflow. Proposes Story 3.11 to add conditional routing with route_by_classification() function, draft_response node integration, and message template selection in send_telegram node. Enables PRD FR019 (RAG responses) and FR021 (Telegram draft delivery).</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Workflow and State Machine, Response Generation Algorithm</section>
+        <snippet>Provides technical guidance for LangGraph workflow implementation patterns and ResponseGenerationService integration. Story 3.11 follows these patterns for conditional routing and response generation orchestration.</snippet>
+      </doc>
+      <doc>
+        <path>docs/testing-patterns-langgraph.md</path>
+        <title>LangGraph Testing Patterns</title>
+        <section>MemorySaver Integration, Workflow Dependency Injection</section>
+        <snippet>Battle-tested patterns from Epic 2 Story 2.12: use MemorySaver (never PostgresSaver) for tests, unique thread IDs per test (uuid4), dependency injection with functools.partial, mock signatures match production exactly. Story 3.11 applies these patterns to conditional routing integration tests.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 3 - Story 3.11</section>
+        <snippet>Contains the 9 acceptance criteria for Story 3.11: conditional routing implementation, node updates (classify, draft_response, send_telegram), integration testing (needs_response and sort_only paths), and documentation updates.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/workflows/email_workflow.py</path>
+        <kind>workflow_factory</kind>
+        <symbol>create_email_workflow</symbol>
+        <lines>75+</lines>
+        <reason>Main workflow factory function - Story 3.11 adds route_by_classification() function and conditional edges here. Registers draft_response node with dependency injection.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/nodes.py</path>
+        <kind>workflow_nodes</kind>
+        <symbol>classify, send_telegram</symbol>
+        <lines>159 (classify), 361 (send_telegram)</lines>
+        <reason>Existing nodes to UPDATE - classify node adds classification field setting using ResponseGenerationService.should_generate_response(), send_telegram node adds template selection based on draft_response existence. NEW draft_response node to be added here.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/workflows/states.py</path>
+        <kind>state_definition</kind>
+        <symbol>EmailWorkflowState</symbol>
+        <lines>14-81</lines>
+        <reason>Defines workflow state TypedDict. Classification field already exists (line 62). May need to add draft_response, detected_language, tone fields if not present (verify before modifying).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/response_generation.py</path>
+        <kind>service</kind>
+        <symbol>ResponseGenerationService</symbol>
+        <lines>37 (class), 138 (should_generate_response), 216 (generate_response)</lines>
+        <reason>EXISTING service from Story 3.7 - REUSE should_generate_response() in classify node, call generate_response() from draft_response node. DO NOT recreate this service.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/telegram_response_draft.py</path>
+        <kind>service</kind>
+        <symbol>TelegramResponseDraftService</symbol>
+        <lines>32 (class), 77 (format_response_draft_message), 232 (send_response_draft_to_telegram)</lines>
+        <reason>EXISTING service from Story 3.8 - REUSE response draft message template in send_telegram node when draft_response exists. DO NOT recreate this service.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="langgraph" version=">=0.4.1" />
+        <package name="langchain" version=">=0.3.25" />
+        <package name="langchain-core" version=">=0.3.58" />
+        <package name="langgraph-checkpoint-postgres" version=">=2.0.19" />
+        <package name="sqlmodel" version=">=0.0.24" />
+        <package name="pytest" version=">=8.3.5" />
+        <package name="pytest-asyncio" version=">=0.25.2" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Conditional Routing Pattern: Use workflow.add_conditional_edges() to route based on state classification field (LangGraph v0.4+ pattern)
+    - Classification Logic Location: Classification happens in classify node using ResponseGenerationService.should_generate_response(), NOT in routing function
+    - Routing Function Simplicity: route_by_classification() is pure decision logic based on state (no service calls, no side effects)
+    - Message Template Selection: Handled in send_telegram node, not in separate nodes (single Telegram interaction point)
+    - No New Database Tables: All workflow state fields (classification, draft_response, detected_language, tone) already exist from Epic 2/3
+    - Service Reuse: DO NOT recreate ResponseGenerationService or TelegramResponseDraftService - these exist from Stories 3.7 and 3.8
+    - Testing Pattern: Use MemorySaver (never PostgresSaver) for tests, unique thread IDs (uuid4), dependency injection with functools.partial
+    - No Stub Tests: All tests must have real assertions and meaningful implementation (Epic 2/3 retrospective learning)
+    - Explicit Test Counts: 5 unit tests (2 routing + 3 nodes), 2 integration tests (needs_response + sort_only paths) to prevent placeholder tests
+    - Architecture Alignment: Story implements documented architecture (architecture.md lines 914-997) that was never coded in initial Epic 3 stories
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>ResponseGenerationService.should_generate_response</name>
+      <kind>method</kind>
+      <signature>should_generate_response(self, email: EmailProcessingQueue) -> bool</signature>
+      <path>backend/app/services/response_generation.py:138</path>
+      <usage>Called from classify node to determine if email needs AI response. Returns True for emails requiring responses (questions, requests), False for newsletters/notifications.</usage>
+    </interface>
+    <interface>
+      <name>ResponseGenerationService.generate_response</name>
+      <kind>method</kind>
+      <signature>async generate_response(self, email_id: int) -> Optional[str]</signature>
+      <path>backend/app/services/response_generation.py:216</path>
+      <usage>Called from draft_response node to generate AI response using RAG context. Returns response text or None if generation fails.</usage>
+    </interface>
+    <interface>
+      <name>TelegramResponseDraftService.format_response_draft_message</name>
+      <kind>method</kind>
+      <signature>format_response_draft_message(self, email_id: int) -> str</signature>
+      <path>backend/app/services/telegram_response_draft.py:77</path>
+      <usage>Formats Telegram message showing AI-generated response draft. Used in send_telegram node when state["draft_response"] exists.</usage>
+    </interface>
+    <interface>
+      <name>TelegramResponseDraftService.send_response_draft_to_telegram</name>
+      <kind>method</kind>
+      <signature>async send_response_draft_to_telegram(self, email_id: int) -> str</signature>
+      <path>backend/app/services/telegram_response_draft.py:232</path>
+      <usage>Sends response draft message to Telegram with [Send][Edit][Reject] buttons. May be called from send_telegram node or used as reference for template.</usage>
+    </interface>
+    <interface>
+      <name>workflow.add_conditional_edges</name>
+      <kind>langgraph_api</kind>
+      <signature>add_conditional_edges(source: str, path: Callable, path_map: dict[str, str])</signature>
+      <path>langgraph.graph.StateGraph</path>
+      <usage>LangGraph API to add conditional routing. source="classify", path=route_by_classification, path_map={"needs_response": "draft_response", "sort_only": "send_telegram"}.</usage>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Use pytest with pytest-asyncio for async workflow tests. Follow testing-patterns-langgraph.md: MemorySaver for test isolation (never PostgresSaver), unique thread IDs per test (uuid4), dependency injection with functools.partial, mock signatures match production exactly. All tests must have real assertions (no stub tests with pass statements). Explicit test counts specified to prevent placeholders: 5 unit tests (2 routing logic + 3 node logic), 2 integration tests (needs_response path + sort_only path).</standards>
+    <locations>
+      backend/tests/ - Unit tests for routing function and node logic
+      backend/tests/integration/ - Integration tests for workflow paths
+      backend/tests/integration/test_epic_3_workflow_integration.py - NEW file to create for conditional routing integration tests
+    </locations>
+    <ideas>
+      <idea ac="2">Unit test: test_route_by_classification_needs_response() - Verify routing function returns "draft_response" when state["classification"] == "needs_response"</idea>
+      <idea ac="2">Unit test: test_route_by_classification_sort_only() - Verify routing function returns "send_telegram" when state["classification"] == "sort_only"</idea>
+      <idea ac="1">Unit test: test_classify_sets_classification_needs_response() - Verify classify node calls ResponseGenerationService.should_generate_response() and sets classification field correctly</idea>
+      <idea ac="3">Unit test: test_draft_response_calls_service() - Verify draft_response node calls ResponseGenerationService.generate_response() and updates state with draft, language, tone</idea>
+      <idea ac="6">Unit test: test_send_telegram_uses_correct_template() - Verify send_telegram node selects response draft template when draft exists, sorting template otherwise</idea>
+      <idea ac="7">Integration test: test_needs_response_workflow_path() - Email with question → classify (classification="needs_response") → draft_response (generates draft) → send_telegram (shows draft with [Send][Edit][Reject] buttons)</idea>
+      <idea ac="8">Integration test: test_sort_only_workflow_path() - Newsletter → classify (classification="sort_only") → send_telegram (shows sorting proposal with [Approve][Reject] buttons, NO draft)</idea>
+    </ideas>
+  </tests>
+</story-context>

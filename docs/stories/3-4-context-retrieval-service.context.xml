@@ -1,0 +1,173 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.4</storyId>
+    <title>Context Retrieval Service</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-09</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-4-context-retrieval-service.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to retrieve relevant conversation context for an incoming email using Smart Hybrid RAG</iWant>
+    <soThat>I can provide the AI with necessary background combining thread history and semantically similar emails for accurate response generation</soThat>
+    <tasks>
+      <task id="1" name="Core Implementation + Unit Tests" acs="1,2,3,4,5,6,7,8,9,10,11,12">
+        <subtask id="1.1">Create RAGContext data model and context retrieval service foundation</subtask>
+        <subtask id="1.2">Implement thread history retrieval</subtask>
+        <subtask id="1.3">Implement semantic search retrieval</subtask>
+        <subtask id="1.4">Implement adaptive k logic</subtask>
+        <subtask id="1.5">Implement result ranking and combination</subtask>
+        <subtask id="1.6">Implement token counting and budget enforcement</subtask>
+        <subtask id="1.7">Implement main retrieval method</subtask>
+        <subtask id="1.8">Add error handling and edge cases</subtask>
+        <subtask id="1.9">Write unit tests for ContextRetrievalService (8 test functions)</subtask>
+      </task>
+      <task id="2" name="Integration Tests" acs="1-12">
+        <subtask id="2.1">Set up integration test infrastructure</subtask>
+        <subtask id="2.2">Implement integration test scenarios (5 test functions)</subtask>
+        <subtask id="2.3">Verify all integration tests passing</subtask>
+      </task>
+      <task id="3" name="Documentation + Security Review" acs="1,6,11">
+        <subtask id="3.1">Update documentation</subtask>
+        <subtask id="3.2">Security review</subtask>
+      </task>
+      <task id="4" name="Final Validation" acs="all">
+        <subtask id="4.1">Run complete test suite</subtask>
+        <subtask id="4.2">Verify DoD checklist</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Context retrieval method created that takes email message_id as input and returns RAGContext structure</criterion>
+    <criterion id="2">Method retrieves thread history from Gmail using thread_id (last 5 emails in chronological order)</criterion>
+    <criterion id="3">Method performs semantic search in vector DB using email content as query embedding</criterion>
+    <criterion id="4">Top-k most relevant emails retrieved with adaptive k logic (k=3-7 based on thread length)</criterion>
+    <criterion id="5">Adaptive k implementation: Short threads (&lt;3 emails) → k=7, standard threads (3-5 emails) → k=3, long threads (&gt;5 emails) → k=0 (skip semantic)</criterion>
+    <criterion id="6">Results combined into RAGContext structure: thread_history + semantic_results + metadata</criterion>
+    <criterion id="7">Semantic results ranked by relevance score (cosine similarity) and recency (prefer recent emails if tie)</criterion>
+    <criterion id="8">Context window managed to stay within LLM token limits (~6.5K tokens total for context)</criterion>
+    <criterion id="9">Token counting implemented for thread history and semantic results to enforce budget</criterion>
+    <criterion id="10">Context formatted as structured RAGContext TypedDict ready for LLM prompt construction</criterion>
+    <criterion id="11">Query performance measured and logged (target: &lt;3 seconds per NFR001)</criterion>
+    <criterion id="12">Performance optimization: Parallel retrieval of thread history and semantic search using asyncio</criterion>
+    <standard-criteria>
+      <criterion id="input-validation">All user inputs and external data validated before processing (type checking, range validation, sanitization)</criterion>
+      <criterion id="security">No hardcoded secrets, credentials in environment variables, parameterized queries for database operations, rate limiting implemented where applicable</criterion>
+      <criterion id="code-quality">No deprecated APIs used, comprehensive type hints/annotations, structured logging for debugging, error handling with proper exception types</criterion>
+    </standard-criteria>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/tech-spec-epic-3.md" title="Epic 3 Technical Specification" section="Smart Hybrid RAG Strategy">
+        Smart Hybrid RAG combines thread history (last 5 emails) with semantic search (top 3 similar emails). Adaptive Logic: Short threads (&lt;3 emails) retrieve k=7 semantic results, standard threads (3-5) get k=3, long threads (&gt;5) skip semantic (k=0). Token Budget: ~6.5K tokens context (leaves 25K for Gemini response generation within 32K window). Performance Target: &lt;3 seconds RAG retrieval (NFR001).
+      </doc>
+      <doc path="docs/tech-spec-epic-3.md" title="Epic 3 Technical Specification" section="Components Created">
+        ContextRetrievalService at app/services/context_retrieval.py implements Smart Hybrid RAG retrieval. VectorDBClient at app/core/vector_db.py provides ChromaDB query() method. EmbeddingService at app/core/embedding_service.py provides embed() for query embeddings. GmailClient provides get_thread() for thread history.
+      </doc>
+      <doc path="docs/adrs/epic-3-architecture-decisions.md" title="ADR-011: Smart Hybrid RAG Strategy" section="Decision Rationale">
+        Hybrid approach combining Gmail thread history (ensures conversation continuity) with semantic vector search (adds broader context from related conversations). Thread history critical for government emails requiring formal context. Adaptive k logic optimizes context window: short threads need more semantic context, long threads sufficient alone.
+      </doc>
+      <doc path="docs/PRD.md" title="Product Requirements Document" section="Functional Requirements">
+        FR006: System shall access full email thread history for context analysis. FR017: System shall index complete email conversation history in vector database for context retrieval. FR019: System shall generate contextually appropriate professional responses using RAG with full conversation history. NFR001: RAG context retrieval shall complete within 3 seconds.
+      </doc>
+      <doc path="docs/architecture.md" title="Decision Architecture" section="Project Structure">
+        Backend services located in app/services/ directory. Core utilities (vector_db, embedding_service, gmail_client) in app/core/. Models in app/models/. Tests mirror source structure in tests/ and tests/integration/. LangGraph workflows use FastAPI async patterns.
+      </doc>
+      <doc path="docs/testing-patterns-langgraph.md" title="LangGraph Testing Patterns" section="Database Persistence in Workflows">
+        Database operations in workflow nodes must commit explicitly. Tests need isolated database sessions. Use MemorySaver for tests (not PostgresSaver). Unique thread_id per test using uuid4(). Mock classes must match production signatures exactly. Token counting uses tiktoken library for GPT-4 compatible tokenization.
+      </doc>
+    </docs>
+    <code>
+      <artifact path="backend/app/core/vector_db.py" kind="service" symbol="VectorDBClient" lines="35-200" reason="VectorDBClient.query() method provides semantic search in ChromaDB. Story 3.4 uses query(collection_name, query_embedding, n_results, filter) to retrieve k most similar emails. Returns list with embeddings, distances (cosine similarity scores), and metadata. Collection: email_embeddings with 768 dimensions.">
+        <interface>
+          <method>query(collection_name: str, query_embedding: List[float], n_results: int, filter: Dict[str, Any]) -> List[Dict]</method>
+          <returns>List of dicts with keys: embeddings, distances (cosine similarity), metadata (message_id, thread_id, sender, date, subject, language, snippet)</returns>
+        </interface>
+      </artifact>
+      <artifact path="backend/app/core/embedding_service.py" kind="service" symbol="EmbeddingService" lines="55-120" reason="EmbeddingService.embed_text() generates 768-dim query embeddings from incoming email body. Story 3.4 uses this to convert email content to query vector for semantic search. Includes rate limiting (50 requests/min) and retry logic (exponential backoff, 3 attempts). Preprocessing applied internally: HTML stripping, truncation to 2048 tokens.">
+        <interface>
+          <method>embed_text(text: str) -> List[float]</method>
+          <returns>768-dimension embedding vector matching ChromaDB collection schema</returns>
+        </interface>
+      </artifact>
+      <artifact path="backend/app/core/gmail_client.py" kind="service" symbol="GmailClient" lines="67-250" reason="GmailClient.get_thread() retrieves full email thread history from Gmail. Story 3.4 uses this to get last 5 emails in thread for context. Handles OAuth token refresh automatically. Returns list of email messages with full content, sender, date, subject, thread_id.">
+        <interface>
+          <method>get_thread(thread_id: str) -> List[Dict]</method>
+          <returns>List of email dicts with keys: message_id, sender, subject, body, date, thread_id</returns>
+        </interface>
+      </artifact>
+      <artifact path="backend/app/models/email.py" kind="model" symbol="EmailProcessingQueue" lines="17-80" reason="EmailProcessingQueue model stores email metadata including gmail_message_id, gmail_thread_id, sender, subject, body. Story 3.4 retrieves emails from this table using email_id parameter passed to retrieve_context() method.">
+        <interface>
+          <fields>id, user_id, gmail_message_id, gmail_thread_id, sender, subject, body, received_at, status, created_at, updated_at</fields>
+        </interface>
+      </artifact>
+      <artifact path="backend/app/services/email_indexing.py" kind="service" symbol="EmailIndexingService" lines="1-200" reason="EmailIndexingService from Story 3.3 demonstrates ChromaDB integration patterns: how to structure metadata, handle user_id filtering, manage batch operations. Story 3.4 follows same patterns for semantic search queries.">
+        <pattern>ChromaDB metadata format: {message_id, thread_id, sender, date, subject, language, snippet}. Query filter by user_id for multi-tenant isolation: filter={"user_id": user_id}. Collection name: email_embeddings with 768 dimensions, cosine similarity metric.</pattern>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="chromadb" version=">=0.4.22" usage="Vector database for semantic email search" />
+        <package name="google-generativeai" version="latest" usage="Gemini API for embeddings (text-embedding-004 model)" />
+        <package name="tiktoken" version=">=0.5.0" usage="Token counting library for budget enforcement (NEW - must be installed)" />
+        <package name="asyncio" version="standard-library" usage="Parallel execution of thread retrieval and semantic search" />
+        <package name="structlog" version=">=25.2.0" usage="Structured logging for performance metrics and debugging" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="performance">RAG context retrieval must complete in &lt;3 seconds total (NFR001): Vector search ~500ms + Gmail thread fetch ~1000ms + context assembly ~500ms = ~2s target. Use asyncio to parallelize thread history and semantic search.</constraint>
+    <constraint type="token-budget">Context limited to ~6.5K tokens total (conservative target, actual Gemini limit 32K). Truncation priority: Keep most recent thread emails first, then truncate semantic results if over budget. Token counting includes email bodies only (metadata excluded).</constraint>
+    <constraint type="architecture">Follow Epic 2 retrospective task ordering: Task 1 (Core + unit tests interleaved), Task 2 (Integration tests during development), Task 3 (Documentation + security), Task 4 (Final validation). Do NOT separate unit tests from implementation.</constraint>
+    <constraint type="testing">Specify exact test counts to prevent stub/placeholder tests: 8 unit tests + 5 integration tests. Unit tests mock all dependencies (GmailClient, VectorDBClient, EmbeddingService). Integration tests use real ChromaDB (test instance) and mocked Gmail API.</constraint>
+    <constraint type="security">Multi-tenant isolation: ChromaDB queries MUST filter by user_id. No cross-user email access. Input validation for email_id and user_id parameters. Error handling prevents information leakage (no email content in error messages).</constraint>
+    <constraint type="data-privacy">Embeddings stored locally in ChromaDB (no cloud transmission per ADR-009). Vector DB uses persistent SQLite backend. All paths must be project-relative (strip absolute paths before storage).</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="VectorDBClient.query" kind="method" signature="query(collection_name: str, query_embedding: List[float], n_results: int, filter: Dict[str, Any]) -> List[Dict]" path="backend/app/core/vector_db.py">
+      Collection: "email_embeddings", n_results: k (adaptive 0/3/7), filter: {"user_id": user_id}. Returns: List of dicts with distances (cosine similarity scores) and metadata.
+    </interface>
+    <interface name="EmbeddingService.embed_text" kind="method" signature="embed_text(text: str) -> List[float]" path="backend/app/core/embedding_service.py">
+      Generates 768-dim query embedding from email body text. Preprocessing applied internally (HTML strip, truncate 2048 tokens). Rate limited (50 req/min).
+    </interface>
+    <interface name="GmailClient.get_thread" kind="method" signature="get_thread(thread_id: str) -> List[Dict]" path="backend/app/core/gmail_client.py">
+      Retrieves all emails in Gmail thread. Returns list of email dicts with message_id, sender, subject, body, date, thread_id. Handles OAuth token refresh.
+    </interface>
+    <interface name="EmailProcessingQueue" kind="model" signature="SQLModel table with email metadata fields" path="backend/app/models/email.py">
+      Database table storing email queue. Fields: id, user_id, gmail_message_id, gmail_thread_id, sender, subject, body, received_at. Story 3.4 queries by email_id.
+    </interface>
+    <interface name="RAGContext" kind="TypedDict" signature="TypedDict with thread_history, semantic_results, metadata fields" path="backend/app/models/context_models.py (NEW)">
+      NEW data model to create. Fields: thread_history (List[EmailMessage]), semantic_results (List[EmailMessage]), metadata (Dict with thread_length, semantic_count, oldest_thread_date, total_tokens_used).
+    </interface>
+    <interface name="EmailMessage" kind="TypedDict" signature="TypedDict with message_id, sender, subject, body, date, thread_id fields" path="backend/app/models/context_models.py (NEW)">
+      NEW data model to create. Represents single email in context. Used in both thread_history and semantic_results lists.
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      LangGraph testing patterns from Epic 2 Story 2.12: Use MemorySaver for test isolation (not PostgresSaver). Unique thread_id per test using uuid4(). Mock classes must match production signatures exactly. Database operations commit explicitly. Integration tests use real ChromaDB (test instance) with cleanup fixtures. Performance assertions use time.perf_counter() for measurements. Asyncio mode configured in pytest.ini. Token counting uses tiktoken library (tiktoken.encoding_for_model("gpt-4")).
+    </standards>
+    <locations>
+      <location>backend/tests/test_context_retrieval.py - Unit tests (8 functions)</location>
+      <location>backend/tests/integration/test_context_retrieval_integration.py - Integration tests (5 functions)</location>
+    </locations>
+    <ideas>
+      <test-idea ac="2">test_get_thread_history_returns_last_5_emails - Mock GmailClient.get_thread() to return 8 emails, verify method returns last 5 in chronological order</test-idea>
+      <test-idea ac="3">test_get_semantic_results_queries_vector_db - Mock VectorDBClient.query(), verify collection_name="email_embeddings", filter={"user_id": user_id}, n_results=k</test-idea>
+      <test-idea ac="5">test_calculate_adaptive_k_logic - Test k=7 for thread_length=2, k=3 for thread_length=4, k=0 for thread_length=8</test-idea>
+      <test-idea ac="7">test_rank_semantic_results_by_score_and_recency - Mock results with tied scores (0.85, 0.85), verify recency used as tiebreaker</test-idea>
+      <test-idea ac="8,9">test_enforce_token_budget_truncates_correctly - Create context exceeding 6.5K tokens, verify truncation applied, verify total_tokens_used in metadata</test-idea>
+      <test-idea ac="11,12">test_retrieve_context_performance_under_3_seconds - Mock APIs, measure timing with time.perf_counter(), assert duration &lt; 3.0, verify parallel execution</test-idea>
+      <test-idea ac="1-12">test_retrieve_context_short_thread_adaptive_k (integration) - Thread with 2 emails, verify k=7 semantic results, verify RAGContext structure complete</test-idea>
+      <test-idea ac="5">test_retrieve_context_long_thread_skips_semantic (integration) - Thread with 8 emails, verify k=0, verify only thread_history populated</test-idea>
+    </ideas>
+  </tests>
+</story-context>

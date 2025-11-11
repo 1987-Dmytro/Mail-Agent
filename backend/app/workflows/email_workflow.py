@@ -63,6 +63,7 @@ from app.workflows.nodes import (
     classify,
     detect_priority,
     send_telegram,
+    draft_response,
     await_approval,
     execute_action,
     send_confirmation,
@@ -70,6 +71,58 @@ from app.workflows.nodes import (
 
 
 logger = structlog.get_logger(__name__)
+
+
+def route_by_classification(state: EmailWorkflowState) -> str:
+    """Conditional edge function to route workflow based on email classification (Story 3.11 - AC #2).
+
+    Routes emails to different workflow paths based on classification:
+    - "needs_response": Email requires AI response generation → generate_response node
+    - "sort_only": Email only needs sorting → send_telegram node (skip response generation)
+
+    This function implements the core conditional routing logic that enables
+    the RAG system integration (Epic 3). Emails classified as needing responses
+    will have AI drafts generated using full conversation context, while
+    newsletters and notifications skip straight to approval.
+
+    Args:
+        state: Current EmailWorkflowState containing classification field
+
+    Returns:
+        str: Classification value - either "needs_response" or "sort_only"
+            (path_map will map these to node names)
+
+    Example:
+        >>> state = EmailWorkflowState(classification="needs_response", ...)
+        >>> classification = route_by_classification(state)
+        >>> print(classification)  # "needs_response"
+        >>> # path_map will route to "generate_response" node
+
+        >>> state = EmailWorkflowState(classification="sort_only", ...)
+        >>> classification = route_by_classification(state)
+        >>> print(classification)  # "sort_only"
+        >>> # path_map will route to "send_telegram" node
+    """
+    classification = state.get("classification", "sort_only")
+
+    # Log routing decision
+    if classification == "needs_response":
+        logger.info(
+            "workflow_routing_to_generate_response",
+            email_id=state["email_id"],
+            classification=classification,
+            next_node="generate_response"
+        )
+    else:
+        logger.info(
+            "workflow_routing_to_send_telegram",
+            email_id=state["email_id"],
+            classification=classification,
+            next_node="send_telegram"
+        )
+
+    # Return classification value (path_map will map to node name)
+    return classification
 
 
 def create_email_workflow(
@@ -170,6 +223,7 @@ def create_email_workflow(
         workflow.add_node("extract_context", partial(extract_context, db=db_session, gmail_client=gmail_client))
         workflow.add_node("classify", partial(classify, db=db_session, gmail_client=gmail_client, llm_client=llm_client))
         workflow.add_node("detect_priority", partial(detect_priority, db=db_session))
+        workflow.add_node("generate_response", partial(draft_response, db=db_session))  # Story 3.11 - AC #3
         workflow.add_node("send_telegram", partial(send_telegram, db=db_session, telegram_bot_client=telegram_client))
         workflow.add_node("await_approval", await_approval)  # No dependencies needed
         workflow.add_node("execute_action", partial(execute_action, db=db_session, gmail_client=gmail_client))
@@ -181,19 +235,34 @@ def create_email_workflow(
         workflow.add_node("extract_context", extract_context)
         workflow.add_node("classify", classify)
         workflow.add_node("detect_priority", detect_priority)
+        workflow.add_node("generate_response", draft_response)  # Story 3.11 - AC #3
         workflow.add_node("send_telegram", send_telegram)
         workflow.add_node("await_approval", await_approval)
         workflow.add_node("execute_action", execute_action)
         workflow.add_node("send_confirmation", send_confirmation)
 
-    # Define workflow edges (sequential flow)
+    # Define workflow edges (sequential flow with conditional routing - Story 3.11)
     # Entry point: extract_context is the first node
     workflow.set_entry_point("extract_context")
 
-    # Sequential edges up to await_approval (workflow pauses here)
+    # Sequential edges up to conditional routing
     workflow.add_edge("extract_context", "classify")
-    workflow.add_edge("classify", "detect_priority")
-    workflow.add_edge("detect_priority", "send_telegram")
+
+    # Conditional routing based on classification (Story 3.11 - AC #4, #5)
+    # classify → route_by_classification → {needs_response: generate_response, sort_only: send_telegram}
+    workflow.add_conditional_edges(
+        "classify",
+        route_by_classification,
+        {
+            "needs_response": "generate_response",
+            "sort_only": "send_telegram",
+        }
+    )
+
+    # generate_response → send_telegram (Story 3.11 - AC #5)
+    workflow.add_edge("generate_response", "send_telegram")
+
+    # Continue to await_approval (workflow pauses here)
     workflow.add_edge("send_telegram", "await_approval")
 
     # CRITICAL: await_approval node does NOT add edges

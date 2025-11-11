@@ -1,0 +1,46 @@
+{
+  "test_name": "russian_formal_government",
+  "description": "Russian government correspondence with formal tone",
+  "original_email": {
+    "sender": "department@gov.example.ru",
+    "sender_name": "Федеральная служба",
+    "subject": "Запрос документов",
+    "body": "Уважаемый гражданин,\n\nВ соответствии с требованиями действующего законодательства, просим предоставить следующие документы для рассмотрения вашего обращения:\n\n1. Копия паспорта\n2. Справка с места работы\n3. Заявление установленной формы\n\nДокументы необходимо предоставить в течение 30 календарных дней.\n\nС уважением,\nОтдел по работе с обращениями граждан",
+    "thread_id": "thread-ru-gov-001",
+    "received_at": "2025-11-09T11:00:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Обращение по вопросу регистрации",
+      "body": "Уважаемые коллеги,\n\nНаправляю обращение по вопросу регистрации изменений. Прошу рассмотреть в установленные сроки.\n\nС уважением",
+      "timestamp": "2025-11-05T15:00:00Z",
+      "is_sent_by_user": true
+    }
+  ],
+  "expected_language": "ru",
+  "expected_tone": "formal",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["документы", "обращение", "регистрация", "сроки"],
+    "thread_history_references": ["обращение", "рассмотреть"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "ru",
+      "greeting_examples": ["Уважаемые коллеги", "Добрый день"],
+      "closing_examples": ["С уважением", "С наилучшими пожеланиями"]
+    },
+    "tone_markers": {
+      "tone": "formal",
+      "formality_level": "high",
+      "expected_phrases": ["в соответствии с", "благодарю за", "готов предоставить", "в установленные сроки"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["документы", "сроки предоставления"]
+    }
+  },
+  "quality_threshold": 85
+}

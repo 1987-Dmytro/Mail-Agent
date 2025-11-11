@@ -11,6 +11,8 @@ from app.api.v1.auth import get_current_user
 from app.core.gmail_client import GmailClient
 from app.core.llm_client import LLMClient
 from app.core.logging import logger
+from app.core.vector_db import VectorDBClient
+from app.core.embedding_service import EmbeddingService
 from app.models.user import User
 from app.services.database import DatabaseService, database_service
 from app.utils.errors import (
@@ -599,4 +601,228 @@ async def test_telegram_connectivity(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send test message. Please check your Telegram bot configuration.",
+        )
+
+
+class VectorDBTestResponse(BaseModel):
+    """Response model for ChromaDB vector database connectivity test.
+
+    Attributes:
+        status: Connection status - "connected" or "disconnected"
+        collection_name: Name of the email embeddings collection
+        total_embeddings: Total number of embeddings stored
+        distance_metric: Distance metric used for similarity search
+        persist_directory: Path to persistent storage directory
+        error: Error message if connection failed (optional)
+    """
+
+    status: str = Field(..., example="connected")
+    collection_name: str = Field(..., example="email_embeddings")
+    total_embeddings: int = Field(..., example=127)
+    distance_metric: str = Field(..., example="cosine")
+    persist_directory: str = Field(..., example="./backend/data/chromadb")
+    error: Optional[str] = Field(None, example=None)
+
+
+@router.get("/vector-db", status_code=status.HTTP_200_OK, response_model=VectorDBTestResponse)
+def test_vector_db_connectivity():
+    """Test ChromaDB vector database connectivity and health.
+
+    This endpoint verifies that the ChromaDB vector database is accessible and
+    returns statistics about the email_embeddings collection. No authentication
+    required for health check.
+
+    Returns:
+        JSON response with connection status and collection statistics:
+        {
+            "status": "connected",
+            "collection_name": "email_embeddings",
+            "total_embeddings": 127,
+            "distance_metric": "cosine",
+            "persist_directory": "./backend/data/chromadb",
+            "error": null
+        }
+
+    Raises:
+        HTTPException 500: ChromaDB connection failed or not initialized
+
+    Example:
+        GET /api/v1/test/vector-db
+
+        Success Response (200):
+        {
+            "status": "connected",
+            "collection_name": "email_embeddings",
+            "total_embeddings": 127,
+            "distance_metric": "cosine",
+            "persist_directory": "./backend/data/chromadb"
+        }
+
+        Error Response (500):
+        {
+            "status": "disconnected",
+            "collection_name": "email_embeddings",
+            "total_embeddings": 0,
+            "distance_metric": "cosine",
+            "persist_directory": "./backend/data/chromadb",
+            "error": "ChromaDB client not initialized"
+        }
+    """
+    logger.info("vector_db_test_requested")
+
+    try:
+        # Import vector_db_client from main.py (global instance initialized on startup)
+        from app.main import vector_db_client
+        from app.core.config import settings
+
+        # Check if vector_db_client is initialized
+        if vector_db_client is None:
+            logger.error("vector_db_test_not_initialized")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="ChromaDB client not initialized. Check application startup logs.",
+            )
+
+        # Perform health check
+        if not vector_db_client.health_check():
+            logger.error("vector_db_test_health_check_failed")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="ChromaDB health check failed. Database may be unavailable.",
+            )
+
+        # Get collection statistics
+        total_embeddings = vector_db_client.count_embeddings("email_embeddings")
+
+        logger.info(
+            "vector_db_test_completed",
+            status="connected",
+            total_embeddings=total_embeddings,
+        )
+
+        return VectorDBTestResponse(
+            status="connected",
+            collection_name="email_embeddings",
+            total_embeddings=total_embeddings,
+            distance_metric="cosine",
+            persist_directory=settings.CHROMADB_PATH,
+            error=None,
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (already formatted)
+        raise
+
+    except Exception as e:
+        # Catch-all for unexpected errors
+        logger.error(
+            "vector_db_test_unexpected_error",
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ChromaDB connectivity test failed: {str(e)}",
+        )
+
+
+class EmbeddingStatsResponse(BaseModel):
+    """Response model for embedding service usage statistics.
+
+    Attributes:
+        total_requests: Total API requests made to embedding service
+        total_embeddings_generated: Total embeddings generated (single + batch)
+        avg_latency_ms: Average latency per request in milliseconds
+        service_initialized: Whether embedding service is initialized
+    """
+
+    total_requests: int = Field(..., example=42)
+    total_embeddings_generated: int = Field(..., example=128)
+    avg_latency_ms: float = Field(..., example=234.56)
+    service_initialized: bool = Field(..., example=True)
+
+
+@router.get("/embedding-stats", status_code=status.HTTP_200_OK, response_model=EmbeddingStatsResponse)
+def get_embedding_stats():
+    """Get embedding service usage statistics for monitoring.
+
+    This endpoint returns cumulative usage statistics for the Gemini embedding service,
+    including request count, total embeddings generated, and average latency. Used for
+    free-tier monitoring and performance tracking.
+
+    No authentication required for stats endpoint (read-only monitoring data).
+
+    Returns:
+        JSON response with usage statistics:
+        {
+            "total_requests": 42,
+            "total_embeddings_generated": 128,
+            "avg_latency_ms": 234.56,
+            "service_initialized": true
+        }
+
+    Raises:
+        HTTPException 500: Embedding service not initialized or error retrieving stats
+
+    Example:
+        GET /api/v1/test/embedding-stats
+
+        Success Response (200):
+        {
+            "total_requests": 42,
+            "total_embeddings_generated": 128,
+            "avg_latency_ms": 234.56,
+            "service_initialized": true
+        }
+
+        Initial State (200):
+        {
+            "total_requests": 0,
+            "total_embeddings_generated": 0,
+            "avg_latency_ms": 0.0,
+            "service_initialized": true
+        }
+    """
+    logger.info("embedding_stats_requested")
+
+    try:
+        # Create embedding service instance (will initialize if not exists)
+        embedding_service = EmbeddingService()
+
+        # Get usage statistics
+        stats = embedding_service.get_usage_stats()
+
+        logger.info(
+            "embedding_stats_retrieved",
+            total_requests=stats["total_requests"],
+            total_embeddings=stats["total_embeddings_generated"],
+            avg_latency_ms=stats["avg_latency_ms"],
+        )
+
+        return EmbeddingStatsResponse(
+            total_requests=stats["total_requests"],
+            total_embeddings_generated=stats["total_embeddings_generated"],
+            avg_latency_ms=stats["avg_latency_ms"],
+            service_initialized=True,
+        )
+
+    except GeminiInvalidRequestError as e:
+        logger.error(
+            "embedding_stats_init_error",
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Embedding service initialization failed: {str(e)}. Check GEMINI_API_KEY configuration.",
+        )
+
+    except Exception as e:
+        logger.error(
+            "embedding_stats_unexpected_error",
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve embedding stats: {str(e)}",
         )

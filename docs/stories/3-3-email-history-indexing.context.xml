@@ -1,0 +1,255 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.3</storyId>
+    <title>Email History Indexing</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-09</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-3-email-history-indexing.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to index all existing emails from user's Gmail into the vector database during initial setup</iWant>
+    <soThat>I have complete conversation history available for RAG context retrieval when generating responses</soThat>
+    <tasks>
+      <task id="1" title="Core Implementation + Unit Tests" ac="#1, #2, #3, #4, #5, #6, #7, #8, #9, #12">
+        <subtask id="1.1">Create IndexingProgress database model and migration</subtask>
+        <subtask id="1.2">Implement Email Indexing Service core logic</subtask>
+        <subtask id="1.3">Implement Gmail pagination and 90-day filtering</subtask>
+        <subtask id="1.4">Implement metadata extraction and thread preservation</subtask>
+        <subtask id="1.5">Implement batch processing with rate limiting</subtask>
+        <subtask id="1.6">Implement checkpoint mechanism for resumption</subtask>
+        <subtask id="1.7">Implement error handling and retry logic</subtask>
+        <subtask id="1.8">Implement Telegram notification on completion</subtask>
+        <subtask id="1.9">Create Celery background task</subtask>
+        <subtask id="1.10">Implement incremental indexing for new emails</subtask>
+        <subtask id="1.11">Write unit tests for EmailIndexingService (8 test functions)</subtask>
+        <subtask id="1.12">Write unit tests for Celery task (3 test functions)</subtask>
+      </task>
+      <task id="2" title="Integration Tests" ac="#1-#12">
+        <subtask id="2.1">Set up integration test infrastructure</subtask>
+        <subtask id="2.2">Implement integration test scenarios (5 test functions)</subtask>
+        <subtask id="2.3">Verify all integration tests passing</subtask>
+      </task>
+      <task id="3" title="Documentation + Security Review" ac="#2, #7, #8, #9, #10, #12">
+        <subtask id="3.1">Update documentation (architecture.md, backend README.md)</subtask>
+        <subtask id="3.2">Security review (no hardcoded keys, input validation, sanitization, rate limiting)</subtask>
+      </task>
+      <task id="4" title="Final Validation" ac="all">
+        <subtask id="4.1">Run complete test suite (coverage 80%+)</subtask>
+        <subtask id="4.2">Verify DoD checklist</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Background job created to index user's email history on first setup using Celery</criterion>
+    <criterion id="2">Job retrieves emails from Gmail API using 90-day lookback strategy (last 90 days only)</criterion>
+    <criterion id="3">Pagination implemented to handle large mailboxes (retrieve in batches of 100 messages)</criterion>
+    <criterion id="4">Each email converted to embedding via EmbeddingService and stored in ChromaDB with metadata</criterion>
+    <criterion id="5">Metadata schema includes: message_id, thread_id, sender, date, subject, language, snippet (first 200 chars)</criterion>
+    <criterion id="6">Thread relationship metadata preserved (parent-child email linking via thread_id)</criterion>
+    <criterion id="7">Batch processing strategy: 50 emails per batch with rate limiting (1-minute intervals between batches)</criterion>
+    <criterion id="8">Progress tracking implemented via IndexingProgress table (total_emails, processed_count, status, error_message)</criterion>
+    <criterion id="9">Indexing job resumable after interruption using checkpoint mechanism (last processed message_id)</criterion>
+    <criterion id="10">User notified via Telegram when initial indexing completes with summary (e.g., "✅ 437 emails indexed")</criterion>
+    <criterion id="11">Incremental indexing implemented: new emails indexed in real-time after initial sync</criterion>
+    <criterion id="12">Error handling for API failures (Gmail rate limits, embedding failures, ChromaDB errors) with retry logic</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification - RAG System</title>
+        <section>Email History Indexing Strategy</section>
+        <snippet>Initial Indexing: Last 90 days of email history (covers government communication delays). Batch Size: 50 emails per batch (1-minute intervals for rate limiting). Progress Tracking: IndexingProgress table (user_id, total_emails, processed_count, status). Incremental Updates: New emails indexed in real-time after initial sync.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification - RAG System</title>
+        <section>ChromaDB Vector Database</section>
+        <snippet>Storage backend: Persistent SQLite. Collection schema: email_embeddings with metadata (message_id, thread_id, sender, date, subject, language). Distance metric: Cosine similarity. Query performance target: &lt;500ms for k=10 nearest neighbors.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification - RAG System</title>
+        <section>Gemini Embeddings Integration</section>
+        <snippet>Model: text-embedding-004 (768 dimensions). Free tier: Unlimited requests. Batch processing: 50 emails per minute (rate limit headroom). Token usage: Email content truncated to 2048 tokens max for embedding.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Functional Requirements</section>
+        <snippet>FR017: System shall index complete email conversation history in a vector database for context retrieval.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Non-Functional Requirements</section>
+        <snippet>NFR001 (Performance): RAG context retrieval shall complete within 3 seconds. NFR003 (Scalability): Support 5-50+ emails/day on free-tier infrastructure. NFR005 (Usability): Onboarding &lt; 10 minutes.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/stories/3-1-vector-database-setup.md</path>
+        <title>Story 3.1: Vector Database Setup</title>
+        <section>Acceptance Criteria</section>
+        <snippet>ChromaDB configured with persistent SQLite storage. Collection email_embeddings with metadata schema: message_id, thread_id, sender, date, subject, language. VectorDBClient class with insert_embedding(), query_embeddings() methods.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/stories/3-2-email-embedding-service.md</path>
+        <title>Story 3.2: Email Embedding Service</title>
+        <section>Acceptance Criteria</section>
+        <snippet>EmbeddingService class with Gemini text-embedding-004 integration. Email preprocessing: HTML stripping, truncation to 2048 tokens. Batch method embed_batch() processes up to 50 emails. Returns 768-dim vectors matching ChromaDB collection.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>System Overview</section>
+        <snippet>LangGraph-orchestrated AI agent system with ChromaDB vector database for RAG, Google Gemini 2.5 Flash for LLM operations, and persistent state management via PostgreSQL checkpointing.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/vector_db.py</path>
+        <kind>service</kind>
+        <symbol>VectorDBClient</symbol>
+        <lines>34-150</lines>
+        <reason>VectorDBClient provides insert_embeddings_batch() method for storing email embeddings in ChromaDB email_embeddings collection. Story 3.3 uses this to store batch embeddings with metadata (message_id, thread_id, sender, date, subject, language, snippet).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/embedding_service.py</path>
+        <kind>service</kind>
+        <symbol>EmbeddingService</symbol>
+        <lines>52-150</lines>
+        <reason>EmbeddingService.embed_batch() generates 768-dim embeddings for batch of 50 emails using Gemini text-embedding-004. Includes rate limiting (50 req/min) and retry logic. Story 3.3 calls this for batch embedding generation.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/preprocessing.py</path>
+        <kind>utility</kind>
+        <symbol>strip_html, extract_email_text, truncate_to_tokens</symbol>
+        <lines>35-100</lines>
+        <reason>Preprocessing utilities clean email content before embedding: strip HTML tags, extract text from various formats, truncate to 2048 tokens. Story 3.3 uses these before calling embed_batch().</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>service</kind>
+        <symbol>GmailClient</symbol>
+        <lines>50-200</lines>
+        <reason>GmailClient provides list_messages() and get_message() methods for retrieving emails with pagination support. Story 3.3 uses these to fetch 90 days of email history in batches of 100 messages.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>service</kind>
+        <symbol>TelegramBotClient</symbol>
+        <lines>19-100</lines>
+        <reason>TelegramBotClient.send_message() sends notifications to users. Story 3.3 uses this to notify users when email indexing completes ("✅ 437 emails indexed").</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/celery.py</path>
+        <kind>configuration</kind>
+        <symbol>celery_app</symbol>
+        <lines>17-52</lines>
+        <reason>Celery application configuration for background task processing. Story 3.3 creates new indexing task registered with celery_app.task decorator. Configuration includes task timeouts, retry settings, and beat schedule.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>33-80</lines>
+        <reason>User model provides user_id and telegram_id fields. Story 3.3 uses user_id for IndexingProgress table foreign key and telegram_id for notification sending.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="chromadb" version=">=0.4.22">Vector database for email embeddings storage</package>
+        <package name="google-generativeai" version=">=0.8.3">Gemini text-embedding-004 API client</package>
+        <package name="celery" version=">=5.4.0">Background task queue for indexing jobs</package>
+        <package name="redis" version=">=5.0.1">Celery message broker</package>
+        <package name="google-api-python-client" version=">=2.146.0">Gmail API client for email retrieval</package>
+        <package name="python-telegram-bot" version=">=21.0">Telegram Bot API for completion notifications</package>
+        <package name="alembic" version=">=1.13.3">Database migration tool for IndexingProgress table</package>
+        <package name="sqlmodel" version=">=0.0.24">ORM for IndexingProgress model</package>
+        <package name="tenacity" version=">=8.2.3">Retry logic with exponential backoff</package>
+        <package name="beautifulsoup4" version=">=4.12.0">HTML parsing for email preprocessing</package>
+        <package name="structlog" version=">=25.2.0">Structured logging</package>
+        <package name="pytest" version=">=8.3.5">Testing framework</package>
+        <package name="pytest-asyncio" version=">=0.25.2">Async test support</package>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Follow Epic 2 retrospective task ordering: interleave implementation + unit tests (Task 1), integration tests during development (Task 2), documentation + security (Task 3), final validation (Task 4)</constraint>
+    <constraint>Batch processing limited to 50 emails per batch with 60-second intervals (Gemini API rate limit: 50 requests/minute)</constraint>
+    <constraint>Email content must be preprocessed before embedding: strip_html() → extract_email_text() → truncate_to_tokens(2048)</constraint>
+    <constraint>Metadata schema must match ChromaDB collection: message_id, thread_id, sender, date, subject, language, snippet (200 chars)</constraint>
+    <constraint>IndexingProgress table requires unique constraint on user_id (one indexing job per user at a time)</constraint>
+    <constraint>Celery task must configure timeout=3600s (1 hour) and max_retries=3 with retry_backoff=True</constraint>
+    <constraint>90-day lookback strategy: calculate cutoff as datetime.now() - timedelta(days=90) and filter Gmail query with after:{timestamp}</constraint>
+    <constraint>Checkpoint mechanism requires storing last_processed_message_id in IndexingProgress table after each batch</constraint>
+    <constraint>Telegram notification format: "✅ Email indexing complete! {processed_count} emails indexed from the last 90 days. Completed in {duration_minutes} minutes."</constraint>
+    <constraint>All database operations must filter by user_id to prevent cross-user data access (security requirement)</constraint>
+    <constraint>Error handling must use exponential backoff for retries: max 3 attempts with 2s, 4s, 8s delays</constraint>
+    <constraint>Test count specification: exactly 8 unit tests for EmailIndexingService, 3 for Celery task, 5 integration tests (prevent stub/placeholder tests)</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>VectorDBClient.insert_embeddings_batch</name>
+      <kind>method</kind>
+      <signature>insert_embeddings_batch(collection_name: str, embeddings: List[List[float]], metadatas: List[Dict[str, Any]]) -> bool</signature>
+      <path>backend/app/core/vector_db.py</path>
+    </interface>
+    <interface>
+      <name>EmbeddingService.embed_batch</name>
+      <kind>method</kind>
+      <signature>embed_batch(texts: List[str], batch_size: int = 50) -> List[List[float]]</signature>
+      <path>backend/app/core/embedding_service.py</path>
+    </interface>
+    <interface>
+      <name>GmailClient.list_messages</name>
+      <kind>method</kind>
+      <signature>list_messages(query: str, max_results: int = 100, page_token: Optional[str] = None) -> Dict</signature>
+      <path>backend/app/core/gmail_client.py</path>
+    </interface>
+    <interface>
+      <name>TelegramBotClient.send_message</name>
+      <kind>method</kind>
+      <signature>send_message(chat_id: int, text: str, parse_mode: str = "Markdown") -> bool</signature>
+      <path>backend/app/core/telegram_bot.py</path>
+    </interface>
+    <interface>
+      <name>celery_app.task</name>
+      <kind>decorator</kind>
+      <signature>@celery_app.task(name="task_name", max_retries=3, default_retry_delay=60)</signature>
+      <path>backend/app/celery.py</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Project uses pytest with structured test organization. Unit tests mock external dependencies (Gmail API, Gemini API, ChromaDB, Telegram) and focus on business logic verification. Integration tests use real database connections (PostgreSQL test DB, ChromaDB test collection) and validate end-to-end workflows. Test files follow naming convention: test_&lt;module&gt;.py for unit tests in backend/tests/, test_&lt;feature&gt;_integration.py for integration tests in backend/tests/integration/. Each test function has descriptive docstrings mapping to specific acceptance criteria (AC #N). Epic 2 retrospective established interleaved implementation+testing pattern: write tests DURING development, not after. Test coverage target: 80%+ for new code. Use pytest markers: @pytest.mark.integration for integration tests, @pytest.mark.slow for performance tests. Mock strategy: unittest.mock for Python objects, monkeypatch for environment variables. LangGraph workflow testing patterns documented in docs/testing-patterns-langgraph.md: use MemorySaver for test isolation, dependency injection for mocked services, explicit state verification at each node.</standards>
+    <locations>
+      <location>backend/tests/test_email_indexing.py - EmailIndexingService unit tests (8 functions)</location>
+      <location>backend/tests/test_indexing_tasks.py - Celery task unit tests (3 functions)</location>
+      <location>backend/tests/integration/test_indexing_integration.py - End-to-end indexing integration tests (5 functions)</location>
+    </locations>
+    <ideas>
+      <test-idea ac="1,8">test_start_indexing_creates_progress_record() - Verify EmailIndexingService.start_indexing() creates IndexingProgress record with status="in_progress", total_emails count, user_id, started_at timestamp. Mock Gmail API list_messages response.</test-idea>
+      <test-idea ac="2,3">test_retrieve_gmail_emails_90_day_filter() - Verify retrieve_gmail_emails() queries Gmail with after:{90_days_ago} filter, handles pagination (nextPageToken), retrieves batches of 100 messages. Assert query string format and pagination loop.</test-idea>
+      <test-idea ac="4,7">test_process_batch_embeds_and_stores_50_emails() - Verify process_batch() calls EmbeddingService.embed_batch() with 50 email bodies (preprocessed), then VectorDBClient.insert_embeddings_batch() with embeddings and metadata. Mock both services, verify call arguments.</test-idea>
+      <test-idea ac="5,6">test_extract_metadata_includes_all_fields() - Verify _extract_metadata() extracts message_id, thread_id, sender, date (ISO format), subject, language (langdetect or fallback "en"), snippet (first 200 chars). Assert metadata dict structure.</test-idea>
+      <test-idea ac="9">test_resume_indexing_from_checkpoint() - Verify resume_indexing() detects interrupted job (status="in_progress", last_processed_message_id set), skips already processed emails, continues from checkpoint. Mock IndexingProgress query and Gmail pagination.</test-idea>
+      <test-idea ac="12">test_handle_error_updates_progress_status() - Verify handle_error() logs error with context (user_id, batch_number, error_type), updates IndexingProgress.status="failed" and error_message, preserves partial progress. Test Gmail 429, embedding API error, ChromaDB connection failure.</test-idea>
+      <test-idea ac="10">test_mark_complete_updates_status() - Verify mark_complete() updates IndexingProgress.status="completed", sets completed_at timestamp, verifies processed_count matches total_emails. Assert database update.</test-idea>
+      <test-idea ac="11">test_incremental_indexing_new_email() - Verify index_new_email() checks initial indexing complete (status="completed"), embeds single email immediately (no batch delay), stores in ChromaDB. Mock VectorDBClient and EmbeddingService.</test-idea>
+      <test-idea ac="1">test_index_user_emails_task_calls_service() - Verify Celery task index_user_emails() instantiates EmailIndexingService, calls start_indexing(days_back=90), logs task completion. Mock service methods.</test-idea>
+      <test-idea ac="12">test_task_handles_service_exceptions() - Verify task catches EmailIndexingService exceptions, logs errors, retries with exponential backoff (max 3 attempts). Mock service raising Gmail API error.</test-idea>
+      <test-idea ac="1">test_task_respects_timeout_configuration() - Verify task configured with timeout=3600s, max_retries=3, retry_backoff=True. Assert celery_app.task decorator parameters.</test-idea>
+      <test-idea ac="1,2,3,4,5,6,7,8,10">test_complete_indexing_workflow_90_days() - Integration test: Start indexing for test user → retrieve 90 days Gmail emails (mock 100 emails) → preprocess and embed in batches of 50 → store in ChromaDB test collection → update progress after each batch → mark complete → send Telegram notification. Verify embeddings retrievable from ChromaDB, progress tracking accurate.</test-idea>
+      <test-idea ac="9">test_indexing_resumption_after_interruption() - Integration test: Start indexing → process 50% of emails → simulate interruption (stop service) → resume indexing → verify continues from checkpoint (last_processed_message_id) → complete successfully. Assert no duplicate embeddings in ChromaDB.</test-idea>
+      <test-idea ac="7">test_batch_processing_rate_limiting() - Integration test: Index 150 emails (3 batches of 50) → measure time between batches using time.perf_counter() → verify ~60s delays between batches → total time ~2-3 minutes. Assert rate limiting prevents API overload.</test-idea>
+      <test-idea ac="12">test_error_handling_and_retry_logic() - Integration test: Simulate Gmail API failure (mock 429 rate limit response) → verify retry with exponential backoff (2s, 4s, 8s) → verify eventual success or failure status update → assert partial progress preserved.</test-idea>
+      <test-idea ac="11">test_incremental_indexing_new_email() - Integration test: Complete initial indexing for test user → simulate new email arrival (mock Gmail API response) → verify immediate embedding and storage in ChromaDB → assert no batch delay for single email.</test-idea>
+    </ideas>
+  </tests>
+</story-context>

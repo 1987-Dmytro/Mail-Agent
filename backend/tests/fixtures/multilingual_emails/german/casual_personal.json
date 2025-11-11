@@ -1,0 +1,53 @@
+{
+  "test_name": "german_casual_personal",
+  "description": "German personal email with casual tone",
+  "original_email": {
+    "sender": "friend@example.de",
+    "sender_name": "Anna",
+    "subject": "Hey! Wie geht's?",
+    "body": "Hey!\n\nLange nichts gehört. Wie geht's dir? Hast du Lust, nächste Woche mal was zu unternehmen?\n\nBis bald!\nAnna",
+    "thread_id": "thread-de-personal-001",
+    "received_at": "2025-11-09T19:00:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Treffen",
+      "body": "Ja klar, lass uns nächste Woche treffen. Ich hab viel zu erzählen!",
+      "timestamp": "2025-10-28T15:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "friend@example.de",
+      "subject": "Treffen",
+      "body": "Hey! Wollen wir uns mal wieder treffen?",
+      "timestamp": "2025-10-28T13:30:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "de",
+  "expected_tone": "casual",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["treffen", "unternehmen", "nächste Woche"],
+    "thread_history_references": ["treffen", "erzählen"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "de",
+      "greeting_examples": ["Hey", "Hi", "Hallo"],
+      "closing_examples": ["Bis bald", "Tschüss", "Bis dann"]
+    },
+    "tone_markers": {
+      "tone": "casual",
+      "formality_level": "low",
+      "expected_phrases": ["klar", "gerne", "cool", "super"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["Treffen nächste Woche"]
+    }
+  },
+  "quality_threshold": 80
+}

@@ -1,0 +1,220 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>8</storyId>
+    <title>Response Draft Telegram Messages</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-8-response-draft-telegram-messages.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to receive Telegram messages showing AI-generated response drafts with original email context</iWant>
+    <soThat>I can review and approve responses before sending</soThat>
+    <tasks>
+      <task n="1" title="Core Implementation + Unit Tests">
+        <subtask n="1.1">Create response draft Telegram service module</subtask>
+        <subtask n="1.2">Implement message template formatter (AC #1, #2, #3, #4, #6, #7, #9)</subtask>
+        <subtask n="1.3">Implement inline keyboard builder (AC #5)</subtask>
+        <subtask n="1.4">Implement Telegram message sending (AC #1-#9)</subtask>
+        <subtask n="1.5">Implement workflow mapping persistence</subtask>
+        <subtask n="1.6">Implement end-to-end orchestration method</subtask>
+        <subtask n="1.7">Write unit tests for Telegram response draft service (8 test functions)</subtask>
+      </task>
+      <task n="2" title="Integration Tests">
+        <subtask n="2.1">Set up integration test infrastructure</subtask>
+        <subtask n="2.2">Implement integration test scenarios (6 test functions)</subtask>
+        <subtask n="2.3">Verify all integration tests passing</subtask>
+      </task>
+      <task n="3" title="Documentation + Security Review">
+        <subtask n="3.1">Update documentation (README.md, architecture.md)</subtask>
+        <subtask n="3.2">Security review (no hardcoded secrets, input validation, parameterized queries)</subtask>
+      </task>
+      <task n="4" title="Final Validation">
+        <subtask n="4.1">Run complete test suite (8 unit + 6 integration tests, 80%+ coverage)</subtask>
+        <subtask n="4.2">Verify DoD checklist</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Message template created for response draft proposals</criterion>
+    <criterion id="AC2">Message includes: original sender, subject, email preview (first 100 chars)</criterion>
+    <criterion id="AC3">Message includes AI-generated response draft (full text)</criterion>
+    <criterion id="AC4">Message formatted with clear visual separation (original vs. draft)</criterion>
+    <criterion id="AC5">Inline buttons added: [Send] [Edit] [Reject]</criterion>
+    <criterion id="AC6">Language of response draft indicated (e.g., "Draft in German:")</criterion>
+    <criterion id="AC7">Context summary shown if relevant ("Based on 3 previous emails in this thread")</criterion>
+    <criterion id="AC8">Message respects Telegram length limits (split long drafts if needed)</criterion>
+    <criterion id="AC9">Priority response drafts flagged with ⚠️ icon</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification - RAG System &amp; Response Generation</title>
+        <section>Response Draft Telegram Delivery</section>
+        <snippet>Describes message template structure with sections: Header with priority flag, Original Email preview, Visual separator, Draft section with language/tone, Context summary. Telegram length limit handling: 4096 char max, split long drafts at paragraph boundaries. Inline keyboard: 3-button layout ([Send], [Edit], [Reject]) with callback_data format.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification - RAG System &amp; Response Generation</title>
+        <section>Workflow and State Machine</section>
+        <snippet>Extended EmailWorkflow with new nodes: check_needs_response, retrieve_context, detect_language, detect_tone, generate_response, send_response_draft_telegram. State schema extended with detected_language, detected_tone, rag_context, response_draft fields. WorkflowMapping persistence enables callback reconnection.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Components Created</section>
+        <snippet>app/services/telegram_response.py - ResponseDraftTelegramService sends response drafts to Telegram with inline keyboards. Integrates with ResponseGenerationService (Story 3.7), TelegramBot (Epic 2), and WorkflowMapping (Story 2.6).</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Functional Requirements - RAG-Powered Response Generation</section>
+        <snippet>FR021: System shall present AI-generated response drafts to users for approval via Telegram. FR022: System shall allow users to edit AI-generated drafts directly within Telegram before approval. NFR001: Email processing latency shall not exceed 2 minutes from receipt to Telegram notification.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 3 Story Sequence</section>
+        <snippet>Story 3.8: Response Draft Telegram Messages - Prerequisite: 3.7 (AI Response Generation Service), Epic 2 Telegram bot. Sends response drafts to Telegram with inline keyboards for approval actions.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>Project Structure</section>
+        <snippet>Backend structure: app/services/ contains business services including response_generation.py (Story 3.7). app/core/ contains telegram_bot.py (Epic 2). app/models/ contains workflow_mapping.py (Story 2.6) for Telegram callback reconnection.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/3-7-ai-response-generation-service.md</path>
+        <title>Story 3.7: AI Response Generation Service</title>
+        <section>Completion Summary</section>
+        <snippet>ResponseGenerationService implemented at backend/app/services/response_generation.py. EmailProcessingQueue extended with response_draft (TEXT), detected_language (VARCHAR), tone (VARCHAR) fields. Status updated to "awaiting_approval" with action_type="send_response". 10 unit tests + 5 integration tests passing.</snippet>
+      </doc>
+      <doc>
+        <path>docs/testing-patterns-langgraph.md</path>
+        <title>LangGraph Testing Patterns</title>
+        <section>Testing Standards and Best Practices</section>
+        <snippet>Use MemorySaver for test isolation (never PostgresSaver). Inject dependencies via functools.partial. Keep mock signatures matching production exactly. Commit database changes within workflow nodes. Test pause/resume for workflows that pause. Use WorkflowMapping pattern for cross-channel resumption. Unique thread_id per test (uuid4).</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/services/response_generation.py</path>
+        <kind>service</kind>
+        <symbol>ResponseGenerationService</symbol>
+        <lines>37-150</lines>
+        <reason>Story 3.7 service that populates EmailProcessingQueue.response_draft, detected_language, tone fields. Story 3.8 reads these fields to send Telegram message.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/telegram_bot.py</path>
+        <kind>core</kind>
+        <symbol>TelegramBotClient</symbol>
+        <lines>20-100</lines>
+        <reason>Epic 2 Telegram bot client. Provides send_message() method and InlineKeyboardButton/InlineKeyboardMarkup classes for Story 3.8 message delivery.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/workflow_mapping.py</path>
+        <kind>model</kind>
+        <symbol>WorkflowMapping</symbol>
+        <lines>16-89</lines>
+        <reason>Story 2.6 model for LangGraph workflow tracking. Story 3.8 must create WorkflowMapping record after sending Telegram message to enable callback reconnection.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>17-80</lines>
+        <reason>Email model extended by Story 3.7 with response_draft (TEXT), detected_language (VARCHAR(5)), tone fields. Story 3.8 reads these to populate Telegram message.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/telegram_message_formatter.py</path>
+        <kind>service</kind>
+        <symbol>format_sorting_proposal_message, create_inline_keyboard</symbol>
+        <lines>10-80</lines>
+        <reason>Epic 2 Story 2.6 message formatting patterns. Story 3.8 should follow similar pattern: format_response_draft_message() for message text, build_response_draft_keyboard() for buttons.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="python-telegram-bot" version="latest">Telegram Bot API library (already installed from Epic 2). Provides InlineKeyboardButton, InlineKeyboardMarkup classes.</package>
+        <package name="sqlmodel" version="&gt;=0.0.24">ORM for database operations (already installed). Used for EmailProcessingQueue and WorkflowMapping queries.</package>
+        <package name="structlog" version="latest">Structured logging library (already installed from Epic 2). Used for logging message formatting and sending events.</package>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Telegram message length limit: 4096 characters maximum per message. Long response drafts (&gt;4096 chars) must be split at paragraph boundaries with continuation indicators.</constraint>
+    <constraint>Must create WorkflowMapping record after sending Telegram message. Fields: email_id, user_id, thread_id (from LangGraph), telegram_message_id, workflow_state="awaiting_response_approval".</constraint>
+    <constraint>Must follow Epic 2 Telegram messaging patterns from telegram_message_formatter.py: format_X_message() for text, create_inline_keyboard() for buttons.</constraint>
+    <constraint>Must use structured logging with email_id, telegram_message_id, language, tone fields for traceability.</constraint>
+    <constraint>No new database tables or schema changes required. Reuse EmailProcessingQueue (Story 3.7) and WorkflowMapping (Story 2.6) tables.</constraint>
+    <constraint>Message format must include: priority flag (⚠️ if is_priority), original email preview (sender, subject, first 100 chars), visual separators, draft text with language/tone indication, context summary if available.</constraint>
+    <constraint>Inline keyboard must have 3 buttons: Row 1 [Send], Row 2 [Edit] [Reject]. Callback data format: {action}_response_{email_id} (e.g., "send_response_123").</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>TelegramBotClient.send_message</name>
+      <kind>method</kind>
+      <signature>async def send_message(telegram_id: str, text: str, user_id: int = None) -&gt; str</signature>
+      <path>backend/app/core/telegram_bot.py:88-100</path>
+      <usage>Send text message to Telegram user. Returns message_id for WorkflowMapping persistence.</usage>
+    </interface>
+    <interface>
+      <name>TelegramBotClient.send_message_with_keyboard</name>
+      <kind>method</kind>
+      <signature>async def send_message_with_keyboard(telegram_id: str, text: str, keyboard: InlineKeyboardMarkup, user_id: int = None) -&gt; str</signature>
+      <path>backend/app/core/telegram_bot.py</path>
+      <usage>Send message with inline keyboard buttons. Used for response draft approval interface.</usage>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue Fields</name>
+      <kind>database model</kind>
+      <signature>response_draft: Optional[str], detected_language: Optional[str], tone: Optional[str], is_priority: bool</signature>
+      <path>backend/app/models/email.py:75-78</path>
+      <usage>Story 3.7 added these fields. Story 3.8 reads response_draft (full text), detected_language (ru/uk/en/de), tone (formal/professional/casual), is_priority (for ⚠️ flag).</usage>
+    </interface>
+    <interface>
+      <name>WorkflowMapping Constructor</name>
+      <kind>database model</kind>
+      <signature>WorkflowMapping(email_id: int, user_id: int, thread_id: str, telegram_message_id: str, workflow_state: str)</signature>
+      <path>backend/app/models/workflow_mapping.py:16-89</path>
+      <usage>Create mapping after sending Telegram message. Enables callback reconnection: button click -&gt; email_id -&gt; WorkflowMapping -&gt; thread_id -&gt; resume LangGraph workflow.</usage>
+    </interface>
+    <interface>
+      <name>InlineKeyboardButton / InlineKeyboardMarkup</name>
+      <kind>telegram library</kind>
+      <signature>InlineKeyboardButton(text: str, callback_data: str), InlineKeyboardMarkup(inline_keyboard: list[list[InlineKeyboardButton]])</signature>
+      <path>telegram library (python-telegram-bot)</path>
+      <usage>Create inline keyboard buttons. callback_data format: "{action}_response_{email_id}" for workflow reconnection.</usage>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Story 3.8 testing follows Epic 2/3 patterns from testing-patterns-langgraph.md: Use MemorySaver for test isolation (never PostgresSaver in tests). Inject dependencies via functools.partial or constructor parameters. Keep mock signatures matching production exactly (TelegramBotClient, EmailProcessingQueue). Commit database changes within service methods. Use unique thread_id per test (uuid4). Explicit test counts specified: 8 unit tests + 6 integration tests to prevent stubs/placeholders. Unit test coverage target: 80%+ for new code. Integration tests use real database with test fixtures, mock Telegram bot to avoid external API calls.</standards>
+    <locations>
+      <location>backend/tests/test_telegram_response_draft.py - Unit tests (8 functions) for TelegramResponseDraftService methods</location>
+      <location>backend/tests/integration/test_response_draft_telegram_integration.py - Integration tests (6 functions) covering end-to-end notification workflow</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1,AC2,AC3,AC4,AC6,AC7">test_format_response_draft_message_standard - Verify message formatting with all sections: priority flag, original email preview (sender, subject, first 100 chars), visual separators, draft text with language/tone indication, context summary.</idea>
+      <idea ac="AC9">test_format_response_draft_message_priority - Verify priority email flagging with ⚠️ icon in message header.</idea>
+      <idea ac="AC8">test_format_response_draft_message_long_draft - Verify Telegram length limit handling: messages &gt;4096 chars split at paragraph boundaries with continuation indicators.</idea>
+      <idea ac="AC7">test_format_response_draft_message_no_context - Verify message formatting when RAG context summary not available (skip context line).</idea>
+      <idea ac="AC5">test_build_response_draft_keyboard - Verify inline keyboard structure: Row 1 [Send], Row 2 [Edit] [Reject] with correct callback_data format.</idea>
+      <idea ac="AC1-9">test_send_response_draft_to_telegram - Verify complete Telegram message sending: format message, build keyboard, call TelegramBotClient.send_message_with_keyboard, return message_id.</idea>
+      <idea ac="workflow">test_save_telegram_message_mapping - Verify WorkflowMapping persistence after sending message: correct email_id, user_id, thread_id, telegram_message_id, workflow_state fields.</idea>
+      <idea ac="orchestration">test_send_draft_notification_orchestration - Verify end-to-end orchestration: validate email has response_draft, format and send message, save mapping, update EmailProcessingQueue status.</idea>
+      <idea ac="integration">test_end_to_end_response_draft_notification_german - Integration test: Complete workflow for German formal response draft with priority flag, context summary, proper formatting, WorkflowMapping persistence.</idea>
+      <idea ac="integration">test_end_to_end_response_draft_notification_english - Integration test: Complete workflow for English professional response draft without priority.</idea>
+      <idea ac="AC8">test_response_draft_long_message_splitting - Integration test: Verify very long response draft (&gt;4096 chars) split correctly with real Telegram constraints.</idea>
+      <idea ac="AC7">test_response_draft_notification_with_rag_context - Integration test: Verify context summary display with thread history and semantic search results ("Based on 3 previous emails in this thread").</idea>
+      <idea ac="AC9">test_response_draft_notification_priority_email - Integration test: Verify priority email flagging with ⚠️ icon and immediate notification (not batched).</idea>
+      <idea ac="error-handling">test_telegram_user_not_linked_handling - Integration test: Verify graceful handling when user hasn't linked Telegram account (skip notification, log warning).</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,42 @@
+{
+  "test_name": "edge_case_no_thread_history",
+  "description": "Edge case: First email in conversation - no thread history available",
+  "original_email": {
+    "sender": "newclient@example.com",
+    "sender_name": "Emma Wilson",
+    "subject": "Inquiry about Your Services",
+    "body": "Hello,\n\nI came across your website and I'm interested in learning more about your software development services. Could you provide me with some information about your offerings and pricing?\n\nThank you,\nEmma Wilson",
+    "thread_id": "thread-new-001",
+    "received_at": "2025-11-09T12:00:00Z"
+  },
+  "thread_history": [],
+  "expected_language": "en",
+  "expected_tone": "professional",
+  "expected_context_criteria": {
+    "thread_continuity": false,
+    "relevant_keywords": ["services", "software development", "information", "pricing"],
+    "thread_history_references": [],
+    "note": "RAG should rely entirely on semantic search, no thread history available"
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "en",
+      "greeting_examples": ["Hello Emma", "Dear Emma", "Hi"],
+      "closing_examples": ["Best regards", "Kind regards", "Thank you"]
+    },
+    "tone_markers": {
+      "tone": "professional",
+      "formality_level": "medium-high",
+      "expected_phrases": ["thank you for", "I'd be happy to", "please find"]
+    },
+    "context_awareness": {
+      "should_reference_thread": false,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["services overview", "pricing information"],
+      "note": "Response should be contextually appropriate despite no thread history"
+    }
+  },
+  "quality_threshold": 80,
+  "edge_case_type": "no_thread_history",
+  "notes": "Tests RAG behavior when only semantic search is available (no thread history)"
+}

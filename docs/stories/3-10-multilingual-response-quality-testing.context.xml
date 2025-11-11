@@ -1,0 +1,347 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>10</storyId>
+    <title>Multilingual Response Quality Testing</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-10-multilingual-response-quality-testing.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to validate response quality across all 4 supported languages</iWant>
+    <soThat>I can ensure the system generates appropriate responses in each language</soThat>
+    <tasks>
+      <task id="1" name="Multilingual Test Data Preparation" acs="1,2,4,5">
+        <subtask id="1.1">Create test data fixtures directory and structure</subtask>
+        <subtask id="1.2">Create Russian email test samples (3 files)</subtask>
+        <subtask id="1.3">Create Ukrainian email test samples (3 files)</subtask>
+        <subtask id="1.4">Create English email test samples (3 files)</subtask>
+        <subtask id="1.5">Create German email test samples (4 files including government emails)</subtask>
+        <subtask id="1.6">Create edge case test samples (5 scenarios: mixed language, no thread, unclear tone, short email, long thread)</subtask>
+      </task>
+      <task id="2" name="Response Quality Evaluation Framework" acs="3">
+        <subtask id="2.1">Create response quality evaluation module with language accuracy, tone appropriateness, and context awareness functions</subtask>
+        <subtask id="2.2">Create aggregated quality scoring (ResponseQualityReport class with 80% threshold)</subtask>
+        <subtask id="2.3">Write 8 unit tests for evaluation framework</subtask>
+      </task>
+      <task id="3" name="Integration Tests for Multilingual Response Quality" acs="1,2,3,4,5,6,7">
+        <subtask id="3.1">Set up integration test infrastructure with fixtures and mocks</subtask>
+        <subtask id="3.2">Implement 4 multilingual response generation integration tests (Russian, Ukrainian, English, German government)</subtask>
+        <subtask id="3.3">Implement 5 edge case integration tests (mixed language, no thread, unclear tone, short email, long thread)</subtask>
+        <subtask id="3.4">Implement 2 performance benchmark tests (RAG retrieval &lt;3s, end-to-end &lt;120s)</subtask>
+        <subtask id="3.5">Implement complete workflow integration test (email → RAG → response → Telegram → approval → send → indexing)</subtask>
+        <subtask id="3.6">Verify all 12 integration tests passing</subtask>
+      </task>
+      <task id="4" name="Documentation and Known Limitations" acs="8,9">
+        <subtask id="4.1">Update architecture.md with Epic 3 RAG flow diagram</subtask>
+        <subtask id="4.2">Document context retrieval logic details</subtask>
+        <subtask id="4.3">Document known limitations and prompt refinement needs</subtask>
+        <subtask id="4.4">Update backend README with Epic 3 testing patterns</subtask>
+      </task>
+      <task id="5" name="Security Review and Final Validation" acs="all">
+        <subtask id="5.1">Security review (no PII in test data, no hardcoded secrets)</subtask>
+        <subtask id="5.2">Run complete test suite (8 unit tests + 12 integration tests)</subtask>
+        <subtask id="5.3">Verify DoD checklist and mark story review-ready</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Test suite created with sample emails in Russian, Ukrainian, English, German</criterion>
+    <criterion id="2">Each test includes: original email, expected context retrieved, generated response</criterion>
+    <criterion id="3">Response quality evaluated for: correct language, appropriate tone, context awareness</criterion>
+    <criterion id="4">Formal German tested specifically (government email responses)</criterion>
+    <criterion id="5">Edge cases tested (mixed languages, unclear context, no previous thread)</criterion>
+    <criterion id="6">Performance benchmarks recorded (context retrieval + generation time)</criterion>
+    <criterion id="7">Integration test covering full flow: email receipt → RAG retrieval → response generation → Telegram delivery → user approval → send</criterion>
+    <criterion id="8">Documentation updated with Epic 3 architecture (RAG flow diagram, context retrieval logic)</criterion>
+    <criterion id="9">Known limitations documented (prompt refinement needs, language quality variations)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: RAG System & Response Generation</title>
+        <section>Testing Strategy</section>
+        <snippet>Defines response quality evaluation framework (language accuracy 40%, tone appropriateness 30%, context awareness 30% with 80% threshold), multilingual test data requirements (4 languages × 3 tones, government emails, edge cases), and success criteria (80%+ coverage, 100% integration pass, 90%+ user satisfaction).</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: RAG System & Response Generation</title>
+        <section>Response Generation Algorithm</section>
+        <snippet>Smart Hybrid RAG strategy combining last 5 thread emails with top 3 semantic search results, using adaptive logic (short threads get 7 semantic, long threads skip semantic). Token budget ~6.5K context leaves 25K for generation in Gemini 32K window.</snippet>
+      </doc>
+      <doc>
+        <path>docs/adrs/epic-3-architecture-decisions.md</path>
+        <title>Epic 3 Architecture Decision Records</title>
+        <section>ADR-011: Smart Hybrid RAG Strategy</section>
+        <snippet>Decision rationale for combining thread history (conversation continuity) with semantic search (broader context) while respecting token limits. Adaptive k logic prevents token overflow for long threads.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>Functional Requirements FR017-FR020</section>
+        <snippet>FR017: Index email history in vector DB. FR018: Detect response language (ru/uk/en/de). FR019: Generate contextually appropriate responses using RAG. FR020: Maintain conversation tone and formality.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>Non-Functional Requirements NFR001</section>
+        <snippet>Performance requirement: RAG context retrieval must complete within 3 seconds for response generation. Email processing latency must not exceed 2 minutes from receipt to Telegram notification.</snippet>
+      </doc>
+      <doc>
+        <path>docs/testing-patterns-langgraph.md</path>
+        <title>LangGraph Testing Patterns</title>
+        <section>Overview &amp; Common Pitfalls</section>
+        <snippet>Battle-tested patterns from Epic 2 Story 2.12 after 6 sessions fixing 16 critical issues. Key learnings: use MemorySaver for tests, unique thread IDs, dependency injection with functools.partial, explicit database commits in workflow nodes, and test pause/resume for workflows that pause.</snippet>
+      </doc>
+      <doc>
+        <path>docs/testing-patterns-langgraph.md</path>
+        <title>LangGraph Testing Patterns</title>
+        <section>Multi-API Mocking Strategy</section>
+        <snippet>Mock classes MUST match production signatures exactly (method names, parameter order, return types). Document source file:line references in mock docstrings. Use call tracking and failure injection for comprehensive testing.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>Executive Summary &amp; Technology Stack</section>
+        <snippet>LangGraph-orchestrated AI agent system with FastAPI backend, ChromaDB vector database for RAG, Google Gemini 2.5 Flash for LLM operations, and PostgreSQL for state management. Zero-cost infrastructure operation (free-tier services) with production-grade quality through structured logging and persistent checkpointing.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Mail Agent Epics Breakdown</title>
+        <section>Epic 3 Story 3.10</section>
+        <snippet>Multilingual Response Quality Testing with 9 acceptance criteria covering test suite creation (4 languages), response quality evaluation (language/tone/context), government email testing (formal German), edge cases (mixed languages, no thread, unclear tone), performance benchmarks, end-to-end integration, and documentation with known limitations.</snippet>
+      </doc>
+      <doc>
+        <path>docs/retrospectives/epic-2-retro-2025-11-09.md</path>
+        <title>Epic 2 Retrospective</title>
+        <section>Testing Patterns Evolution</section>
+        <snippet>Task ordering pattern learned: Task 1 (core implementation + unit tests interleaved), Task 2 (integration tests during development), Task 3 (documentation + security), Task 4 (final validation). This prevents stub tests and ensures quality from the start.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/services/response_generation.py</path>
+        <kind>service</kind>
+        <symbol>ResponseGenerationService</symbol>
+        <lines>37-400</lines>
+        <reason>Core service for AI response generation using RAG context. Story 3.10 tests multilingual response quality by exercising this service with different languages and tones. Key methods: needs_response_classification(), generate_response(), validate_response_quality().</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/context_retrieval.py</path>
+        <kind>service</kind>
+        <symbol>ContextRetrievalService</symbol>
+        <lines>47-350</lines>
+        <reason>Smart Hybrid RAG implementation combining thread history (5 emails) and semantic search (3-7 emails). Story 3.10 tests RAG performance &lt;3s (AC #6) and context quality. Key method: retrieve_context(email_id) returns RAGContext with thread_history and semantic_results.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/language_detection.py</path>
+        <kind>service</kind>
+        <symbol>LanguageDetectionService</symbol>
+        <lines>50-180</lines>
+        <reason>Language detection using langdetect library for ru/uk/en/de. Story 3.10 validates detection accuracy across all 4 languages and edge cases (AC #1, #5). Key method: detect(email_body) returns (language_code, confidence).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/tone_detection.py</path>
+        <kind>service</kind>
+        <symbol>ToneDetectionService</symbol>
+        <lines>38-200</lines>
+        <reason>Hybrid tone detection (rule-based for government/business + LLM for ambiguous). Story 3.10 validates tone appropriateness especially for formal German government emails (AC #4). Key method: detect_tone(email) returns "formal"/"professional"/"casual".</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/telegram_response_draft.py</path>
+        <kind>service</kind>
+        <symbol>TelegramResponseDraftService</symbol>
+        <lines>32-250</lines>
+        <reason>Formats and sends response drafts to Telegram with approval buttons. Story 3.10 end-to-end integration test validates Telegram draft delivery (AC #7). Key method: send_response_draft(email_id) sends formatted message with [Send][Edit][Reject] buttons.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/response_sending_service.py</path>
+        <kind>service</kind>
+        <symbol>ResponseSendingService</symbol>
+        <lines>39-280</lines>
+        <reason>Handles sending responses via Gmail and indexing to ChromaDB. Story 3.10 complete workflow test validates email send and vector DB indexing (AC #7). Key methods: handle_send_response_callback(), index_sent_response().</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/response_editing_service.py</path>
+        <kind>service</kind>
+        <symbol>ResponseEditingService</symbol>
+        <lines>1-200</lines>
+        <reason>Handles response editing workflow via Telegram. Story 3.10 optionally tests edit workflow if needed in complete integration test (AC #7).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/gmail_client.py</path>
+        <kind>core</kind>
+        <symbol>GmailClient</symbol>
+        <lines>1-500</lines>
+        <reason>Gmail API wrapper for sending emails with threading. Story 3.10 integration test uses send_email(to, subject, body, thread_id) to validate email threading (AC #7).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/embedding_service.py</path>
+        <kind>core</kind>
+        <symbol>EmbeddingService</symbol>
+        <lines>1-250</lines>
+        <reason>Gemini text-embedding-004 wrapper generating 768-dim embeddings. Story 3.10 uses embed_text(text) for indexing test email history into ChromaDB.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/vector_db.py</path>
+        <kind>core</kind>
+        <symbol>VectorDBClient</symbol>
+        <lines>1-300</lines>
+        <reason>ChromaDB client for vector storage and semantic search. Story 3.10 validates vector search performance and result quality. Key method: query(collection, embedding, n_results, filter).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>1-150</lines>
+        <reason>Database model for email processing queue with fields: detected_language, tone, draft_response, status. Story 3.10 creates test emails and validates status transitions.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/context_models.py</path>
+        <kind>model</kind>
+        <symbol>RAGContext</symbol>
+        <lines>1-80</lines>
+        <reason>Pydantic model for RAG context with thread_history (List[EmailMessage]) and semantic_results (List[EmailMessage]). Story 3.10 validates context structure and content.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/workflow_mapping.py</path>
+        <kind>model</kind>
+        <symbol>WorkflowMapping</symbol>
+        <lines>1-100</lines>
+        <reason>Database model for workflow reconnection (email_id → thread_id mapping). Story 3.10 complete workflow test uses for callback resumption (AC #7).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/prompts/response_generation.py</path>
+        <kind>prompts</kind>
+        <symbol>format_response_prompt</symbol>
+        <lines>1-200</lines>
+        <reason>Response generation prompt template with greeting/closing examples for all 4 languages. Story 3.10 validates prompt produces appropriate responses for all language + tone combinations (AC #1, #4).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/conftest.py</path>
+        <kind>test</kind>
+        <symbol>db_session</symbol>
+        <lines>34-81</lines>
+        <reason>Pytest fixture providing isolated async database session with table creation/cleanup. Story 3.10 uses for integration tests. Pattern: create tables → yield session → drop tables with CASCADE.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="langdetect" reason="Language detection library for ru/uk/en/de (AC #1, #5). Already installed - no new dependency needed." />
+        <package name="google-generativeai" version="0.8.3" reason="Gemini API client for response generation and embeddings. Already installed." />
+        <package name="chromadb" version="0.4.22" reason="Vector database for RAG semantic search. Already installed." />
+        <package name="pytest" version="8.3.5" reason="Testing framework for unit and integration tests." />
+        <package name="pytest-asyncio" version="0.25.2" reason="Async test support for async service methods." />
+        <package name="tiktoken" version="0.5.0" reason="Token counting for context budget validation." />
+        <package name="structlog" version="25.2.0" reason="Structured logging for test debugging." />
+        <package name="sqlmodel" version="0.0.24" reason="Database ORM for test data creation." />
+        <package name="python-telegram-bot" version="21.0" reason="Telegram API client for draft delivery testing." />
+      </python>
+      <note>All dependencies already installed from Epic 1-3. No new packages required for Story 3.10 (test-only story).</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint category="testing-pattern">Follow Epic 2 retrospective task ordering: Task 1 (core implementation + unit tests interleaved), Task 2 (integration tests during development), Task 3 (documentation + security), Task 4 (final validation). Prevents stub tests and ensures quality from the start.</constraint>
+    <constraint category="testing-pattern">From testing-patterns-langgraph.md: Use MemorySaver for tests (never PostgresSaver), unique thread IDs per test (uuid4), dependency injection with functools.partial, explicit database commits in workflow nodes, test pause/resume for workflows that pause.</constraint>
+    <constraint category="testing-pattern">Mock classes MUST match production signatures exactly (method names, parameter order, return types). Document source file:line references in mock docstrings. Use call tracking and failure injection for comprehensive testing.</constraint>
+    <constraint category="testing-pattern">Specify exact test count (8 unit tests + 12 integration tests) to prevent stub/placeholder tests per Epic 2/3 learnings. Each test must have meaningful assertions and real implementation.</constraint>
+    <constraint category="test-data">Test data fixtures at backend/tests/fixtures/multilingual_emails/ with subdirectories: russian/, ukrainian/, english/, german/, edge_cases/. JSON format: {original_email, expected_context, expected_response_criteria}.</constraint>
+    <constraint category="test-data">All test email samples MUST be anonymized (no real PII). Government email samples use generic bureaucratic language without real case numbers.</constraint>
+    <constraint category="response-quality">Response quality evaluation framework with 3 dimensions: language accuracy (40% weight), tone appropriateness (30% weight), context awareness (30% weight). Overall score threshold: 80% for acceptable quality.</constraint>
+    <constraint category="response-quality">Formal German government emails (AC #4) require higher threshold (90%) and specific markers: "Sehr geehrte Damen und Herren," greeting and "Mit freundlichen Grüßen" closing.</constraint>
+    <constraint category="performance">RAG context retrieval MUST complete &lt;3 seconds (NFR001). End-to-end response generation MUST complete &lt;120 seconds (NFR001). Performance benchmarks recorded in test output.</constraint>
+    <constraint category="database">Tests use isolated async database sessions with table creation/cleanup per test. Transaction management: create → yield → rollback. Pattern from conftest.py:34-81.</constraint>
+    <constraint category="no-new-tables">Story 3.10 creates NO new database tables (test-only story). Reuses: EmailProcessingQueue, WorkflowMapping, ChromaDB email_embeddings collection.</constraint>
+    <constraint category="documentation">Architecture docs updated with Epic 3 RAG flow diagram (Mermaid or ASCII art). Context retrieval logic explained. Known limitations documented: prompt refinement needs, language quality variations, edge case handling.</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="ResponseGenerationService.generate_response" kind="async-method">
+      <signature>async def generate_response(self, email_id: int) -> str</signature>
+      <description>Generate AI response draft for email using RAG context, language detection, and tone detection. Returns response text or raises exception.</description>
+      <path>backend/app/services/response_generation.py:200-350</path>
+    </interface>
+    <interface name="ContextRetrievalService.retrieve_context" kind="async-method">
+      <signature>async def retrieve_context(self, email_id: int) -> Dict[str, Any]</signature>
+      <description>Retrieve Smart Hybrid RAG context (thread_history + semantic_results). Returns RAGContext dict with metadata including token counts and retrieval latency.</description>
+      <path>backend/app/services/context_retrieval.py:150-300</path>
+    </interface>
+    <interface name="LanguageDetectionService.detect" kind="method">
+      <signature>def detect(self, email_body: str) -> Tuple[str, float]</signature>
+      <description>Detect language from email body text. Returns (language_code, confidence) tuple. Supported: ru, uk, en, de.</description>
+      <path>backend/app/services/language_detection.py:78-120</path>
+    </interface>
+    <interface name="ToneDetectionService.detect_tone" kind="method">
+      <signature>def detect_tone(self, email: EmailProcessingQueue, thread_history: Optional[List] = None) -> str</signature>
+      <description>Detect response tone using hybrid approach (rules + LLM). Returns "formal", "professional", or "casual".</description>
+      <path>backend/app/services/tone_detection.py:60-150</path>
+    </interface>
+    <interface name="TelegramResponseDraftService.send_response_draft" kind="method">
+      <signature>def send_response_draft(self, email_id: int) -> bool</signature>
+      <description>Format and send response draft to Telegram with approval buttons [Send][Edit][Reject]. Creates WorkflowMapping for callback reconnection.</description>
+      <path>backend/app/services/telegram_response_draft.py:100-200</path>
+    </interface>
+    <interface name="ResponseSendingService.handle_send_response_callback" kind="async-method">
+      <signature>async def handle_send_response_callback(self, update, context, email_id: int, db) -> None</signature>
+      <description>Handle [Send] button callback: send email via Gmail with threading, update status to completed, send confirmation to Telegram.</description>
+      <path>backend/app/services/response_sending_service.py:100-180</path>
+    </interface>
+    <interface name="ResponseSendingService.index_sent_response" kind="async-method">
+      <signature>async def index_sent_response(self, email_id: int) -> None</signature>
+      <description>Generate embedding for sent response and index to ChromaDB with is_sent_response=True metadata.</description>
+      <path>backend/app/services/response_sending_service.py:200-250</path>
+    </interface>
+    <interface name="EmbeddingService.embed_text" kind="method">
+      <signature>def embed_text(self, text: str) -> List[float]</signature>
+      <description>Generate 768-dim embedding using Gemini text-embedding-004. Returns embedding vector.</description>
+      <path>backend/app/core/embedding_service.py:80-120</path>
+    </interface>
+    <interface name="VectorDBClient.query" kind="method">
+      <signature>def query(self, collection_name: str, query_embedding: List[float], n_results: int, where: Dict = None) -> List[Dict]</signature>
+      <description>Semantic search in ChromaDB collection. Returns top n_results similar documents with metadata and distances.</description>
+      <path>backend/app/core/vector_db.py:150-200</path>
+    </interface>
+    <interface name="GmailClient.send_email" kind="async-method">
+      <signature>async def send_email(self, to: str, subject: str, body: str, thread_id: str = None) -> Dict</signature>
+      <description>Send email via Gmail API with optional threading (In-Reply-To headers). Returns sent message metadata.</description>
+      <path>backend/app/core/gmail_client.py:300-400</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Testing framework: pytest 8.3.5 with pytest-asyncio 0.25.2 for async support. Test isolation: Each test gets fresh async database session (conftest.py:34-81) with table creation/cleanup and transaction rollback. No cross-test contamination. Unit tests: Target 80%+ coverage for new code (response quality evaluation framework). Integration tests: Real database (PostgreSQL), mocked external APIs (Gmail, Telegram, Gemini). Test execution: `env DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" uv run pytest backend/tests/test_*.py -v`. Test data: Anonymized multilingual email samples in fixtures/ directory (JSON format). LangGraph patterns: MemorySaver for tests (never PostgresSaver), unique thread IDs (uuid4), dependency injection with functools.partial, explicit database commits, test pause/resume. Mock alignment: Mock signatures MUST match production exactly (method names, parameter order, return types). Performance: Assert RAG retrieval &lt;3s, end-to-end &lt;120s (NFR001). Quality thresholds: 80% overall response quality (language 40%, tone 30%, context 30%), 90% for government emails. Test count: Exactly 8 unit tests + 12 integration tests (no stubs/placeholders per Epic 2/3 learnings).</standards>
+    <locations>
+      <location>backend/tests/test_response_quality_evaluation.py - Unit tests for evaluation framework (8 test functions)</location>
+      <location>backend/tests/integration/test_multilingual_response_quality.py - Multilingual integration tests (12 test functions: 4 languages + 5 edge cases + 2 performance + 1 complete workflow)</location>
+      <location>backend/tests/fixtures/multilingual_emails/ - Test data fixtures (russian/, ukrainian/, english/, german/, edge_cases/ subdirectories with JSON email samples)</location>
+      <location>backend/tests/evaluation/ - Response quality evaluation module (response_quality.py with evaluation functions)</location>
+    </locations>
+    <ideas>
+      <test ac="1,3" type="unit">test_evaluate_language_accuracy_russian() - Verify Russian language detection in response (langdetect returns "ru" with high confidence)</test>
+      <test ac="1,3" type="unit">test_evaluate_language_accuracy_german() - Verify German language detection accuracy</test>
+      <test ac="3,4" type="unit">test_evaluate_tone_appropriateness_formal_german() - Verify formal German markers ("Sehr geehrte", "Mit freundlichen Grüßen")</test>
+      <test ac="3" type="unit">test_evaluate_tone_appropriateness_casual_english() - Verify casual tone markers detection</test>
+      <test ac="3" type="unit">test_evaluate_context_awareness_thread_reference() - Verify response references thread history appropriately</test>
+      <test ac="3" type="unit">test_evaluate_context_awareness_no_context() - Verify handling when context is missing</test>
+      <test ac="3" type="unit">test_response_quality_report_aggregation() - Verify overall scoring (weighted average: language 40%, tone 30%, context 30%)</test>
+      <test ac="3" type="unit">test_response_quality_acceptable_threshold() - Verify 80% pass/fail threshold logic</test>
+      <test ac="1,2,3" type="integration">test_russian_business_inquiry_response() - End-to-end: Russian email → RAG retrieval → response generation → quality evaluation (language=ru, tone=professional, quality≥80%)</test>
+      <test ac="1,2,3" type="integration">test_ukrainian_client_request_response() - End-to-end: Ukrainian email workflow with quality validation</test>
+      <test ac="1,2,3" type="integration">test_english_business_proposal_response() - End-to-end: English email workflow (language=en, tone=formal)</test>
+      <test ac="1,3,4" type="integration">test_german_government_email_formal_response() - CRITICAL: Finanzamt email → verify formal German ("Sehr geehrte Damen und Herren", "Mit freundlichen Grüßen"), quality≥90%</test>
+      <test ac="5" type="integration">test_mixed_language_email_response() - Edge case: German + English mixed → verify system selects primary language, response in single language</test>
+      <test ac="5" type="integration">test_no_thread_history_response() - Edge case: First email in thread → RAG uses only semantic search, no thread history</test>
+      <test ac="5" type="integration">test_unclear_tone_detection() - Edge case: Ambiguous formality → verify LLM tone detection fallback works</test>
+      <test ac="5" type="integration">test_short_email_language_detection() - Edge case: &lt;50 chars → verify language detection fallback to thread history</test>
+      <test ac="5" type="integration">test_very_long_thread_response() - Edge case: 10+ emails in thread → verify Smart Hybrid RAG uses only thread history (no semantic search per ADR-011), token budget respected (~6.5K context)</test>
+      <test ac="6" type="integration">test_rag_context_retrieval_performance() - Measure RAG retrieval latency: context_retrieval_service.retrieve_context() &lt;3s (NFR001), log breakdown (vector search time, Gmail fetch time, context assembly time)</test>
+      <test ac="6" type="integration">test_response_generation_end_to_end_performance() - Measure full pipeline: email → language detection → tone detection → RAG retrieval → response generation &lt;120s total (NFR001), log performance breakdown by step</test>
+      <test ac="7" type="integration">test_complete_email_to_telegram_to_send_workflow() - COMPLETE WORKFLOW: Create EmailProcessingQueue (status=pending) → trigger response generation → RAG retrieval → language/tone detection → generate response → send Telegram draft (mock) → simulate user approval callback → send via Gmail (mock) → index to ChromaDB → verify status=completed, full workflow &lt;2 min</test>
+    </ideas>
+  </tests>
+</story-context>

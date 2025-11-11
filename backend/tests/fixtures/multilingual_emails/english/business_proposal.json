@@ -1,0 +1,53 @@
+{
+  "test_name": "english_business_proposal",
+  "description": "English business proposal with formal tone",
+  "original_email": {
+    "sender": "client@example.com",
+    "sender_name": "John Smith",
+    "subject": "Business Proposal - Software Development Partnership",
+    "body": "Dear Sir/Madam,\n\nI am writing to propose a potential partnership for software development services. Our company is interested in exploring collaboration opportunities in the field of enterprise solutions.\n\nCould you please provide information regarding your service offerings and estimated project timelines?\n\nBest regards,\nJohn Smith\nBusiness Development Manager",
+    "thread_id": "thread-en-business-001",
+    "received_at": "2025-11-09T15:00:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "info@mycompany.com",
+      "subject": "Re: Initial Inquiry",
+      "body": "Dear John,\n\nThank you for your interest in our services. We specialize in enterprise-grade software solutions.\n\nBest regards,\nSupport Team",
+      "timestamp": "2025-11-08T13:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "client@example.com",
+      "subject": "Initial Inquiry",
+      "body": "Hello, I would like to learn more about your services.",
+      "timestamp": "2025-11-08T11:30:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "en",
+  "expected_tone": "formal",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["partnership", "software development", "collaboration", "timelines"],
+    "thread_history_references": ["enterprise solutions", "interest in services"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "en",
+      "greeting_examples": ["Dear John", "Dear Mr. Smith", "Good day"],
+      "closing_examples": ["Best regards", "Sincerely", "Kind regards"]
+    },
+    "tone_markers": {
+      "tone": "formal",
+      "formality_level": "high",
+      "expected_phrases": ["thank you for", "pleased to", "we would be delighted"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["service offerings", "project timelines", "partnership opportunity"]
+    }
+  },
+  "quality_threshold": 80
+}

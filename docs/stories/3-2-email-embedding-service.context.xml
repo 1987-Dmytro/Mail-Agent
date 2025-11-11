@@ -1,0 +1,317 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>2</storyId>
+    <title>Email Embedding Service</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-09</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-2-email-embedding-service.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to convert email content into vector embeddings using Gemini</iWant>
+    <soThat>I can store and retrieve emails semantically for RAG context retrieval</soThat>
+    <tasks>
+### Task 1: Core Implementation + Unit Tests (AC: #1, #2, #3, #4, #5, #6, #7, #9)
+
+- Subtask 1.1: Implement email content preprocessing
+  - Create file: `backend/app/core/preprocessing.py`
+  - Implement `strip_html()`, `extract_email_text()`, `truncate_to_tokens()` functions
+  - Handle edge cases: empty emails, malformed HTML, encoding issues
+
+- Subtask 1.2: Implement EmbeddingService class
+  - Create file: `backend/app/core/embedding_service.py`
+  - Methods: `embed_text()`, `embed_batch()`, `validate_dimensions()`
+  - Configure Gemini text-embedding-004 model
+  - Implement retry logic with exponential backoff (max 3 retries)
+  - Rate limiting awareness (50 requests/min)
+
+- Subtask 1.3: Configure Gemini API credentials
+  - Add/verify `GEMINI_API_KEY` in `.env.example` and `config.py`
+  - Verify google-generativeai SDK installed from Epic 2
+
+- Subtask 1.4: Implement API usage logging
+  - Structured logging for requests, responses, errors
+  - Create monitoring endpoint: GET /api/v1/test/embedding-stats
+
+- Subtask 1.5: Write unit tests for preprocessing (3 test functions)
+  - Create file: `backend/tests/test_preprocessing.py`
+  - Tests: HTML stripping, email text extraction, token truncation
+
+- Subtask 1.6: Write unit tests for EmbeddingService (6 test functions)
+  - Create file: `backend/tests/test_embedding_service.py`
+  - Tests: initialization, 768-dim output, batch processing, error handling, dimension validation, logging
+
+### Task 2: Integration Tests (AC: #5, #8, #9)
+
+- Subtask 2.1: Set up integration test infrastructure
+  - Create file: `backend/tests/integration/test_embedding_integration.py`
+  - Configure test Gemini API access
+  - Create multilingual test fixtures (ru/uk/en/de)
+
+- Subtask 2.2: Implement integration test scenarios (3 test functions)
+  - Test 1: Embed and store in ChromaDB (verify retrieval, 768-dim)
+  - Test 2: Batch embedding multilingual emails (10 emails, 4 languages)
+  - Test 3: Batch processing performance (50 emails in <60s, verify rate limiting)
+
+- Subtask 2.3: Verify all integration tests passing
+  - Run tests with DATABASE_URL
+  - Verify performance and multilingual tests pass
+
+### Task 3: Documentation + Security Review (AC: #8, #9)
+
+- Subtask 3.1: Update documentation
+  - Create file: `docs/embedding-service-setup.md`
+  - Document Gemini API setup, model characteristics, preprocessing pipeline
+  - Provide code examples for single and batch embedding
+  - Update `backend/README.md` and `docs/architecture.md`
+
+- Subtask 3.2: Security review
+  - Verify no hardcoded API keys (environment variables only)
+  - Verify input validation, email sanitization, rate limiting
+  - Add security notes to documentation
+
+### Task 4: Final Validation (AC: all)
+
+- Subtask 4.1: Run complete test suite
+  - All unit tests passing (9 functions: 3 preprocessing + 6 embedding)
+  - All integration tests passing (3 functions)
+  - Test coverage for new code: 80%+
+
+- Subtask 4.2: Verify DoD checklist
+  - Review each DoD item
+  - Update all task checkboxes
+  - Add file list and completion notes
+  - Mark story as review-ready in sprint-status.yaml
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Gemini text-embedding-004 model integrated via google-generativeai SDK (reuse from Epic 2)
+2. EmbeddingService class created in `app/core/embedding_service.py` with configuration management
+3. Email content preprocessing implemented: HTML stripping, text extraction, truncation to 2048 tokens max
+4. Single embedding generation method created (`embed_text()`) returning 768-dim vector
+5. Batch embedding method created (`embed_batch()`) processing up to 50 emails efficiently
+6. Embedding dimension validation (verify 768-dim output matches ChromaDB collection)
+7. Error handling for API failures (rate limits, timeouts, invalid input) with retries
+8. Multilingual capability validated (test emails in ru/uk/en/de produce quality embeddings)
+9. API usage logging implemented (track requests, tokens, latency for free-tier monitoring)
+
+### Standard Quality & Security Criteria (Auto-included)
+- Input Validation: All user inputs and external data validated before processing
+- Security Review: No hardcoded secrets, credentials in environment variables, parameterized queries, rate limiting
+- Code Quality: No deprecated APIs, comprehensive type hints, structured logging, proper error handling
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification - RAG System &amp; Response Generation</title>
+        <section>Gemini Embeddings Integration</section>
+        <snippet>Gemini text-embedding-004 model with 768 dimensions, free unlimited tier, native multilingual support for ru/uk/en/de. Batch processing at 50 emails per minute, email content truncated to 2048 tokens max. EmbeddingService class at app/core/embedding_service.py with embed_text() and embed_batch() methods.</snippet>
+      </doc>
+      <doc>
+        <path>docs/adrs/epic-3-architecture-decisions.md</path>
+        <title>ADR-010: Gemini Embeddings for Multilingual Email Representation</title>
+        <section>Decision Rationale</section>
+        <snippet>Zero cost (free unlimited tier), multilingual excellence with 50+ languages including ru/uk/en/de, provider consistency with Epic 2 LLM (Gemini 2.5 Flash), 768 dimensions optimal for ChromaDB. Implementation uses text-embedding-004 model with batch size 50 emails/min and 2048 token limit.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document - Functional Requirements</title>
+        <section>FR017: RAG-Powered Response Generation</section>
+        <snippet>System shall index complete email conversation history in a vector database for context retrieval. Supports multilingual response generation (FR018) and contextually appropriate professional responses (FR019).</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/3-1-vector-database-setup.md</path>
+        <title>Story 3.1: Vector Database Setup (Completed)</title>
+        <section>Learnings and Integration Points</section>
+        <snippet>VectorDBClient established at app/core/vector_db.py with insert_embeddings_batch() method. Collection email_embeddings initialized with 768-dimension support and cosine similarity. Metadata schema includes message_id, thread_id, sender, date, subject, language. Test count specification critical (8 unit + 4 integration tests) to prevent stubs.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown - Story 3.2</title>
+        <section>Story 3.2: Email Embedding Service</section>
+        <snippet>Email embedding service implementation with Gemini API integration, email preprocessing (HTML stripping, truncation to 2048 tokens), batch support (50 emails efficiently), error handling for API failures, and multilingual validation (ru/uk/en/de).</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/2-1-gemini-llm-integration.md</path>
+        <title>Story 2.1: Gemini LLM Integration (Epic 2 Pattern)</title>
+        <section>Gemini API Client Pattern</section>
+        <snippet>LLMClient pattern at app/core/llm_client.py for Gemini API integration. Uses google-generativeai SDK with config-based initialization, API key from settings, error handling wrapper, and rate limiting. Pattern to be reused for EmbeddingService implementation.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/vector_db.py</path>
+        <kind>service</kind>
+        <symbol>VectorDBClient</symbol>
+        <lines>34-421</lines>
+        <reason>ChromaDB client wrapper from Story 3.1. Provides insert_embeddings_batch() method for storing 768-dim embeddings. Collection email_embeddings already initialized with cosine similarity. Must integrate with EmbeddingService for batch storage.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/llm_client.py</path>
+        <kind>service</kind>
+        <symbol>LLMClient.__init__</symbol>
+        <lines>63-95</lines>
+        <reason>Gemini API client pattern from Epic 2. Follow same initialization pattern for EmbeddingService: API key from environment (GEMINI_API_KEY), config-based model selection, google.generativeai SDK configuration, error handling wrapper, structured logging.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/llm_client.py</path>
+        <kind>service</kind>
+        <symbol>LLMClient.send_prompt</symbol>
+        <lines>97-102</lines>
+        <reason>Retry decorator pattern with tenacity library. Reuse for EmbeddingService: stop_after_attempt(3), wait_exponential(multiplier=1, min=2, max=10), retry on GeminiRateLimitError/GeminiTimeoutError.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/pyproject.toml</path>
+        <kind>config</kind>
+        <symbol>dependencies</symbol>
+        <lines>51-52</lines>
+        <reason>google-generativeai>=0.8.3 already installed from Epic 2. chromadb>=0.4.22 from Story 3.1. No additional dependencies needed for Story 3.2.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/.env.example</path>
+        <kind>config</kind>
+        <symbol>GEMINI_API_KEY</symbol>
+        <lines>23</lines>
+        <reason>GEMINI_API_KEY already configured in .env.example from Epic 2. Reuse for embedding service. No additional environment variables needed.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/utils/errors.py</path>
+        <kind>module</kind>
+        <symbol>GeminiAPIError, GeminiRateLimitError, GeminiTimeoutError</symbol>
+        <lines>1-50</lines>
+        <reason>Custom exception classes for Gemini API errors. Reuse for EmbeddingService error handling (rate limits, timeouts, invalid requests).</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="google-generativeai" version=">=0.8.3" source="Epic 2, Story 2.1">Gemini API SDK for text-embedding-004 model. Already installed.</package>
+        <package name="chromadb" version=">=0.4.22" source="Epic 3, Story 3.1">Vector database for storing 768-dim embeddings. Already installed.</package>
+        <package name="tenacity" version=">=8.2.3" source="Epic 2">Retry decorator library for exponential backoff. Already installed.</package>
+        <package name="beautifulsoup4" version="latest" source="Story 3.2">HTML parsing for email preprocessing (strip_html function). May need to add.</package>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Must use Gemini text-embedding-004 model (per ADR-010). No other embedding models allowed.</constraint>
+    <constraint>Embedding dimension MUST be exactly 768 to match ChromaDB collection schema from Story 3.1.</constraint>
+    <constraint>Batch processing rate limit: Maximum 50 emails per minute to avoid Gemini API rate limits.</constraint>
+    <constraint>Email content token limit: Truncate to 2048 tokens max before embedding to optimize API usage.</constraint>
+    <constraint>Follow LLMClient initialization pattern: API key from environment (GEMINI_API_KEY), config-based model selection, genai.configure() call.</constraint>
+    <constraint>Retry logic: Maximum 3 retries with exponential backoff (2s, 4s, 8s) for rate limits and timeouts only. Do not retry on invalid requests.</constraint>
+    <constraint>ChromaDB metadata schema (from Story 3.1): message_id, thread_id, sender, date, subject, language, snippet. EmbeddingService must support this schema.</constraint>
+    <constraint>Use structured logging (structlog) for all API requests, responses, and errors. Follow Epic 2 logging pattern.</constraint>
+    <constraint>All methods must have comprehensive type hints (PEP 484) and docstrings with examples.</constraint>
+    <constraint>Testing requirements: 9 unit tests (3 preprocessing + 6 embedding service) + 3 integration tests. NO placeholder tests with pass statements.</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>VectorDBClient.insert_embeddings_batch</name>
+      <kind>method</kind>
+      <signature>insert_embeddings_batch(collection_name: str, embeddings: List[List[float]], metadatas: List[dict], ids: List[str]) -> None</signature>
+      <path>backend/app/core/vector_db.py</path>
+      <description>Batch insert method from Story 3.1 VectorDBClient. Use this to store generated embeddings in ChromaDB. Pass collection_name="email_embeddings", 768-dim embedding vectors, metadata dicts (message_id, thread_id, sender, date, subject, language, snippet), and unique IDs.</description>
+    </interface>
+    <interface>
+      <name>Gemini Embedding API - text-embedding-004</name>
+      <kind>external-api</kind>
+      <signature>genai.embed_content(model="models/text-embedding-004", content=text) -> EmbeddingResult</signature>
+      <path>google.generativeai SDK</path>
+      <description>Google Gemini embedding API endpoint. Returns 768-dimensional vector. Use genai.embed_content() for single embeddings and batch_embed_contents() for batch processing. Rate limit: 50 requests/min. Free tier: unlimited.</description>
+    </interface>
+    <interface>
+      <name>Email Preprocessing Pipeline</name>
+      <kind>internal-service</kind>
+      <signature>strip_html(html: str) -> str, extract_email_text(body: str, content_type: str) -> str, truncate_to_tokens(text: str, max_tokens: int) -> str</signature>
+      <path>backend/app/core/preprocessing.py (NEW)</path>
+      <description>Email preprocessing utilities to create in Story 3.2. strip_html removes HTML tags, extract_email_text handles plain/HTML emails, truncate_to_tokens limits to 2048 tokens for embedding API.</description>
+    </interface>
+    <interface>
+      <name>EmbeddingService.embed_text</name>
+      <kind>method</kind>
+      <signature>embed_text(text: str) -> List[float]</signature>
+      <path>backend/app/core/embedding_service.py (NEW)</path>
+      <description>Single embedding generation method to create in Story 3.2. Preprocesses text, calls Gemini API, validates 768-dim output, returns embedding vector.</description>
+    </interface>
+    <interface>
+      <name>EmbeddingService.embed_batch</name>
+      <kind>method</kind>
+      <signature>embed_batch(texts: List[str], batch_size: int = 50) -> List[List[float]]</signature>
+      <path>backend/app/core/embedding_service.py (NEW)</path>
+      <description>Batch embedding generation method to create in Story 3.2. Processes up to 50 texts per batch, respects rate limits, returns list of 768-dim embedding vectors.</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Testing framework: pytest with pytest-asyncio for async tests. Coverage target: 80%+ for new code using pytest-cov. Unit tests must use mocking for external APIs (Gemini) to ensure deterministic behavior and avoid rate limits. Integration tests use real Gemini API (test tier) or comprehensive mocks. All tests must have descriptive names following pattern: test_{component}_{action}_{expected_result}. Fixtures used for test isolation (temp directories, sample data). NO placeholder tests with pass statements - each test must verify specific acceptance criteria. Test count specification: 9 unit tests (3 preprocessing + 6 embedding service) + 3 integration tests. Follow Epic 2 pattern: tests implemented during development (interleaved), not after. LangGraph testing patterns from docs/testing-patterns-langgraph.md for workflow integration (if applicable). All tests must include docstrings mapping to acceptance criteria IDs.
+    </standards>
+    <locations>
+      <location>backend/tests/test_preprocessing.py - NEW file for preprocessing unit tests (3 functions)</location>
+      <location>backend/tests/test_embedding_service.py - NEW file for EmbeddingService unit tests (6 functions)</location>
+      <location>backend/tests/integration/test_embedding_integration.py - NEW file for integration tests (3 functions)</location>
+      <location>backend/tests/ - Existing unit tests directory (use pytest backend/tests/ to run all)</location>
+      <location>backend/tests/integration/ - Existing integration tests directory (requires DATABASE_URL env var)</location>
+    </locations>
+    <ideas>
+      <!-- Unit Test Ideas for Preprocessing (AC #3) -->
+      <idea ac="3" type="unit">
+        <name>test_strip_html_removes_tags</name>
+        <description>Verify strip_html() removes HTML tags and preserves text content. Test cases: simple tags, nested tags, malformed HTML, empty input.</description>
+      </idea>
+      <idea ac="3" type="unit">
+        <name>test_extract_email_text_handles_plain_and_html</name>
+        <description>Verify extract_email_text() handles both plain text and HTML emails correctly based on content_type parameter. Test text/plain, text/html, and mixed content.</description>
+      </idea>
+      <idea ac="3" type="unit">
+        <name>test_truncate_to_tokens_respects_limit</name>
+        <description>Verify truncate_to_tokens() truncates text to 2048 tokens max. Test short text (no truncation), long text (truncation needed), edge case at exactly 2048 tokens.</description>
+      </idea>
+
+      <!-- Unit Test Ideas for EmbeddingService (AC #1, #2, #4, #5, #6, #7, #9) -->
+      <idea ac="1,2" type="unit">
+        <name>test_embedding_service_initialization</name>
+        <description>Verify EmbeddingService initializes correctly with API key and model configuration. Test successful init with env var, explicit API key, missing API key (should raise error).</description>
+      </idea>
+      <idea ac="4,6" type="unit">
+        <name>test_embed_text_returns_768_dimensions</name>
+        <description>Verify embed_text() returns exactly 768-dimensional vector. Mock Gemini API response. Test valid input, verify dimension validation, check embedding type (List[float]).</description>
+      </idea>
+      <idea ac="5" type="unit">
+        <name>test_embed_batch_processes_multiple_texts</name>
+        <description>Verify embed_batch() processes list of texts efficiently. Mock batch API call. Test batch of 10 texts, verify all embeddings returned, check batch_size parameter respected (max 50).</description>
+      </idea>
+      <idea ac="7" type="unit">
+        <name>test_embedding_service_handles_api_errors</name>
+        <description>Verify error handling for API failures (rate limits, timeouts, invalid input). Mock API errors. Test retry logic (3 attempts with exponential backoff), verify proper exception types raised (GeminiRateLimitError, GeminiTimeoutError).</description>
+      </idea>
+      <idea ac="6" type="unit">
+        <name>test_validate_dimensions_detects_invalid_output</name>
+        <description>Verify validate_dimensions() detects non-768-dim vectors. Test valid 768-dim vector (returns True), invalid dimensions (767, 769, empty list) return False or raise error.</description>
+      </idea>
+      <idea ac="9" type="unit">
+        <name>test_api_usage_logging_records_requests</name>
+        <description>Verify API usage logging captures request metadata (timestamp, text_length, latency, success/failure). Mock API calls. Verify structured logging output includes required fields.</description>
+      </idea>
+
+      <!-- Integration Test Ideas (AC #5, #8, #9) -->
+      <idea ac="4,5,6" type="integration">
+        <name>test_embed_and_store_in_chromadb</name>
+        <description>End-to-end test: Generate embedding using real/mock Gemini API, insert into ChromaDB collection email_embeddings, retrieve and verify 768-dim vector matches. Use VectorDBClient.insert_embeddings_batch() from Story 3.1.</description>
+      </idea>
+      <idea ac="5,8" type="integration">
+        <name>test_batch_embedding_multilingual_emails</name>
+        <description>Process batch of 10 emails in 4 languages (ru/uk/en/de) using embed_batch(). Verify all embeddings valid (768-dim), languages detected correctly, semantic similarity works across languages (similar Russian emails have high cosine similarity).</description>
+      </idea>
+      <idea ac="5,9" type="integration">
+        <name>test_batch_processing_performance_50_per_minute</name>
+        <description>Performance test: Embed 50 emails using batch processing, measure total time (must be &lt;60 seconds to respect 50/min rate limit). Verify API usage logging captures batch metrics. Use time.perf_counter() for timing.</description>
+      </idea>
+    </ideas>
+  </tests>
+</story-context>

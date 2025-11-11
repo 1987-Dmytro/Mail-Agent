@@ -1,0 +1,53 @@
+{
+  "test_name": "russian_personal_casual",
+  "description": "Russian personal email with casual tone",
+  "original_email": {
+    "sender": "friend@example.ru",
+    "sender_name": "Мария",
+    "subject": "Привет! Как дела?",
+    "body": "Привет!\n\nДавно не общались. Как твои дела? Слышала, ты сменил работу. Расскажи, как новое место?\n\nЖду ответа!\nМаша",
+    "thread_id": "thread-ru-personal-001",
+    "received_at": "2025-11-09T18:45:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Встреча",
+      "body": "Да, давай на следующей неделе встретимся. Мне нужно тебе ккое-что рассказать.",
+      "timestamp": "2025-10-15T12:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "friend@example.ru",
+      "subject": "Встреча",
+      "body": "Привет! Может встретимся как-нибудь?",
+      "timestamp": "2025-10-15T10:30:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "ru",
+  "expected_tone": "casual",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["дела", "работа", "встреча"],
+    "thread_history_references": ["встретимся", "рассказать"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "ru",
+      "greeting_examples": ["Привет", "Приветик", "Привет!"],
+      "closing_examples": ["Пока", "До встречи", "Жду встречи"]
+    },
+    "tone_markers": {
+      "tone": "casual",
+      "formality_level": "low",
+      "expected_phrases": ["все отлично", "классно", "давай"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["новая работа", "встреча"]
+    }
+  },
+  "quality_threshold": 80
+}

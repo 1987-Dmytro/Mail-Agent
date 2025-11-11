@@ -1,0 +1,53 @@
+{
+  "test_name": "russian_business_inquiry",
+  "description": "Russian business inquiry with professional tone",
+  "original_email": {
+    "sender": "test-client@example.ru",
+    "sender_name": "Алексей Петров",
+    "subject": "Вопрос по сотрудничеству",
+    "body": "Добрый день,\n\nИнтересует возможность сотрудничества с вашей компанией в области разработки ПО. Могли бы вы предоставить информацию о ваших услугах и примерные сроки реализации проектов?\n\nС уважением,\nАлексей",
+    "thread_id": "thread-ru-biz-001",
+    "received_at": "2025-11-09T14:30:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "info@mycompany.ru",
+      "subject": "Re: Первый контакт",
+      "body": "Здравствуйте,\n\nБлагодарим за интерес к нашим услугам. Мы специализируемся на корпоративных решениях.\n\nС уважением,\nКоманда поддержки",
+      "timestamp": "2025-11-08T10:15:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "test-client@example.ru",
+      "subject": "Первый контакт",
+      "body": "Добрый день, хотел бы узнать подробнее о ваших услугах.",
+      "timestamp": "2025-11-08T09:00:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "ru",
+  "expected_tone": "professional",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["сотрудничество", "разработка", "услуги", "сроки"],
+    "thread_history_references": ["корпоративные решения", "интерес к услугам"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "ru",
+      "greeting_examples": ["Здравствуйте", "Добрый день"],
+      "closing_examples": ["С уважением", "С наилучшими пожеланиями"]
+    },
+    "tone_markers": {
+      "tone": "professional",
+      "formality_level": "medium-high",
+      "expected_phrases": ["благодарим", "с удовольствием", "готовы предоставить"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["информация об услугах", "сроки реализации"]
+    }
+  },
+  "quality_threshold": 80
+}

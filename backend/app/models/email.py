@@ -38,6 +38,8 @@ class EmailProcessingQueue(BaseModel, table=True):
         is_priority: Boolean flag for priority_score >= 70 (triggers immediate notification)
         draft_response: AI-generated response draft (Epic 3)
         language: Detected language of email (Epic 3)
+        detected_language: Detected language code (ru/uk/en/de) from Story 3.5
+        tone: Detected tone (formal/professional/casual) from Story 3.6
         created_at: When record was created (inherited from BaseModel)
         updated_at: When record was last updated
         user: Relationship to User model
@@ -74,6 +76,8 @@ class EmailProcessingQueue(BaseModel, table=True):
     # Epic 3: RAG Response fields
     draft_response: Optional[str] = Field(default=None, sa_column=Column(Text))
     language: Optional[str] = Field(default=None, max_length=10)
+    detected_language: Optional[str] = Field(default=None, sa_column=Column(String(5)))  # Story 3.5: Language detection (ru, uk, en, de)
+    tone: Optional[str] = Field(default=None, sa_column=Column(String(20)))  # Story 3.6: Tone detection (formal, professional, casual)
 
     # Story 2.11: Error handling and recovery fields
     error_type: Optional[str] = Field(default=None, sa_column=Column(String(100)))  # e.g., "gmail_api_failure", "telegram_send_failure"

@@ -1,0 +1,171 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>1</storyId>
+    <title>Vector Database Setup</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-09</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-1-vector-database-setup.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to set up a vector database for storing email embeddings</iWant>
+    <soThat>I can perform semantic search for context retrieval</soThat>
+    <tasks>
+      <task id="1" name="Core Implementation + Unit Tests" acs="1,2,3,4,5,6">
+        <subtask id="1.1">Install ChromaDB and configure persistence</subtask>
+        <subtask id="1.2">Implement VectorDBClient class</subtask>
+        <subtask id="1.3">Initialize email_embeddings collection</subtask>
+        <subtask id="1.4">Write unit tests for VectorDBClient (8 test functions)</subtask>
+      </task>
+      <task id="2" name="Integration Tests" acs="7,9">
+        <subtask id="2.1">Set up integration test infrastructure</subtask>
+        <subtask id="2.2">Implement integration test scenarios (4 test functions)</subtask>
+        <subtask id="2.3">Verify all integration tests passing</subtask>
+      </task>
+      <task id="3" name="Documentation + Security Review" acs="8">
+        <subtask id="3.1">Update documentation</subtask>
+        <subtask id="3.2">Security review</subtask>
+      </task>
+      <task id="4" name="Final Validation" acs="all">
+        <subtask id="4.1">Run complete test suite</subtask>
+        <subtask id="4.2">Verify DoD checklist</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">ChromaDB installed and configured as self-hosted vector database (version >=0.4.22)</criterion>
+    <criterion id="2">Persistent storage configured using SQLite backend (embeddings survive service restarts)</criterion>
+    <criterion id="3">VectorDBClient class created in app/core/vector_db.py with connection management and error handling</criterion>
+    <criterion id="4">Collection email_embeddings created with metadata schema: message_id, thread_id, sender, date, subject, language</criterion>
+    <criterion id="5">Distance metric configured as cosine similarity for semantic search</criterion>
+    <criterion id="6">CRUD operations implemented: insert_embedding(), query_embeddings(), delete_embedding()</criterion>
+    <criterion id="7">Connection test endpoint created (GET /api/v1/test/vector-db) returning connection status</criterion>
+    <criterion id="8">Database configuration documented: indexing parameters, distance metrics, collection schema</criterion>
+    <criterion id="9">Query performance validated: k=10 nearest neighbors completes in &lt;500ms (contributes to NFR001)</criterion>
+    <standard-criteria>
+      <criterion id="input-validation">All user inputs and external data validated before processing (type checking, range validation, sanitization)</criterion>
+      <criterion id="security">No hardcoded secrets, credentials in environment variables, parameterized queries for database operations, rate limiting implemented where applicable</criterion>
+      <criterion id="code-quality">No deprecated APIs used, comprehensive type hints/annotations, structured logging for debugging, error handling with proper exception types</criterion>
+    </standard-criteria>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/tech-spec-epic-3.md" title="Epic 3 Technical Specification" section="ChromaDB Vector Database">
+        ChromaDB configured as self-hosted vector database with persistent SQLite backend. Collection schema: email_embeddings with metadata (message_id, thread_id, sender, date, subject, language). Distance metric: cosine similarity. Query performance target: &lt;500ms for k=10 nearest neighbors. Index size: ~2.2MB per user (90 days * 10 emails/day * 768 dimensions * 4 bytes).
+      </doc>
+      <doc path="docs/adrs/epic-3-architecture-decisions.md" title="ADR-009: ChromaDB for Vector Database" section="Decision Rationale">
+        ChromaDB selected for zero-cost self-hosted vector database. Handles 10K-50K emails for MVP scale. Persistent SQLite storage, local data control, Python-native integration (&lt;50 lines). Storage backend: SQLite with cosine similarity distance metric. Performance: &lt;500ms for k=10 queries.
+      </doc>
+      <doc path="docs/PRD.md" title="Product Requirements Document" section="FR017 and NFR001">
+        FR017: System shall index complete email conversation history in a vector database for context retrieval. NFR001: RAG context retrieval shall complete within 3 seconds for response generation. Vector database setup is foundational for RAG system.
+      </doc>
+      <doc path="docs/testing-patterns-langgraph.md" title="LangGraph Testing Patterns" section="Database Persistence in Workflows">
+        Database operations in workflow nodes must commit explicitly. Tests need isolated database sessions with transaction management. Use MemorySaver for tests (not PostgresSaver). Unique thread_id per test using uuid4(). Mock classes must match production signatures exactly.
+      </doc>
+      <doc path="docs/epics.md" title="Epic 3 Breakdown" section="Story 3.1">
+        Story 3.1 establishes vector database infrastructure: ChromaDB installation, VectorDBClient class with CRUD operations, email_embeddings collection with metadata schema, connection test endpoint, persistent storage configuration.
+      </doc>
+      <doc path="docs/architecture.md" title="System Architecture" section="RAG Response Generation Layer">
+        ChromaDB vector database stores email embeddings for semantic search. Gemini text-embedding-004 model (768 dimensions) generates embeddings. Smart Hybrid RAG combines thread history (last 5 emails) with semantic search (top 3 similar).
+      </doc>
+    </docs>
+    <code>
+      <artifact path="backend/app/core/config.py" kind="config" symbol="get_config" lines="38-70" reason="Environment configuration pattern - use for CHROMADB_PATH environment variable loading">
+        Configuration management module using dotenv for environment variables. Pattern for loading environment-specific config values. ChromaDB path should be configured via environment variable following this pattern.
+      </artifact>
+      <artifact path="backend/tests/conftest.py" kind="test-fixture" symbol="db_session" lines="34-77" reason="Test database session fixture pattern - use for ChromaDB test fixtures">
+        AsyncGenerator fixture pattern for isolated test database sessions. Creates tables, yields session, drops tables after test. Pattern for creating test ChromaDB instances with in-memory or temp directory.
+      </artifact>
+      <artifact path="backend/tests/mocks/gmail_mock.py" kind="mock" symbol="MockGmailClient" reason="Mock class pattern with call tracking - reference for ChromaDB mock">
+        Production-aligned mock class with call tracking, method signature matching, and test helper methods (inject_message, verify_label_applied). Use this pattern for MockVectorDBClient.
+      </artifact>
+      <artifact path="backend/tests/mocks/gemini_mock.py" kind="mock" symbol="MockGeminiClient" reason="Mock class with failure simulation - reference for ChromaDB error testing">
+        Mock class supporting deterministic responses and failure injection (timeout, rate_limit, invalid_response). Pattern for testing ChromaDB connection errors and query failures.
+      </artifact>
+      <artifact path="backend/app/core/llm_client.py" kind="service" symbol="GeminiClient" reason="Existing API client pattern - reference for VectorDBClient structure">
+        API client pattern with error handling, retry logic, and type hints. VectorDBClient should follow similar structure: __init__, connection management, CRUD methods, health_check.
+      </artifact>
+      <artifact path="backend/pyproject.toml" kind="config" symbol="dependencies" lines="11-52" reason="Dependency management - add chromadb&gt;=0.4.22 here">
+        Project dependencies managed in pyproject.toml. Add chromadb&gt;=0.4.22 to dependencies list. Current Python version: &gt;=3.13. Test dependencies in dependency-groups.test section.
+      </artifact>
+    </code>
+    <dependencies>
+      <python version="&gt;=3.13">
+        <package name="chromadb" version="&gt;=0.4.22" purpose="Vector database for email embeddings storage and semantic search" status="to-install"/>
+        <package name="fastapi" version="&gt;=0.115.12" purpose="API framework for test endpoint" status="installed"/>
+        <package name="sqlmodel" version="&gt;=0.0.24" purpose="Database ORM" status="installed"/>
+        <package name="pytest" version="&gt;=8.3.5" purpose="Testing framework" status="installed"/>
+        <package name="pytest-asyncio" version="&gt;=0.25.2" purpose="Async test support" status="installed"/>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint source="ADR-009" type="architecture">
+      ChromaDB must be self-hosted (not cloud). Persistent SQLite backend required (no in-memory for production). Embeddings must survive service restarts. Zero-cost requirement - no paid services.
+    </constraint>
+    <constraint source="Epic 3 Tech Spec" type="performance">
+      Query performance: k=10 nearest neighbors must complete in &lt;500ms. This contributes to NFR001 (RAG retrieval &lt;3s total). Index size target: ~2.2MB per user for 90 days of emails.
+    </constraint>
+    <constraint source="Dev Notes" type="testing">
+      Exactly 8 unit tests and 4 integration tests required (specified count prevents placeholder tests). All tests must be passing (NOT stubs with 'pass' statements). Integration tests implemented DURING development (Epic 2 retrospective pattern).
+    </constraint>
+    <constraint source="Tech Spec" type="data-schema">
+      Collection name: email_embeddings (exact name). Metadata schema fields: message_id (str), thread_id (str), sender (str), date (str ISO 8601), subject (str), language (str), snippet (str, first 200 chars). Distance metric: cosine similarity (required for semantic search).
+    </constraint>
+    <constraint source="Project Structure" type="code-organization">
+      VectorDBClient class must be created at backend/app/core/vector_db.py (exact path per tech spec). Unit tests: backend/tests/test_vector_db_client.py. Integration tests: backend/tests/integration/test_vector_db_integration.py.
+    </constraint>
+    <constraint source="Standard Quality Criteria" type="code-quality">
+      All methods must have comprehensive type hints (PEP 484). No hardcoded secrets (ChromaDB path from environment variable). Input validation for all VectorDBClient methods. Proper error handling with specific exception types (ConnectionError, ValueError).
+    </constraint>
+    <constraint source="Epic 2 Retrospective" type="documentation">
+      Documentation must be comprehensive (reference Story 2.12: 673-line architecture doc). Create docs/vector-database-setup.md with ChromaDB setup guide, collection schema, indexing parameters, CRUD operations with code examples.
+    </constraint>
+  </constraints>
+  <interfaces>
+    <interface name="VectorDBClient" kind="class" path="backend/app/core/vector_db.py">
+      <method signature="__init__(self, persist_directory: str)" description="Initialize ChromaDB with persistent storage path from environment variable"/>
+      <method signature="get_or_create_collection(self, name: str, metadata: dict) -&gt; Collection" description="Get or create collection with cosine similarity distance metric"/>
+      <method signature="insert_embedding(self, collection_name: str, embedding: List[float], metadata: dict, id: str) -&gt; None" description="Insert single embedding vector with metadata"/>
+      <method signature="insert_embeddings_batch(self, collection_name: str, embeddings: List[List[float]], metadatas: List[dict], ids: List[str]) -&gt; None" description="Batch insert multiple embeddings (50 emails per batch per rate limit strategy)"/>
+      <method signature="query_embeddings(self, collection_name: str, query_embedding: List[float], n_results: int, filter: dict) -&gt; dict" description="Semantic search returning k nearest neighbors with metadata filtering support"/>
+      <method signature="delete_embedding(self, collection_name: str, id: str) -&gt; None" description="Delete embedding by message ID"/>
+      <method signature="count_embeddings(self, collection_name: str) -&gt; int" description="Get total count of embeddings in collection"/>
+      <method signature="health_check(self) -&gt; bool" description="Verify ChromaDB connection is active (used by test endpoint)"/>
+    </interface>
+    <interface name="GET /api/v1/test/vector-db" kind="REST endpoint" path="backend/app/api/endpoints/test.py">
+      <response status="200" description="Connection status returned: {status: 'connected', collection_count: int, total_embeddings: int}"/>
+      <response status="500" description="Connection failed: {status: 'disconnected', error: str}"/>
+    </interface>
+    <interface name="initialize_email_embeddings_collection" kind="function" path="backend/app/main.py">
+      <description>Startup function called in main.py to initialize email_embeddings collection with metadata schema on application start</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      Testing framework: pytest with pytest-asyncio for async support. Isolated test database sessions using AsyncGenerator fixtures (pattern from conftest.py). Mock classes must match production signatures exactly (reference: backend/tests/mocks/*_mock.py). Use MemorySaver for LangGraph workflow tests (not PostgresSaver). Unique thread_id per test using uuid4(). All database operations must commit explicitly. Test ChromaDB instance: in-memory or temp directory (separate from production). Performance tests use time.perf_counter() or pytest-benchmark for timing validation. Test count specification: 8 unit tests + 4 integration tests (prevents placeholder tests). Code coverage target: 80%+ for new code (run: uv run pytest --cov=app/core/vector_db backend/tests/).
+    </standards>
+    <locations>
+      <location pattern="backend/tests/test_*.py" description="Unit tests location"/>
+      <location pattern="backend/tests/integration/test_*_integration.py" description="Integration tests location"/>
+      <location pattern="backend/tests/mocks/" description="Mock classes for external dependencies"/>
+      <location file="backend/tests/conftest.py" description="Shared test fixtures and database session management"/>
+    </locations>
+    <ideas>
+      <test-idea ac="1,2" description="Test VectorDBClient initialization with persistent storage - verify ChromaDB &gt;=0.4.22 installed, persistent directory created, embeddings survive client restart (reload and query)"/>
+      <test-idea ac="4,5" description="Test collection creation with cosine similarity - verify email_embeddings collection created with correct metadata schema (message_id, thread_id, sender, date, subject, language), distance metric is cosine"/>
+      <test-idea ac="6" description="Test CRUD operations - insert single embedding, batch insert (50 embeddings), query by similarity, query with metadata filters (language=ru), delete by ID, verify count updates correctly"/>
+      <test-idea ac="9" description="Test query performance - insert 1000 embeddings (768-dim vectors), measure k=10 query time using time.perf_counter(), assert &lt;500ms, validate results ranked by similarity score"/>
+      <test-idea ac="7" description="Test connection endpoint - call GET /api/v1/test/vector-db, verify 200 status, verify response contains connection status and collection info, test failure case (ChromaDB down) returns 500"/>
+      <test-idea ac="2" description="Test persistence after restart - insert embeddings, shutdown ChromaDB client, create new client instance, verify all embeddings still retrievable with correct metadata"/>
+      <test-idea ac="6" description="Test metadata filtering - insert embeddings with different languages (ru, uk, en, de), query with filter language=ru, verify only Russian emails returned"/>
+      <test-idea ac="3" description="Test error handling - connection errors (invalid path), value errors (invalid embedding dimensions), proper exception types raised, no information leakage in error messages"/>
+    </ideas>
+  </tests>
+</story-context>

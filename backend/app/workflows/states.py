@@ -65,6 +65,11 @@ class EmailWorkflowState(TypedDict):
     classification_reasoning: str | None
     priority_score: int
 
+    # Response generation (populated by draft_response node - Story 3.11)
+    draft_response: str | None  # AI-generated response text from ResponseGenerationService
+    detected_language: str | None  # Language code (en/de/ru/uk) from LanguageDetectionService
+    tone: str | None  # Detected tone (formal/professional/casual) from ToneDetectionService
+
     # Telegram message tracking (populated by send_telegram node - Story 2.6)
     telegram_message_id: str | None  # Telegram message ID for editing/tracking
 

@@ -20,5 +20,8 @@ wheels/
 # Misc
 *.ipynb
 
+# ChromaDB Vector Database Storage
+data/
+
 # Reports
 evals/reports/

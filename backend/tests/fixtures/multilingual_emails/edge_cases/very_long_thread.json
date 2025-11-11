@@ -1,0 +1,135 @@
+{
+  "test_name": "edge_case_very_long_thread",
+  "description": "Edge case: Thread with 10+ emails - tests Smart Hybrid RAG adaptive logic and token budget",
+  "original_email": {
+    "sender": "client@example.com",
+    "sender_name": "Robert Brown",
+    "subject": "Re: Re: Re: Re: Re: Project Status Update",
+    "body": "Thanks for the detailed update. I have one more question about the deployment timeline. When can we expect the production release?\n\nBest regards,\nRobert",
+    "thread_id": "thread-long-001",
+    "received_at": "2025-11-09T15:45:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Re: Re: Re: Re: Project Status Update",
+      "body": "Hi Robert, the testing phase is complete and we're preparing for staging deployment next week.",
+      "timestamp": "2025-11-09T14:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "client@example.com",
+      "subject": "Re: Re: Re: Re: Project Status Update",
+      "body": "Great! How is the testing going?",
+      "timestamp": "2025-11-09T10:00:00Z",
+      "is_sent_by_user": false
+    },
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Re: Re: Project Status Update",
+      "body": "Testing is in progress. We've completed unit tests and are now running integration tests.",
+      "timestamp": "2025-11-08T16:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "client@example.com",
+      "subject": "Re: Re: Project Status Update",
+      "body": "When will testing be complete?",
+      "timestamp": "2025-11-08T11:00:00Z",
+      "is_sent_by_user": false
+    },
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Project Status Update",
+      "body": "Hi Robert, we've finished the backend implementation and are moving to the testing phase.",
+      "timestamp": "2025-11-07T15:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "client@example.com",
+      "subject": "Project Status Update",
+      "body": "Can you provide an update on the backend work?",
+      "timestamp": "2025-11-07T09:00:00Z",
+      "is_sent_by_user": false
+    },
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Re: Re: Sprint Planning",
+      "body": "The backend API development is progressing well. We expect to complete it by end of this week.",
+      "timestamp": "2025-11-05T14:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "client@example.com",
+      "subject": "Re: Re: Sprint Planning",
+      "body": "How is the backend coming along?",
+      "timestamp": "2025-11-05T10:00:00Z",
+      "is_sent_by_user": false
+    },
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Sprint Planning",
+      "body": "We've started the development phase and are focusing on the backend first.",
+      "timestamp": "2025-11-03T13:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "client@example.com",
+      "subject": "Sprint Planning",
+      "body": "Looking forward to seeing progress on the project!",
+      "timestamp": "2025-11-03T09:00:00Z",
+      "is_sent_by_user": false
+    },
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Project Kickoff",
+      "body": "Thank you for the kickoff meeting. We're excited to begin the project!",
+      "timestamp": "2025-11-01T16:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "client@example.com",
+      "subject": "Project Kickoff",
+      "body": "Welcome to the project! Let's make this a success.",
+      "timestamp": "2025-11-01T10:00:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "en",
+  "expected_tone": "professional",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["deployment", "timeline", "production", "release"],
+    "thread_history_references": ["testing", "staging deployment"],
+    "note": "Smart Hybrid RAG should use only thread history (no semantic search per ADR-011) for long threads"
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "en",
+      "greeting_examples": ["Hi Robert", "Dear Robert"],
+      "closing_examples": ["Best regards", "Kind regards"]
+    },
+    "tone_markers": {
+      "tone": "professional",
+      "formality_level": "medium-high",
+      "expected_phrases": ["thank you for", "we expect", "the timeline is"]
+    },
+    "context_awareness": {
+      "relevant_keywords": ["deployment", "timeline", "production", "release"],
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["production release timeline", "deployment schedule"],
+      "note": "Should reference recent thread context (testing, staging) without overwhelming with all 12 emails"
+    }
+  },
+  "quality_threshold": 80,
+  "edge_case_type": "very_long_thread",
+  "rag_behavior": {
+    "expected_strategy": "thread_history_only",
+    "semantic_search_results": 0,
+    "thread_history_limit": 5,
+    "token_budget_respected": true,
+    "context_tokens_max": 6500
+  },
+  "notes": "Tests Smart Hybrid RAG adaptive logic: long threads (>5 emails) should skip semantic search and use only thread history to respect token budget"
+}

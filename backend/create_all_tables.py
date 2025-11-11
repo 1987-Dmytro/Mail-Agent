@@ -12,6 +12,7 @@ from app.models.linking_codes import LinkingCode
 from app.models.workflow_mapping import WorkflowMapping
 from app.models.notification_preferences import NotificationPreferences
 from app.models.approval_history import ApprovalHistory
+from app.models.indexing_progress import IndexingProgress
 
 
 async def create_tables():
@@ -31,7 +32,10 @@ async def create_tables():
         db_url = db_url.replace("postgresql+psycopg://", "postgresql+asyncpg://")
         db_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
 
-    print(f"Using database URL: {db_url.replace(password if password else '', '***')}")
+    # Extract password for masking (if present in URL)
+    import re
+    masked_url = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', db_url)
+    print(f"Using database URL: {masked_url}")
     engine = create_async_engine(db_url, echo=False)
 
     async with engine.begin() as conn:

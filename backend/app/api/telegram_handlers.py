@@ -424,13 +424,14 @@ def parse_callback_data(callback_data: str) -> tuple[str, int | None, int | None
     Callback data format:
     - Primary actions: {action}_{email_id} (e.g., "approve_123")
     - Folder selection: folder_{folder_id}_{email_id} (e.g., "folder_5_123")
+    - Response actions: {action}_response_{email_id} (e.g., "send_response_123") - Story 3.9
 
     Args:
         callback_data: Raw callback data string from Telegram button
 
     Returns:
         Tuple of (action, email_id, folder_id):
-        - action: "approve", "reject", "change", or "folder"
+        - action: "approve", "reject", "change", "folder", "send_response", "edit_response", "reject_response"
         - email_id: Email ID from callback data (int)
         - folder_id: Folder ID for folder selection, None otherwise
 
@@ -441,6 +442,15 @@ def parse_callback_data(callback_data: str) -> tuple[str, int | None, int | None
 
     if len(parts) < 2:
         raise ValueError(f"Invalid callback data format: '{callback_data}' (expected at least 2 parts)")
+
+    # Handle response actions: send_response_{email_id}, edit_response_{email_id}, reject_response_{email_id} (Story 3.9)
+    if len(parts) == 3 and parts[1] == "response":
+        action = f"{parts[0]}_response"  # send_response, edit_response, reject_response
+        try:
+            email_id = int(parts[2])
+            return action, email_id, None
+        except ValueError as e:
+            raise ValueError(f"Invalid email_id in response callback: '{callback_data}'") from e
 
     action = parts[0]
 
@@ -580,6 +590,13 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             await handle_change_folder(query, email_id, db)
         elif action == "folder":
             await handle_folder_selection(query, email_id, folder_id, db)
+        # Story 3.9: Response editing and sending handlers
+        elif action == "send_response":
+            await handle_send_response(update, context, email_id, db)
+        elif action == "edit_response":
+            await handle_edit_response(update, context, email_id, db)
+        elif action == "reject_response":
+            await handle_reject_response(update, context, email_id, db)
 
 
 async def handle_approve(query, email_id: int, db: Session):
@@ -938,3 +955,209 @@ async def handle_folder_selection(query, email_id: int, folder_id: int, db: Sess
             error_type=type(e).__name__,
         )
         await query.answer("❌ Error processing folder selection", show_alert=True)
+
+
+# ============================================================================
+# Response Editing and Sending Handlers (Story 3.9)
+# ============================================================================
+
+
+async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: Session):
+    """Handle Send button click for response drafts (Story 3.9 - AC #4-9).
+
+    Sends AI-generated response via Gmail API with proper threading,
+    updates status to completed, sends Telegram confirmation,
+    and indexes sent response to vector DB for future RAG context.
+
+    Args:
+        update: Telegram Update object with callback_query
+        context: Bot context
+        email_id: Email ID from callback data
+        db: Database session
+    """
+    query = update.callback_query
+    telegram_user_id = query.from_user.id
+
+    # Get user by telegram_id
+    result = await db.execute(
+        select(User).where(User.telegram_id == str(telegram_user_id))
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        logger.error("send_response_user_not_found", telegram_user_id=telegram_user_id)
+        await query.answer("❌ User not found", show_alert=True)
+        return
+
+    # Initialize services
+    from app.core.embedding_service import EmbeddingService
+    from app.core.vector_db import VectorDBClient
+    from app.services.response_sending_service import ResponseSendingService
+
+    telegram_bot = TelegramBotClient()
+    await telegram_bot.initialize()
+
+    embedding_service = EmbeddingService()
+    vector_db_client = VectorDBClient()
+
+    sending_service = ResponseSendingService(
+        telegram_bot=telegram_bot,
+        embedding_service=embedding_service,
+        vector_db_client=vector_db_client
+    )
+
+    # Handle send via service
+    await sending_service.handle_send_response_callback(
+        update=update,
+        context=context,
+        email_id=email_id,
+        user_id=user.id
+    )
+
+
+async def handle_edit_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: Session):
+    """Handle Edit button click for response drafts (Story 3.9 - AC #1-3).
+
+    Prompts user to reply with edited text, captures reply,
+    updates draft in database, and re-sends draft message.
+
+    Args:
+        update: Telegram Update object with callback_query
+        context: Bot context
+        email_id: Email ID from callback data
+        db: Database session
+    """
+    query = update.callback_query
+    telegram_user_id = query.from_user.id
+
+    # Get user by telegram_id
+    result = await db.execute(
+        select(User).where(User.telegram_id == str(telegram_user_id))
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        logger.error("edit_response_user_not_found", telegram_user_id=telegram_user_id)
+        await query.answer("❌ User not found", show_alert=True)
+        return
+
+    # Initialize services
+    from app.services.response_editing_service import ResponseEditingService
+    from app.services.telegram_response_draft import TelegramResponseDraftService
+
+    telegram_bot = TelegramBotClient()
+    await telegram_bot.initialize()
+
+    draft_service = TelegramResponseDraftService(telegram_bot=telegram_bot)
+
+    editing_service = ResponseEditingService(
+        telegram_bot=telegram_bot,
+        draft_service=draft_service
+    )
+
+    # Handle edit via service
+    await editing_service.handle_edit_response_callback(
+        update=update,
+        context=context,
+        email_id=email_id,
+        user_id=user.id
+    )
+
+
+async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: Session):
+    """Handle Reject button click for response drafts (Story 3.9).
+
+    Updates status to rejected and sends Telegram confirmation.
+
+    Args:
+        update: Telegram Update object with callback_query
+        context: Bot context
+        email_id: Email ID from callback data
+        db: Database session
+    """
+    query = update.callback_query
+    telegram_user_id = query.from_user.id
+
+    # Get user by telegram_id
+    result = await db.execute(
+        select(User).where(User.telegram_id == str(telegram_user_id))
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        logger.error("reject_response_user_not_found", telegram_user_id=telegram_user_id)
+        await query.answer("❌ User not found", show_alert=True)
+        return
+
+    # Initialize services
+    from app.core.embedding_service import EmbeddingService
+    from app.core.vector_db import VectorDBClient
+    from app.services.response_sending_service import ResponseSendingService
+
+    telegram_bot = TelegramBotClient()
+    await telegram_bot.initialize()
+
+    embedding_service = EmbeddingService()
+    vector_db_client = VectorDBClient()
+
+    sending_service = ResponseSendingService(
+        telegram_bot=telegram_bot,
+        embedding_service=embedding_service,
+        vector_db_client=vector_db_client
+    )
+
+    # Handle reject via service
+    await sending_service.handle_reject_response_callback(
+        update=update,
+        context=context,
+        email_id=email_id,
+        user_id=user.id
+    )
+
+
+# ============================================================================
+# Message Handler for Edit Workflow (Story 3.9)
+# ============================================================================
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle incoming text messages for edit workflow reply capture (Story 3.9).
+
+    This handler captures user replies during the response editing workflow.
+    When a user clicks [Edit] on a response draft, they enter an editing session.
+    Their next message is captured here and processed by ResponseEditingService.
+
+    The handler checks if the user has an active editing session and routes
+    the message to ResponseEditingService.handle_message_reply() if so.
+
+    Args:
+        update: Telegram Update object containing message
+        context: Bot context with conversation state
+
+    Note:
+        This handler is registered for all TEXT messages that are NOT commands.
+        It only processes messages from users with active edit sessions.
+    """
+    # Check if message exists and has text
+    if not update.message or not update.message.text:
+        return
+
+    # Initialize services for edit workflow
+    from app.services.response_editing_service import ResponseEditingService
+    from app.services.telegram_response_draft import TelegramResponseDraftService
+
+    telegram_bot = TelegramBotClient()
+    await telegram_bot.initialize()
+
+    draft_service = TelegramResponseDraftService(telegram_bot=telegram_bot)
+
+    editing_service = ResponseEditingService(
+        telegram_bot=telegram_bot,
+        draft_service=draft_service
+    )
+
+    # Route to editing service's message handler
+    await editing_service.handle_message_reply(
+        update=update,
+        context=context
+    )

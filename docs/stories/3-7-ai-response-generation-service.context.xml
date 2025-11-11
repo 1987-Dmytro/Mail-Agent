@@ -1,0 +1,252 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>7</storyId>
+    <title>AI Response Generation Service</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-7-ai-response-generation-service.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to generate contextually appropriate email response drafts using RAG</iWant>
+    <soThat>I can present quality drafts to users for approval</soThat>
+    <tasks>
+      - Task 1: Core Implementation + Unit Tests (AC: #1, #2, #6, #7, #8, #9, #10)
+        - Subtask 1.1: Create response generation service module
+        - Subtask 1.2: Implement response need classification (AC #2)
+        - Subtask 1.3: Implement response generation workflow (AC #1, #3, #4, #5, #6, #7)
+        - Subtask 1.4: Implement response quality validation (AC #9)
+        - Subtask 1.5: Implement database persistence (AC #8, #10)
+        - Subtask 1.6: Implement end-to-end orchestration method
+        - Subtask 1.7: Write unit tests for response generation service (10 test functions)
+
+      - Task 2: Integration Tests (AC: all)
+        - Subtask 2.1: Set up integration test infrastructure
+        - Subtask 2.2: Implement integration test scenarios (6 test functions)
+        - Subtask 2.3: Verify all integration tests passing
+
+      - Task 3: Documentation + Security Review (AC: all)
+        - Subtask 3.1: Update documentation
+        - Subtask 3.2: Security review
+
+      - Task 4: Final Validation (AC: all)
+        - Subtask 4.1: Run complete test suite
+        - Subtask 4.2: Verify DoD checklist
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Response generation service created that processes emails needing replies
+    2. Service determines if email requires response (not all emails need replies)
+    3. Service retrieves conversation context using context retrieval service (Story 3.4)
+    4. Service detects email language using language detection service (Story 3.5)
+    5. Service detects email tone using tone detection service (Story 3.6)
+    6. Service constructs response prompt using format_response_prompt (Story 3.6)
+    7. Service calls Gemini LLM API and receives response draft
+    8. Generated response stored in EmailProcessingQueue (response_draft field)
+    9. Response quality validation (not empty, appropriate length, correct language)
+    10. Processing status updated to "awaiting_approval" with action_type="send_response"
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: RAG System & Response Generation</title>
+        <section>Response Generation Service</section>
+        <snippet>ResponseGenerationService orchestrates all Epic 3 services (Context Retrieval 3.4, Language Detection 3.5, Tone Detection 3.6, Prompt Engineering 3.6) to generate contextually appropriate email response drafts. Service integrates with Gemini 2.5 Flash LLM to produce multilingual responses (ru/uk/en/de) maintaining conversation continuity and appropriate formality levels.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: RAG System & Response Generation</title>
+        <section>Response Generation Algorithm</section>
+        <snippet>Step-by-step process: (1) Email classification (sort_only vs needs_response), (2) Context retrieval using Smart Hybrid RAG (last 5 thread + top 3 semantic with adaptive k logic), (3) Language detection (langdetect with 0.7 confidence threshold), (4) Tone detection (hybrid rules + LLM), (5) Response generation (format prompt with RESPONSE_PROMPT_TEMPLATE → Gemini API), (6) Response quality validation (length 50-2000 chars, language match, structure check).</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: RAG System & Response Generation</title>
+        <section>Response Prompt Template</section>
+        <snippet>Structured prompt includes: Original Email (sender/subject/date/body), Conversation Context (thread history + semantic results), Response Requirements (language/tone/continuity), Greeting/Closing Examples (12 combinations: 4 languages × 3 tones). Token budget: ~6.5K context leaves 25K for response generation within Gemini 32K window.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>Functional Requirements - RAG Response Generation</section>
+        <snippet>FR019: System shall generate contextually appropriate professional responses using RAG with full conversation history. FR020: System shall maintain conversation tone and formality level consistent with email context. FR021: System shall present AI-generated response drafts to users for approval via Telegram. NFR001: Response generation end-to-end < 2 minutes (email receipt → Telegram notification).</snippet>
+      </doc>
+      <doc>
+        <path>docs/adrs/epic-3-architecture-decisions.md</path>
+        <title>Epic 3 Architecture Decision Records</title>
+        <section>ADR-011: Smart Hybrid RAG Strategy</section>
+        <snippet>Combines thread history (last 5 emails) with semantic search (top 3 similar emails), adaptive logic based on thread length. Short threads (<3) get k=7 semantic, long threads (>5) skip semantic (k=0), standard hybrid uses k=3. Token budget: ~6.5K context + 25K response = 32K Gemini window.</snippet>
+      </doc>
+      <doc>
+        <path>docs/adrs/epic-3-architecture-decisions.md</path>
+        <title>Epic 3 Architecture Decision Records</title>
+        <section>ADR-013: langdetect for Language Detection</section>
+        <snippet>Use langdetect library (50-100ms, zero cost). Confidence threshold 0.7 with fallback to thread history language. Supports ru/uk/en/de detection. Default to English if all detection fails.</snippet>
+      </doc>
+      <doc>
+        <path>docs/adrs/epic-3-architecture-decisions.md</path>
+        <title>Epic 3 Architecture Decision Records</title>
+        <section>ADR-014: Hybrid Tone Detection</section>
+        <snippet>Hybrid approach: rule-based for known cases (government domains → formal, business contacts → professional, personal → casual) handles 80% with zero API cost. LLM fallback analyzes thread history for ambiguous cases. Tone mappings provide language-specific greetings/closings.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/services/context_retrieval.py</path>
+        <kind>service</kind>
+        <symbol>ContextRetrievalService</symbol>
+        <lines>47-700</lines>
+        <reason>Story 3.4 service - provides retrieve_context(email_id) method for Smart Hybrid RAG context retrieval (thread history + semantic search). Returns RAGContext with thread_history and semantic_results. Required for AC #3.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/language_detection.py</path>
+        <kind>service</kind>
+        <symbol>LanguageDetectionService</symbol>
+        <lines>50-150</lines>
+        <reason>Story 3.5 service - provides detect(email_body) method returning (language_code, confidence) tuple. Supports ru/uk/en/de with 0.7 confidence threshold. Required for AC #4.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/services/tone_detection.py</path>
+        <kind>service</kind>
+        <symbol>ToneDetectionService</symbol>
+        <lines>38-120</lines>
+        <reason>Story 3.6 service - provides detect_tone(email, thread_history) method returning tone string ("formal"/"professional"/"casual"). Hybrid strategy (rules + LLM). Required for AC #5.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/prompts/response_generation.py</path>
+        <kind>module</kind>
+        <symbol>format_response_prompt</symbol>
+        <lines>1-200</lines>
+        <reason>Story 3.6 prompt formatter - provides format_response_prompt(email, rag_context, language, tone) function returning formatted prompt string with all placeholders substituted. Includes GREETING_EXAMPLES, CLOSING_EXAMPLES, LANGUAGE_NAMES. Required for AC #6.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/llm_client.py</path>
+        <kind>client</kind>
+        <symbol>LLMClient</symbol>
+        <lines>49-250</lines>
+        <reason>Story 2.1 Gemini API wrapper - provides send_prompt(prompt, response_format) method for LLM calls. Configured with gemini-2.5-flash model. Handles retry logic and token tracking. Required for AC #7.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>17-92</lines>
+        <reason>Database model for email processing queue. Contains fields: draft_response (TEXT), detected_language (VARCHAR(5)), status, classification. Story 3.7 updates these fields after response generation. Required for AC #8, #10.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/context_models.py</path>
+        <kind>model</kind>
+        <symbol>RAGContext</symbol>
+        <lines>1-50</lines>
+        <reason>TypedDict model for RAG context structure. Contains thread_history (List[EmailMessage]), semantic_results (List[EmailMessage]), metadata (dict). Returned by ContextRetrievalService and consumed by format_response_prompt.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="google-generativeai" version=">=0.8.3" note="Gemini API - already installed from Story 2.1 for LLM operations" />
+        <package name="sqlmodel" version=">=0.0.24" note="ORM for database operations - already installed" />
+        <package name="structlog" note="Structured logging - already installed" />
+        <package name="langdetect" version=">=1.0.9" note="Language detection - installed in Story 3.5" />
+        <package name="chromadb" version=">=0.4.22" note="Vector database - installed in Story 3.1" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Follow Epic 2 retrospective pattern: Task 1 (Core Implementation + Unit Tests interleaved), Task 2 (Integration Tests during development), Task 3 (Documentation + Security), Task 4 (Final Validation)
+    - Explicit test counts: 10 unit test functions, 6 integration test functions to prevent stub/placeholder tests
+    - REUSE existing services: ContextRetrievalService (3.4), LanguageDetectionService (3.5), ToneDetectionService (3.6), format_response_prompt (3.6), LLMClient (2.1)
+    - DO NOT recreate existing functionality - this is a service orchestration story
+    - Database persistence uses existing EmailProcessingQueue fields: draft_response, detected_language, status, classification
+    - Response quality validation: length 50-2000 chars, language match, structure check (greeting/closing present)
+    - Service initialization pattern: Accept service dependencies via constructor for testability (dependency injection)
+    - Error handling: Structured logging with email_id, language, tone, generation_time, token_count
+    - Privacy-preserving logging: Never log full email content (truncate to preview snippets)
+    - Environment variables: GEMINI_API_KEY for API access (already configured from Story 2.1)
+    - Testing database URL: postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent
+    - Performance target: Response generation ~5-8s (RAG ~3s + language ~0.1s + tone ~0.2s + Gemini ~5s + validation ~0.5s = ~8.8s total)
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>ContextRetrievalService.retrieve_context</name>
+      <kind>async method</kind>
+      <signature>async def retrieve_context(self, email_id: int) -> RAGContext</signature>
+      <path>backend/app/services/context_retrieval.py:180</path>
+      <description>Retrieves Smart Hybrid RAG context (thread history + semantic search) for email. Returns RAGContext with thread_history and semantic_results lists.</description>
+    </interface>
+    <interface>
+      <name>LanguageDetectionService.detect</name>
+      <kind>method</kind>
+      <signature>def detect(self, email_body: str) -> Tuple[str, float]</signature>
+      <path>backend/app/services/language_detection.py:78</path>
+      <description>Detects primary language from email body. Returns (language_code, confidence) tuple. Supported: ru, uk, en, de. Confidence threshold 0.7.</description>
+    </interface>
+    <interface>
+      <name>ToneDetectionService.detect_tone</name>
+      <kind>method</kind>
+      <signature>def detect_tone(self, email: EmailProcessingQueue, thread_history: Optional[List[EmailProcessingQueue]] = None) -> str</signature>
+      <path>backend/app/services/tone_detection.py:60</path>
+      <description>Detects appropriate response tone using hybrid strategy (rules + LLM). Returns "formal", "professional", or "casual".</description>
+    </interface>
+    <interface>
+      <name>format_response_prompt</name>
+      <kind>function</kind>
+      <signature>def format_response_prompt(email: EmailProcessingQueue, rag_context: RAGContext, language: str, tone: str) -> str</signature>
+      <path>backend/app/prompts/response_generation.py:120</path>
+      <description>Formats complete response generation prompt with email content, RAG context, language instructions, tone requirements, and greeting/closing examples. Returns formatted prompt string ready for LLM consumption.</description>
+    </interface>
+    <interface>
+      <name>LLMClient.send_prompt</name>
+      <kind>method</kind>
+      <signature>def send_prompt(self, prompt: str, response_format: str = "text") -> str</signature>
+      <path>backend/app/core/llm_client.py:95</path>
+      <description>Sends prompt to Gemini API and returns text response. Handles retry logic, rate limiting, and token tracking. Model: gemini-2.5-flash.</description>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue database fields</name>
+      <kind>database model</kind>
+      <signature>draft_response: TEXT, detected_language: VARCHAR(5), status: VARCHAR(50), classification: VARCHAR(50)</signature>
+      <path>backend/app/models/email.py:75-77</path>
+      <description>Database fields for storing response generation results. Story 3.7 updates: draft_response (generated text), detected_language (language code), status (awaiting_approval), classification (needs_response).</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      Testing framework: pytest with pytest-asyncio for async test support. Test database: PostgreSQL (postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent). Test fixtures: db_session provides isolated database session per test, creates/drops tables automatically. Mocking: Use pytest monkeypatch for external service mocking (LLMClient, ContextRetrievalService, etc.) to isolate unit tests. Integration tests use real database and real services but may mock Gemini API for speed. Test markers: @pytest.mark.slow for real API tests, @pytest.mark.integration for database tests. Test naming: test_function_name_scenario_expected_outcome format. Assertions: Use pytest's built-in assert statements with descriptive messages. Coverage target: 80%+ for new code measured via pytest-cov. Test structure: Arrange-Act-Assert pattern consistently applied.
+    </standards>
+    <locations>
+      Unit tests: backend/tests/test_response_generation.py (10 test functions for ResponseGenerationService methods)
+      Integration tests: backend/tests/integration/test_response_generation_integration.py (6 test functions for end-to-end workflows)
+      Shared fixtures: backend/tests/conftest.py (db_session, test_user fixtures)
+      Test execution: DATABASE_URL="postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent" uv run pytest backend/tests/test_response_generation.py -v
+    </locations>
+    <ideas>
+      Unit Test Ideas (AC mapping):
+      1. AC #2: test_should_generate_response_personal_email - Verify personal email with questions returns True
+      2. AC #2: test_should_generate_response_newsletter - Verify automated newsletter returns False
+      3. AC #2: test_should_generate_response_noreply_email - Verify no-reply sender returns False
+      4. AC #3: test_generate_response_with_rag_context - Verify RAG context retrieval integration with mocked ContextRetrievalService
+      5. AC #4: test_generate_response_language_detection - Verify language detection integration with mocked LanguageDetectionService
+      6. AC #5: test_generate_response_tone_detection - Verify tone detection integration with mocked ToneDetectionService
+      7. AC #6: test_generate_response_prompt_formatting - Verify format_response_prompt called with correct parameters
+      8. AC #9: test_validate_response_success - Verify valid response (200 chars, correct language, has greeting/closing) passes validation
+      9. AC #9: test_validate_response_failures - Verify validation catches empty, too short (<50), too long (>2000), wrong language responses
+      10. AC #8,#10: test_save_response_draft_database - Verify database fields updated: draft_response, detected_language, status=awaiting_approval, action_type=send_response
+
+      Integration Test Ideas (End-to-end scenarios):
+      1. AC #1-10: test_end_to_end_response_generation_german_formal - German government email (formal tone), real RAG context, real language/tone detection, mocked Gemini response, verify database persistence
+      2. AC #1-10: test_end_to_end_response_generation_english_professional - English business email (professional tone), complete workflow validation
+      3. AC #2: test_should_not_generate_response_newsletter - Newsletter email correctly skips response generation, no database update
+      4. AC #9: test_response_quality_validation_rejects_invalid - Generate intentionally bad responses (too short, wrong language) and verify validation catches them
+      5. AC #3: test_response_generation_with_short_thread - Short thread (1 email) triggers adaptive k=7 semantic search logic via real ContextRetrievalService
+      6. AC #7: test_response_generation_with_real_gemini (@pytest.mark.slow) - Full integration with real Gemini API to validate prompt formatting and response quality
+    </ideas>
+  </tests>
+</story-context>

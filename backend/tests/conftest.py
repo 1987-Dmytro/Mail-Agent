@@ -17,6 +17,7 @@ from app.models.workflow_mapping import WorkflowMapping
 from app.models.folder_category import FolderCategory
 from app.models.notification_preferences import NotificationPreferences
 from app.models.approval_history import ApprovalHistory
+from app.models.indexing_progress import IndexingProgress
 
 # Get database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent")
@@ -55,6 +56,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         await conn.run_sync(EmailProcessingQueue.__table__.create, checkfirst=True)
         await conn.run_sync(WorkflowMapping.__table__.create, checkfirst=True)
         await conn.run_sync(ApprovalHistory.__table__.create, checkfirst=True)
+        await conn.run_sync(IndexingProgress.__table__.create, checkfirst=True)  # Epic 3 email indexing progress
 
     # Create session
     async_session = async_sessionmaker(
@@ -67,6 +69,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     # Drop tables with CASCADE to handle foreign key constraints from other tables
     async with engine.begin() as conn:
         # Use raw SQL with CASCADE to drop tables cleanly
+        await conn.execute(sa_text("DROP TABLE IF EXISTS indexing_progress CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS approval_history CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS workflow_mappings CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS email_processing_queue CASCADE"))

@@ -88,22 +88,21 @@ class MockGmailClient:
         if message_id in self._messages:
             return self._messages[message_id]
 
+        # Return parsed format matching real GmailClient.get_message_detail()
         return {
-            "id": message_id,
-            "threadId": f"thread_{message_id}",
-            "snippet": "Test email snippet",
-            "internalDate": int(datetime.now(UTC).timestamp() * 1000),
-            "payload": {
-                "headers": [
-                    {"name": "From", "value": "sender@example.com"},
-                    {"name": "To", "value": "recipient@example.com"},
-                    {"name": "Subject", "value": "Test Email Subject"},
-                    {"name": "Date", "value": "Mon, 1 Jan 2025 12:00:00 +0000"}
-                ],
-                "body": {
-                    "data": "VGVzdCBlbWFpbCBib2R5IGNvbnRlbnQ="  # Base64 "Test email body content"
-                }
-            }
+            "message_id": message_id,
+            "thread_id": f"thread_{message_id}",
+            "sender": "sender@example.com",
+            "subject": "Test Email Subject",
+            "body": "Test email body content",
+            "headers": {
+                "From": "sender@example.com",
+                "To": "recipient@example.com",
+                "Subject": "Test Email Subject",
+                "Date": "Mon, 1 Jan 2025 12:00:00 +0000"
+            },
+            "received_at": datetime.now(UTC),
+            "labels": []
         }
 
     async def get_message_detail(self, message_id: str) -> Dict[str, Any]:
@@ -122,6 +121,27 @@ class MockGmailClient:
             GmailAPIError: If simulate_failure was called for this operation
         """
         return await self.get_message(message_id)
+
+    async def get_thread(self, thread_id: str) -> List[Dict[str, Any]]:
+        """Mock get_thread operation for thread history retrieval.
+
+        Args:
+            thread_id: Gmail thread ID to retrieve
+
+        Returns:
+            list: List of messages in thread (empty list for new threads)
+
+        Raises:
+            GmailAPIError: If simulate_failure was called for this operation
+        """
+        # For testing, return messages that match this thread_id
+        thread_messages = [
+            msg for msg in self._messages.values()
+            if msg.get("thread_id") == thread_id
+        ]
+
+        # If no messages found, return empty thread (common for new emails)
+        return thread_messages if thread_messages else []
 
     async def apply_label(self, message_id: str, label_id: str) -> bool:
         """Mock apply_label operation.

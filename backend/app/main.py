@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import (
     Any,
     Dict,
+    Optional,
 )
 
 from dotenv import load_dotenv
@@ -29,6 +30,7 @@ from app.core.logging import logger
 from app.core.metrics import setup_metrics
 from app.core.middleware import MetricsMiddleware
 from app.core.telegram_bot import TelegramBotClient
+from app.core.vector_db import VectorDBClient
 from app.services.database import database_service
 from app.utils.errors import TelegramBotError
 
@@ -46,6 +48,57 @@ load_dotenv()
 # Global Telegram bot instance
 telegram_bot = TelegramBotClient()
 
+# Global Vector DB client instance
+vector_db_client: Optional[VectorDBClient] = None
+
+
+def initialize_email_embeddings_collection() -> None:
+    """Initialize ChromaDB email_embeddings collection on application startup.
+
+    Creates the email_embeddings collection with cosine similarity distance metric
+    and metadata schema for storing email context. Collection persists across
+    service restarts via SQLite backend.
+
+    Metadata schema:
+        - message_id: Gmail message ID (str)
+        - thread_id: Gmail thread ID (str)
+        - sender: Email sender address (str)
+        - date: Email timestamp in ISO 8601 format (str)
+        - subject: Email subject line (str)
+        - language: Detected language code: ru/uk/en/de (str)
+        - snippet: First 200 chars of email body (str)
+
+    Raises:
+        ConnectionError: If ChromaDB initialization fails
+    """
+    global vector_db_client
+
+    try:
+        # Initialize ChromaDB client with persistent storage
+        vector_db_client = VectorDBClient(persist_directory=settings.CHROMADB_PATH)
+
+        # Create email_embeddings collection with cosine similarity
+        # This collection will store embeddings for semantic search in RAG system
+        collection = vector_db_client.get_or_create_collection(
+            name="email_embeddings",
+            metadata={
+                "hnsw:space": "cosine",  # Cosine similarity for semantic search
+                "description": "Email embeddings for RAG context retrieval",
+            },
+        )
+
+        logger.info(
+            "vector_db_initialized",
+            collection_name="email_embeddings",
+            distance_metric="cosine",
+            persist_directory=settings.CHROMADB_PATH,
+            collection_count=vector_db_client.count_embeddings("email_embeddings"),
+        )
+    except Exception as e:
+        logger.error("vector_db_initialization_failed", error=str(e))
+        # Allow app to start in degraded mode without vector DB
+        # (similar to Telegram bot handling)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,6 +109,9 @@ async def lifespan(app: FastAPI):
         version=settings.VERSION,
         api_prefix=settings.API_V1_STR,
     )
+
+    # Initialize ChromaDB vector database (Epic 3 - Story 3.1)
+    initialize_email_embeddings_collection()
 
     # Initialize and start Telegram bot
     if settings.TELEGRAM_BOT_TOKEN:

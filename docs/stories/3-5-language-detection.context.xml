@@ -1,0 +1,204 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.5</storyId>
+    <title>Language Detection</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-09</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-5-language-detection.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a system</asA>
+    <iWant>to detect the language of incoming emails accurately</iWant>
+    <soThat>I can generate responses in the correct language</soThat>
+    <tasks>
+### Task 1: Core Implementation + Unit Tests (AC: #1, #2, #3, #4, #5, #8)
+- Subtask 1.1: Install langdetect library and create LanguageDetectionService
+- Subtask 1.2: Implement primary language detection method (detect with confidence)
+- Subtask 1.3: Implement 4-language support validation (ru, uk, en, de)
+- Subtask 1.4: Implement mixed-language handling (primary language selection)
+- Subtask 1.5: Implement confidence threshold and fallback logic (0.7 threshold)
+- Subtask 1.6: Add error handling and edge cases
+- Subtask 1.7: Write 6 unit tests for LanguageDetectionService
+
+### Task 2: Integration Tests (AC: #1-#8)
+- Subtask 2.1: Set up integration test infrastructure
+- Subtask 2.2: Implement 4 integration test scenarios (all languages, database storage, mixed-language, fallback)
+- Subtask 2.3: Verify all integration tests passing
+
+### Task 3: Documentation + Security Review (AC: #1, #2, #3)
+- Subtask 3.1: Update backend/README.md and docs/architecture.md
+- Subtask 3.2: Security review (input validation, error handling, logging)
+
+### Task 4: Final Validation (AC: all)
+- Subtask 4.1: Run complete test suite (6 unit + 4 integration tests)
+- Subtask 4.2: Verify DoD checklist completion
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Language detection library integrated (langdetect) into backend service
+2. LanguageDetectionService class created with detect() method that analyzes email body text
+3. Supports 4 target languages: Russian (ru), Ukrainian (uk), English (en), German (de)
+4. Confidence score calculated and returned for language prediction
+5. Mixed-language emails handled using primary detected language (highest probability)
+6. Language detection validated with test emails in all 4 languages
+7. Detected language stored in EmailProcessingQueue.detected_language field
+8. Fallback to English implemented when detection confidence is low (&lt;0.7)
+
+Standard Quality &amp; Security Criteria:
+- Input Validation: All user inputs and external data validated before processing
+- Security Review: No hardcoded secrets, credentials in environment variables, parameterized queries
+- Code Quality: No deprecated APIs, comprehensive type hints, structured logging, proper error handling
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification: RAG System &amp; Response Generation</title>
+        <section>Language Detection Strategy</section>
+        <snippet>Library: langdetect (Python, 55 languages, 5MB footprint), Performance: 50-100ms per email, Confidence Threshold: 0.7 (fallback to thread history language if lower), Supported Languages: Russian (ru), Ukrainian (uk), English (en), German (de), Mixed-Language Handling: Use primary detected language (highest probability)</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>ADR-013: langdetect for Language Detection</section>
+        <snippet>Decision: Use langdetect library for language detection. Rationale: Simple (pip install, 5MB), Fast (50-100ms per email), Good accuracy for email bodies, Zero cost (no API calls), Proven reliability. Consequences: Lower accuracy for very short texts (&lt;50 chars), mitigation via fallback to thread history language if confidence &lt;0.7</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown: Mail Agent</title>
+        <section>Story 3.5: Language Detection</section>
+        <snippet>Acceptance Criteria: Language detection library integrated (langdetect), Detection method analyzes email body text, Supports 4 languages (ru/uk/en/de), Confidence score calculated, Mixed-language emails handled, Validated with test emails, Detected language stored in EmailProcessingQueue, Fallback to English when confidence low</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>Executive Summary</section>
+        <snippet>LangGraph-orchestrated AI agent system for Gmail automation with RAG-powered response generation, using FastAPI backend, ChromaDB vector database, Google Gemini 2.5 Flash for LLM operations, designed for zero-cost infrastructure operation while maintaining production-grade quality</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/core/preprocessing.py</path>
+        <kind>service</kind>
+        <symbol>strip_html</symbol>
+        <lines>36-103</lines>
+        <reason>REUSE for HTML tag removal before language detection. Story 3.2 created this function for email preprocessing. Use to clean HTML emails before passing to langdetect.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/core/preprocessing.py</path>
+        <kind>service</kind>
+        <symbol>extract_email_text</symbol>
+        <lines>106-169</lines>
+        <reason>REUSE for extracting plain text from email bodies based on content type. Handles both text/plain and text/html formats with whitespace normalization.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/models/email.py</path>
+        <kind>model</kind>
+        <symbol>EmailProcessingQueue</symbol>
+        <lines>17-50</lines>
+        <reason>EXTEND with detected_language field (VARCHAR(5)) to store 2-letter language codes (ru, uk, en, de). Used for workflow state persistence across Epic 2 and Epic 3.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/test_preprocessing.py</path>
+        <kind>test</kind>
+        <symbol>test_strip_html</symbol>
+        <lines>N/A</lines>
+        <reason>Reference for testing patterns. Shows how to test preprocessing functions with fixtures and edge cases (malformed HTML, empty strings, etc.).</reason>
+      </artifact>
+      <artifact>
+        <path>backend/tests/conftest.py</path>
+        <kind>test-config</kind>
+        <symbol>test_user</symbol>
+        <lines>N/A</lines>
+        <reason>Shared pytest fixtures for test database setup, user creation, and cleanup. Reuse for integration tests requiring EmailProcessingQueue database interactions.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="langdetect" version="&gt;=1.0.9" status="NEW - MUST INSTALL">Language detection library (ADR-013). Install via: uv pip install langdetect&gt;=1.0.9</package>
+        <package name="beautifulsoup4" version="&gt;=4.12.0" status="existing">HTML parsing (used by preprocessing.strip_html). Already installed in Story 3.2.</package>
+        <package name="structlog" version="&gt;=25.2.0" status="existing">Structured logging framework. Used across all services for consistent logging.</package>
+        <package name="pytest" version="&gt;=8.3.5" status="existing">Testing framework for unit and integration tests.</package>
+        <package name="pytest-asyncio" version="&gt;=0.25.2" status="existing">Async support for pytest. Used for async test functions.</package>
+        <package name="sqlmodel" version="&gt;=0.0.24" status="existing">Database ORM for EmailProcessingQueue model extension.</package>
+        <package name="alembic" version="&gt;=1.13.3" status="existing">Database migration tool. Used to add detected_language field.</package>
+      </python>
+      <frameworks>
+        <framework name="FastAPI" version="&gt;=0.115.12">Backend API framework</framework>
+        <framework name="LangGraph" version="&gt;=0.4.1">Agent workflow orchestration (Epic 2/3 workflows)</framework>
+        <framework name="SQLModel" version="&gt;=0.0.24">Database models and ORM</framework>
+        <framework name="Pytest" version="&gt;=8.3.5">Testing framework with fixtures and integration test support</framework>
+      </frameworks>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use langdetect library (ADR-013) - install via: uv pip install langdetect&gt;=1.0.9</constraint>
+    <constraint>Services must be in backend/app/services/ directory following project structure convention</constraint>
+    <constraint>All functions must have comprehensive type hints (PEP 484) for maintainability</constraint>
+    <constraint>Use structlog for all logging following Epic 2 pattern (no print statements)</constraint>
+    <constraint>Testing pattern: 6 unit tests + 4 integration tests as specified in task breakdown (prevents placeholder tests)</constraint>
+    <constraint>Performance requirement: Language detection must complete in &lt;100ms per email (NFR005 from PRD)</constraint>
+    <constraint>Error handling: No email content exposure in error messages (log first 50 chars only for privacy)</constraint>
+    <constraint>Database migration required: Create Alembic migration to add detected_language field to EmailProcessingQueue</constraint>
+    <constraint>Confidence threshold: 0.7 minimum for accepting detected language, fallback to English if lower (ADR-013)</constraint>
+    <constraint>Reuse preprocessing module: Call strip_html() before language detection for HTML emails (Story 3.2 integration)</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>LanguageDetectionService.detect</name>
+      <kind>function-signature</kind>
+      <signature>def detect(self, email_body: str) -&gt; Tuple[str, float]</signature>
+      <path>backend/app/services/language_detection.py</path>
+      <description>Primary detection method returning (language_code, confidence). Example: ("de", 0.95). Used by Story 3.7 response generation service.</description>
+    </interface>
+    <interface>
+      <name>LanguageDetectionService.detect_with_fallback</name>
+      <kind>function-signature</kind>
+      <signature>def detect_with_fallback(self, email_body: str, fallback_lang: str = "en") -&gt; Tuple[str, float]</signature>
+      <path>backend/app/services/language_detection.py</path>
+      <description>Detection with confidence threshold fallback. Returns ("en", confidence) if primary language confidence &lt; 0.7.</description>
+    </interface>
+    <interface>
+      <name>EmailProcessingQueue.detected_language</name>
+      <kind>database-field</kind>
+      <signature>detected_language: Optional[str]</signature>
+      <path>backend/app/models/email.py</path>
+      <description>Database field to store 2-letter language code (ru, uk, en, de). VARCHAR(5) type, default None. Updated during email classification workflow.</description>
+    </interface>
+    <interface>
+      <name>preprocessing.strip_html</name>
+      <kind>function-signature</kind>
+      <signature>def strip_html(html_content: str) -&gt; str</signature>
+      <path>backend/app/core/preprocessing.py</path>
+      <description>EXISTING function from Story 3.2. Use before language detection to clean HTML emails. Returns plain text with normalized whitespace.</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Testing follows Epic 2/3 patterns with explicit test counts to prevent placeholder tests. All tests use pytest framework with structured fixtures from conftest.py. Unit tests focus on business logic with mocked dependencies. Integration tests use real database (test environment) with cleanup fixtures. Performance testing uses time.perf_counter() for latency measurements (&lt;100ms requirement). Database tests require DATABASE_URL environment variable. Test coverage target: 80%+ for new code. No placeholder tests with pass statements allowed - all tests must have real assertions validating acceptance criteria.
+    </standards>
+    <locations>
+      <location>backend/tests/test_language_detection.py</location>
+      <location>backend/tests/integration/test_language_detection_integration.py</location>
+      <location>backend/tests/conftest.py (shared fixtures: test_user, database setup/cleanup)</location>
+    </locations>
+    <ideas>
+      <test ac="AC #2, #4" type="unit">test_detect_returns_language_and_confidence() - Test German, Russian, English, Ukrainian emails return correct language codes and confidence scores &gt; 0.7</test>
+      <test ac="AC #3" type="unit">test_supported_languages_validation() - Test all 4 supported languages (ru, uk, en, de) detected correctly with is_supported_language() method</test>
+      <test ac="AC #5" type="unit">test_mixed_language_returns_primary() - Test email with 70% German + 20% English + 10% Russian returns "de" as primary language</test>
+      <test ac="AC #8" type="unit">test_confidence_threshold_fallback() - Test ambiguous text with confidence &lt; 0.7 triggers fallback to English ("en")</test>
+      <test ac="edge cases" type="unit">test_edge_cases_empty_and_short_text() - Test empty body returns ("en", 0.0), very short text (&lt;20 chars) handles gracefully</test>
+      <test ac="error handling" type="unit">test_error_handling_invalid_input() - Test HTML content stripped before detection, langdetect.LangDetectException caught and logged</test>
+      <test ac="AC #3, #6" type="integration">test_detect_all_4_supported_languages() - Test emails in Russian, Ukrainian, English, German; verify correct language codes returned with real langdetect library</test>
+      <test ac="AC #7" type="integration">test_store_detected_language_in_email_queue() - Test language detection integrated with EmailProcessingQueue; verify detected_language field populated in database</test>
+      <test ac="AC #5" type="integration">test_mixed_language_email_workflow() - Test email with mixed German/English content; verify primary language (German) stored in database</test>
+      <test ac="AC #8" type="integration">test_low_confidence_fallback_to_english() - Test ambiguous email text; verify fallback to "en" when confidence &lt; 0.7 and database stores "en"</test>
+    </ideas>
+  </tests>
+</story-context>

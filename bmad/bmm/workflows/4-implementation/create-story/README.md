@@ -132,6 +132,65 @@ non_interactive: true
 auto_run_context: true
 ```
 
+## Template Version 2.0.0 (2025-11-09)
+
+### Epic 2 Retrospective Improvements
+
+The story template was significantly enhanced based on learnings from Epic 2 development:
+
+#### 1. Enhanced Definition of Done (DoD) Checklist
+
+Every story now includes explicit DoD checklist with 7 items:
+- All AC implemented and verified
+- Unit tests passing (NOT stubs)
+- Integration tests passing (NOT stubs)
+- Documentation complete
+- Security review passed
+- Code quality verified
+- Task checkboxes updated
+
+**Impact**: Eliminates ambiguity about story completion, reduces review cycles
+
+#### 2. Standard Quality & Security Criteria
+
+Auto-included in every story:
+- Input validation for all user inputs
+- Security review (no hardcoded secrets, parameterized queries)
+- Code quality (no deprecated APIs, type hints, logging)
+
+**Impact**: Makes implicit requirements explicit, prevents security issues
+
+#### 3. Reordered Task Structure
+
+**New Pattern**:
+- Task 1: Core implementation + unit tests (interleaved)
+- Task 2: Integration tests (during development, not after)
+- Task 3: Documentation + security review
+- Task 4: Final validation
+
+**Impact**: Integration tests no longer afterthought, implemented during development
+
+#### 4. Integration Test Scope Specification
+
+Task 2 requires exact count and list of all test function names:
+```markdown
+**Integration Test Scope**: Implement exactly 6 integration test functions:
+- test_scenario_1 (AC: #) - Description
+- test_scenario_2 (AC: #) - Description
+...
+```
+
+**Impact**: Prevents stub tests, eliminates "17 missing tests" pattern from Epic 2 Story 2.12
+
+### Migration
+
+- **Existing stories** (pre-2025-11-09): Use old template
+- **New stories** (from 2025-11-09): Automatically use v2.0.0 template
+
+See [CHANGELOG.md](./CHANGELOG.md) for complete details and rationale.
+
+---
+
 ## Troubleshooting
 
 | Issue                   | Solution                                   |
@@ -144,3 +203,4 @@ auto_run_context: true
 ---
 
 For workflow details, see [instructions.md](./instructions.md) and [checklist.md](./checklist.md).
+For template changes, see [CHANGELOG.md](./CHANGELOG.md).

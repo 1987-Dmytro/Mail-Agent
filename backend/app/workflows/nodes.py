@@ -207,11 +207,42 @@ async def classify(
         )
 
         # Update state with classification results
-        # Epic 2 only handles sorting (not response generation)
-        state["classification"] = "sort_only"
         state["proposed_folder"] = classification_result.suggested_folder
         state["classification_reasoning"] = classification_result.reasoning
         state["priority_score"] = classification_result.priority_score
+
+        # Determine if email needs response generation (Story 3.11 - AC #1)
+        # Load email for response classification
+        email_result = await db.execute(
+            select(EmailProcessingQueue).where(
+                EmailProcessingQueue.id == int(state["email_id"])
+            )
+        )
+        email = email_result.scalar_one_or_none()
+
+        if email:
+            # Use ResponseGenerationService to classify email
+            from app.services.response_generation import ResponseGenerationService
+            response_service = ResponseGenerationService(user_id=int(state["user_id"]))
+            needs_response = response_service.should_generate_response(email)
+
+            # Set classification based on response need (Story 3.11 - AC #1)
+            state["classification"] = "needs_response" if needs_response else "sort_only"
+
+            logger.info(
+                "email_classified",
+                email_id=state["email_id"],
+                classification=state["classification"],
+                needs_response=needs_response
+            )
+        else:
+            # Fallback to sort_only if email not found
+            state["classification"] = "sort_only"
+            logger.warning(
+                "email_not_found_for_classification",
+                email_id=state["email_id"],
+                fallback_classification="sort_only"
+            )
 
         # Look up proposed_folder_id for database FK
         if classification_result.suggested_folder:
@@ -363,17 +394,29 @@ async def send_telegram(
     db: AsyncSession,
     telegram_bot_client,
 ) -> EmailWorkflowState:
-    """Node 3: Send Telegram approval request (with priority bypass for Story 2.8).
+    """Node 3: Send Telegram approval request or response draft (Story 3.11 - AC #6).
 
-    This node implements priority email bypass logic (Story 2.8 AC #6):
+    This node handles two message types based on state["draft_response"] existence:
+    - Response draft exists: Send response draft message with [Send][Edit][Reject] buttons (Story 3.11)
+    - No draft: Send sorting proposal with [Approve][Reject] buttons (Epic 2)
+
+    Priority bypass logic (Story 2.8 AC #6):
     - Priority emails (priority_score >= 70): Send immediately via Telegram
     - Non-priority emails: Mark as awaiting_approval, skip Telegram send (sent in batch)
 
-    Actions for priority emails:
+    Actions for priority emails with response draft (Story 3.11 - AC #6):
+        1. Load user's telegram_id from database
+        2. Format response draft message using TelegramResponseDraftService
+        3. Create inline keyboard with response draft buttons [Send][Edit][Reject]
+        4. Send message via TelegramBotClient
+        5. Update WorkflowMapping with telegram_message_id
+        6. Store telegram_message_id in state for tracking
+
+    Actions for priority emails without draft (Epic 2):
         1. Load user's telegram_id from database
         2. Format email body preview (first 100 characters)
         3. Format Telegram message with ⚠️ priority indicator
-        4. Create inline keyboard with approval buttons
+        4. Create inline keyboard with approval buttons [Approve][Reject]
         5. Send message via TelegramBotClient
         6. Update WorkflowMapping with telegram_message_id
         7. Store telegram_message_id in state for tracking
@@ -383,7 +426,7 @@ async def send_telegram(
         2. Skip Telegram message sending (will be sent in batch via Story 2.8)
 
     Args:
-        state: Current workflow state with classification results
+        state: Current workflow state with classification results and optional draft_response
         db: Database session for loading user and updating WorkflowMapping
         telegram_bot_client: TelegramBotClient instance for message sending
 
@@ -421,22 +464,60 @@ async def send_telegram(
             if not user or not user.telegram_id:
                 raise ValueError(f"User {state['user_id']} has no Telegram account linked")
 
-            # Step 2: Create body preview (first 100 characters)
-            body_preview = state["email_content"][:100] if state.get("email_content") else ""
-            state["body_preview"] = body_preview
+            # Step 2: Check if response draft exists and use appropriate template (Story 3.11 - AC #6)
+            has_draft = bool(state.get("draft_response"))
 
-            # Step 3: Format Telegram message with priority indicator
-            message_text = format_sorting_proposal_message(
-                sender=state["sender"],
-                subject=state["subject"],
-                body_preview=body_preview,
-                proposed_folder=state.get("proposed_folder", "Unclassified"),
-                reasoning=state.get("classification_reasoning", "No reasoning provided"),
-                is_priority=True,  # Include ⚠️ priority indicator
-            )
+            if has_draft:
+                # RESPONSE DRAFT MESSAGE (Story 3.11 - AC #6)
+                logger.info(
+                    "sending_response_draft_message",
+                    email_id=state["email_id"],
+                    has_draft=True
+                )
 
-            # Step 4: Create inline keyboard buttons
-            buttons = create_inline_keyboard(email_id=int(state["email_id"]))
+                # Format response draft message using TelegramResponseDraftService
+                from app.services.telegram_response_draft import TelegramResponseDraftService
+                from app.services.database import database_service
+
+                draft_service = TelegramResponseDraftService(
+                    telegram_bot=telegram_bot_client,
+                    db_service=database_service
+                )
+
+                # Format message with original email preview + draft + language/tone
+                message_text = await draft_service.format_response_draft_message(
+                    email_id=int(state["email_id"])
+                )
+
+                # Create response draft keyboard with [Send][Edit][Reject] buttons
+                buttons = draft_service.build_response_draft_keyboard(
+                    email_id=int(state["email_id"])
+                )
+
+            else:
+                # SORTING PROPOSAL MESSAGE (Epic 2)
+                logger.info(
+                    "sending_sorting_proposal_message",
+                    email_id=state["email_id"],
+                    has_draft=False
+                )
+
+                # Step 2: Create body preview (first 100 characters)
+                body_preview = state["email_content"][:100] if state.get("email_content") else ""
+                state["body_preview"] = body_preview
+
+                # Step 3: Format Telegram message with priority indicator
+                message_text = format_sorting_proposal_message(
+                    sender=state["sender"],
+                    subject=state["subject"],
+                    body_preview=body_preview,
+                    proposed_folder=state.get("proposed_folder", "Unclassified"),
+                    reasoning=state.get("classification_reasoning", "No reasoning provided"),
+                    is_priority=True,  # Include ⚠️ priority indicator
+                )
+
+                # Step 4: Create inline keyboard buttons
+                buttons = create_inline_keyboard(email_id=int(state["email_id"]))
 
             # Step 5: Send message via TelegramBotClient
             telegram_message_id = await telegram_bot_client.send_message_with_buttons(
@@ -532,6 +613,101 @@ async def send_telegram(
             error_type=type(e).__name__,
         )
         state["error_message"] = f"Failed to send Telegram message: {str(e)}"
+
+    return state
+
+
+async def draft_response(
+    state: EmailWorkflowState,
+    db: AsyncSession,
+) -> EmailWorkflowState:
+    """Node 2.5: Generate AI response draft using RAG context (Story 3.11 - AC #3).
+
+    This node orchestrates the complete response generation workflow:
+    1. Load email from database
+    2. Initialize ResponseGenerationService for user
+    3. Call ResponseGenerationService.generate_response() with RAG context
+    4. Update state with draft_response, detected_language, tone
+    5. Handle errors gracefully
+
+    The ResponseGenerationService handles:
+    - Context retrieval (Story 3.4): Smart Hybrid RAG for conversation context
+    - Language detection (Story 3.5): Detect email language (ru/uk/en/de)
+    - Tone detection (Story 3.6): Determine response tone (formal/professional/casual)
+    - Prompt engineering (Story 3.6): Format prompts with RAG context
+    - Gemini LLM (Story 2.1): Generate response text
+
+    Args:
+        state: Current workflow state with email_id and user_id
+        db: Database session for loading email
+
+    Returns:
+        Updated state with draft_response, detected_language, tone populated
+
+    Raises:
+        Exception: Errors captured in state["error_message"], workflow continues
+    """
+    logger.info("node_draft_response_started", email_id=state["email_id"])
+
+    try:
+        # Load email from database
+        result = await db.execute(
+            select(EmailProcessingQueue).where(
+                EmailProcessingQueue.id == int(state["email_id"])
+            )
+        )
+        email = result.scalar_one_or_none()
+
+        if not email:
+            raise ValueError(f"Email {state['email_id']} not found")
+
+        # Initialize ResponseGenerationService for this user (AC #3)
+        from app.services.response_generation import ResponseGenerationService
+        response_service = ResponseGenerationService(user_id=int(state["user_id"]))
+
+        # Generate AI response using ResponseGenerationService (AC #3)
+        # This calls the complete RAG workflow: context retrieval, language detection,
+        # tone detection, prompt engineering, and LLM response generation
+        response_draft = await response_service.generate_response(
+            email_id=int(state["email_id"])
+        )
+
+        if response_draft:
+            # Update state with response draft and metadata (AC #3)
+            state["draft_response"] = response_draft
+
+            # Load metadata from email (ResponseGenerationService saves these fields)
+            await db.refresh(email)
+            state["detected_language"] = email.detected_language
+            state["tone"] = email.tone
+
+            logger.info(
+                "node_draft_response_completed",
+                email_id=state["email_id"],
+                response_length=len(response_draft),
+                detected_language=email.detected_language,
+                tone=email.tone
+            )
+        else:
+            # No response generated (e.g., no-reply sender)
+            # This shouldn't happen as classification should have routed to send_telegram
+            logger.warning(
+                "node_draft_response_no_response_generated",
+                email_id=state["email_id"],
+                note="Email was routed to draft_response but no response generated"
+            )
+            state["draft_response"] = None
+
+    except Exception as e:
+        logger.error(
+            "node_draft_response_failed",
+            email_id=state["email_id"],
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        state["error_message"] = f"Failed to generate response draft: {str(e)}"
+        # Set empty draft to allow workflow to continue
+        state["draft_response"] = None
 
     return state
 

@@ -1,0 +1,46 @@
+{
+  "test_name": "german_business_professional",
+  "description": "German business email with professional tone",
+  "original_email": {
+    "sender": "partner@example.de",
+    "sender_name": "Klaus Müller",
+    "subject": "Angebot für Softwareentwicklung",
+    "body": "Sehr geehrte Damen und Herren,\n\nvielen Dank für Ihr Interesse an unseren Dienstleistungen. Gerne unterbreiten wir Ihnen ein Angebot für die Entwicklung Ihrer Webanwendung.\n\nKönnten Sie uns bitte weitere Details zu Ihren Anforderungen mitteilen?\n\nMit freundlichen Grüßen\nKlaus Müller\nGeschäftsführer",
+    "thread_id": "thread-de-business-001",
+    "received_at": "2025-11-09T14:00:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Anfrage Webentwicklung",
+      "body": "Guten Tag,\n\nwir suchen einen Partner für die Entwicklung einer Webanwendung.\n\nMit freundlichen Grüßen",
+      "timestamp": "2025-11-08T16:00:00Z",
+      "is_sent_by_user": true
+    }
+  ],
+  "expected_language": "de",
+  "expected_tone": "professional",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["Angebot", "Softwareentwicklung", "Webanwendung", "Anforderungen"],
+    "thread_history_references": ["Partner", "Entwicklung"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "de",
+      "greeting_examples": ["Sehr geehrter Herr Müller", "Guten Tag"],
+      "closing_examples": ["Mit freundlichen Grüßen", "Beste Grüße"]
+    },
+    "tone_markers": {
+      "tone": "professional",
+      "formality_level": "medium-high",
+      "expected_phrases": ["vielen Dank", "gerne", "ich würde mich freuen"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["Details zu Anforderungen", "Angebot"]
+    }
+  },
+  "quality_threshold": 80
+}

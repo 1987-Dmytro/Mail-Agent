@@ -62,6 +62,7 @@ class TelegramBotClient:
             from app.api.telegram_handlers import (
                 handle_callback_query,
                 handle_help_command,
+                handle_message,
                 handle_retry_command,
                 handle_start_command,
                 handle_test_command,
@@ -75,6 +76,10 @@ class TelegramBotClient:
 
             # Register callback query handler (Story 2.7)
             self.application.add_handler(CallbackQueryHandler(handle_callback_query))
+
+            # Register message handler for edit workflow (Story 3.9)
+            from telegram.ext import MessageHandler, filters
+            self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
             # Initialize application
             await self.application.initialize()

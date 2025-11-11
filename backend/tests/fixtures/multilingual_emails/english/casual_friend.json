@@ -1,0 +1,53 @@
+{
+  "test_name": "english_casual_friend",
+  "description": "English personal email with casual tone",
+  "original_email": {
+    "sender": "friend@example.com",
+    "sender_name": "Sarah",
+    "subject": "Hey! How have you been?",
+    "body": "Hey!\n\nIt's been ages since we last talked. How are things going? I heard you started a new job. Tell me all about it!\n\nMiss you!\nSarah",
+    "thread_id": "thread-en-personal-001",
+    "received_at": "2025-11-09T20:15:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Catch up?",
+      "body": "Yeah, let's meet up next week. I have so much to tell you!",
+      "timestamp": "2025-10-25T16:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "friend@example.com",
+      "subject": "Catch up?",
+      "body": "Hey! Want to grab coffee sometime?",
+      "timestamp": "2025-10-25T14:30:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "en",
+  "expected_tone": "casual",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["new job", "meet up", "catch up"],
+    "thread_history_references": ["meet up", "tell you"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "en",
+      "greeting_examples": ["Hey", "Hi", "Hey there"],
+      "closing_examples": ["Cheers", "Talk soon", "Catch you later"]
+    },
+    "tone_markers": {
+      "tone": "casual",
+      "formality_level": "low",
+      "expected_phrases": ["it's great", "I'd love to", "let's catch up"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["new job", "meeting up"]
+    }
+  },
+  "quality_threshold": 80
+}
