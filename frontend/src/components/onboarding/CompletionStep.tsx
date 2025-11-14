@@ -1,0 +1,183 @@
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Check, Mail, MessageCircle, FolderKanban, Loader2, PartyPopper } from 'lucide-react';
+import { toast } from 'sonner';
+import { apiClient } from '@/lib/api-client';
+import type { StepProps } from './OnboardingWizard';
+
+/**
+ * CompletionStep - Step 5 of onboarding wizard
+ *
+ * Displays:
+ * - Success animation or celebration graphic
+ * - Summary of configured items (Gmail, Telegram, folders)
+ * - "Go to Dashboard" button (primary action)
+ *
+ * On button click:
+ * - Call apiClient.updateUser({ onboarding_completed: true })
+ * - Clear localStorage onboarding progress
+ * - Navigate to /dashboard using Next.js router
+ * - Show error message if backend update fails
+ *
+ * AC6: Step 5 (Complete) - Completion celebration screen with "Go to Dashboard" button
+ * AC10: Completion updates user.onboarding_completed = true in backend
+ */
+export default function CompletionStep({ currentState }: StepProps) {
+  const router = useRouter();
+  const [isCompleting, setIsCompleting] = useState<boolean>(false);
+
+  /**
+   * Handle "Go to Dashboard" button click
+   * Completes onboarding by updating backend and clearing localStorage
+   */
+  const handleGoToDashboard = async () => {
+    setIsCompleting(true);
+
+    try {
+      // Update backend: mark onboarding as completed (AC10)
+      await apiClient.updateUser({ onboarding_completed: true });
+
+      // Clear localStorage onboarding progress
+      localStorage.removeItem('onboarding_progress');
+
+      // Show success toast
+      toast.success('Onboarding complete! Welcome to Mail Agent 🎉');
+
+      // Navigate to dashboard
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Failed to complete onboarding:', error);
+      toast.error('Failed to complete onboarding. Please try again.');
+      setIsCompleting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Celebration header */}
+      <div className="text-center">
+        <div className="mb-4 flex justify-center">
+          <div className="rounded-full bg-green-100 p-6 dark:bg-green-900/20">
+            <PartyPopper className="h-16 w-16 text-green-600 dark:text-green-400" />
+          </div>
+        </div>
+        <h1 className="mb-2 text-3xl font-bold">All Set! 🎉</h1>
+        <p className="text-lg text-muted-foreground">
+          Your Mail Agent is ready to start managing your emails
+        </p>
+      </div>
+
+      {/* Summary card */}
+      <Card className="border-green-500/50 bg-green-50/50 dark:bg-green-900/10">
+        <CardContent className="space-y-4 py-6">
+          <h3 className="text-center font-semibold text-foreground">
+            Here&apos;s what you configured:
+          </h3>
+
+          {/* Gmail connected */}
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold">Gmail connected</span>
+              </div>
+              {currentState.gmailEmail && (
+                <p className="text-sm text-muted-foreground">{currentState.gmailEmail}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Telegram linked */}
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold">Telegram linked</span>
+              </div>
+              {currentState.telegramUsername && (
+                <p className="text-sm text-muted-foreground">@{currentState.telegramUsername}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Folders configured */}
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <FolderKanban className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold">
+                  {currentState.folders.length} folder{currentState.folders.length !== 1 ? 's' : ''}{' '}
+                  configured
+                </span>
+              </div>
+              {currentState.folders.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {currentState.folders.map((f) => f.name).join(', ')}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* What happens next */}
+      <Card>
+        <CardContent className="space-y-3 py-6">
+          <h3 className="font-semibold">What happens next?</h3>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              <span>Mail Agent will monitor your Gmail inbox for new emails</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              <span>AI will suggest which folder each email belongs to</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              <span>You&apos;ll receive approval requests on Telegram</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              <span>Approve with one tap, and the email will be sorted automatically</span>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      {/* Go to Dashboard button */}
+      <Button
+        onClick={handleGoToDashboard}
+        disabled={isCompleting}
+        size="lg"
+        className="w-full"
+      >
+        {isCompleting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Completing setup...
+          </>
+        ) : (
+          'Go to Dashboard'
+        )}
+      </Button>
+    </div>
+  );
+}

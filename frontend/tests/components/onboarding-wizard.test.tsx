@@ -1,0 +1,297 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import OnboardingWizard from '@/components/onboarding/OnboardingWizard';
+
+/**
+ * Unit tests for OnboardingWizard component
+ * Covers AC1, AC7, AC8, AC9 (wizard state management, navigation, validation, localStorage)
+ *
+ * Test Suite: 8 unit test functions
+ * 1. test_wizard_renders_with_progress_indicator (AC1)
+ * 2. test_next_button_advances_step (AC7)
+ * 3. test_back_button_returns_to_previous_step (AC7)
+ * 4. test_next_disabled_without_gmail_connection (AC8)
+ * 5. test_next_disabled_without_telegram_connection (AC8)
+ * 6. test_next_disabled_without_folders (AC8)
+ * 7. test_progress_persisted_to_localstorage (AC9)
+ * 8. test_progress_restored_from_localstorage (AC9)
+ */
+
+// Mock Next.js router
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+  useSearchParams: () => ({
+    get: vi.fn(),
+  }),
+  usePathname: () => '/onboarding',
+}));
+
+// Mock useAuthStatus hook
+vi.mock('@/hooks/useAuthStatus', () => ({
+  useAuthStatus: () => ({
+    isAuthenticated: false,
+    isLoading: false,
+    user: null,
+  }),
+}));
+
+// Mock useTelegramStatus hook
+vi.mock('@/hooks/useTelegramStatus', () => ({
+  useTelegramStatus: () => ({
+    isLinked: false,
+    isLoading: false,
+    telegramUsername: undefined,
+  }),
+}));
+
+describe('OnboardingWizard', () => {
+  let localStorageMock: {
+    getItem: ReturnType<typeof vi.fn>;
+    setItem: ReturnType<typeof vi.fn>;
+    removeItem: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(() => {
+    // Mock localStorage
+    localStorageMock = {
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    };
+
+    Object.defineProperty(window, 'localStorage', {
+      value: localStorageMock,
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /**
+   * AC1: Wizard component created with progress indicator showing current step
+   * Verifies wizard displays progress indicator showing "Step 1 of 5" on initial render
+   */
+  it('test_wizard_renders_with_progress_indicator', () => {
+    render(<OnboardingWizard />);
+
+    // Verify progress indicator displays current step
+    expect(screen.getByText(/Step 1 of 5/i)).toBeInTheDocument();
+
+    // Verify step title is displayed (using heading role for specificity with exact match)
+    expect(screen.getByRole('heading', { name: /Welcome to Mail Agent/i })).toBeInTheDocument();
+
+    // Verify navigation buttons are present
+    expect(screen.getByRole('button', { name: /Back/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Next/i })).toBeInTheDocument();
+  });
+
+  /**
+   * AC7: Navigation buttons - Next button advances step
+   * Click Next on Welcome step, verify moves to Step 2
+   */
+  it('test_next_button_advances_step', async () => {
+    render(<OnboardingWizard />);
+
+    // Initially on Step 1
+    expect(screen.getByText(/Step 1 of 5/i)).toBeInTheDocument();
+
+    // Click Next button
+    const nextButton = screen.getByRole('button', { name: /Next/i });
+    fireEvent.click(nextButton);
+
+    // Verify advanced to Step 2
+    await waitFor(() => {
+      expect(screen.getByText(/Step 2 of 5/i)).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * AC7: Navigation buttons - Back button returns to previous step
+   * Advance to Step 2, click Back, verify returns to Step 1
+   */
+  it('test_back_button_returns_to_previous_step', async () => {
+    render(<OnboardingWizard />);
+
+    // Advance to Step 2
+    const nextButton = screen.getByRole('button', { name: /Next/i });
+    fireEvent.click(nextButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 2 of 5/i)).toBeInTheDocument();
+    });
+
+    // Click Back button
+    const backButton = screen.getByRole('button', { name: /Back/i });
+    fireEvent.click(backButton);
+
+    // Verify returned to Step 1
+    await waitFor(() => {
+      expect(screen.getByText(/Step 1 of 5/i)).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * AC8: Steps cannot proceed without completion - Gmail connection required
+   * On Step 2, verify Next disabled until gmailConnected=true
+   */
+  it('test_next_disabled_without_gmail_connection', async () => {
+    render(<OnboardingWizard />);
+
+    // Advance to Step 2 (Gmail)
+    const nextButton = screen.getByRole('button', { name: /Next/i });
+    fireEvent.click(nextButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 2 of 5/i)).toBeInTheDocument();
+    });
+
+    // Verify Next button is disabled (gmailConnected=false by default)
+    expect(nextButton).toBeDisabled();
+
+    // Verify validation error message is displayed
+    expect(
+      screen.getByText(/Please connect your Gmail account before proceeding/i)
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * AC8: Steps cannot proceed without completion - Telegram connection required
+   * On Step 3, verify Next disabled until telegramConnected=true
+   */
+  it('test_next_disabled_without_telegram_connection', async () => {
+    // Mock localStorage to skip to Step 3 with Gmail connected
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({
+        currentStep: 3,
+        gmailConnected: true,
+        telegramConnected: false,
+        folders: [],
+        lastUpdated: new Date().toISOString(),
+      })
+    );
+
+    render(<OnboardingWizard />);
+
+    // Verify on Step 3
+    await waitFor(() => {
+      expect(screen.getByText(/Step 3 of 5/i)).toBeInTheDocument();
+    });
+
+    // Verify Next button is disabled (telegramConnected=false)
+    const nextButton = screen.getByRole('button', { name: /Next/i });
+    expect(nextButton).toBeDisabled();
+
+    // Verify validation error message is displayed
+    expect(
+      screen.getByText(/Please link your Telegram account before proceeding/i)
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * AC8: Steps cannot proceed without completion - Folders required
+   * On Step 4, verify Next disabled until folders.length >= 1
+   */
+  it('test_next_disabled_without_folders', async () => {
+    // Mock localStorage to skip to Step 4 with Gmail and Telegram connected
+    localStorageMock.getItem.mockReturnValue(
+      JSON.stringify({
+        currentStep: 4,
+        gmailConnected: true,
+        telegramConnected: true,
+        folders: [], // No folders created yet
+        lastUpdated: new Date().toISOString(),
+      })
+    );
+
+    render(<OnboardingWizard />);
+
+    // Verify on Step 4
+    await waitFor(() => {
+      expect(screen.getByText(/Step 4 of 5/i)).toBeInTheDocument();
+    });
+
+    // Verify Next button is disabled (folders.length = 0)
+    const nextButton = screen.getByRole('button', { name: /Next/i });
+    expect(nextButton).toBeDisabled();
+
+    // Verify validation error message is displayed
+    expect(
+      screen.getByText(/Please create at least 1 folder category before proceeding/i)
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * AC9: Progress saved to localStorage
+   * Advance to Step 3, verify localStorage.setItem called with correct data
+   */
+  it('test_progress_persisted_to_localstorage', async () => {
+    render(<OnboardingWizard />);
+
+    // Advance to Step 3
+    const nextButton = screen.getByRole('button', { name: /Next/i });
+
+    // Step 1 -> Step 2
+    fireEvent.click(nextButton);
+    await waitFor(() => {
+      expect(screen.getByText(/Step 2 of 5/i)).toBeInTheDocument();
+    });
+
+    // Step 2 -> Step 3 (disabled, but localStorage should save Step 2 state)
+    // Verify localStorage.setItem was called
+    await waitFor(() => {
+      expect(localStorageMock.setItem).toHaveBeenCalled();
+    });
+
+    // Verify saved data structure
+    const lastCall = localStorageMock.setItem.mock.calls[
+      localStorageMock.setItem.mock.calls.length - 1
+    ];
+    expect(lastCall).toBeDefined();
+    expect(lastCall![0]).toBe('onboarding_progress');
+
+    const savedData = JSON.parse(lastCall![1] as string);
+    expect(savedData).toHaveProperty('currentStep');
+    expect(savedData).toHaveProperty('gmailConnected');
+    expect(savedData).toHaveProperty('telegramConnected');
+    expect(savedData).toHaveProperty('folders');
+    expect(savedData).toHaveProperty('lastUpdated');
+  });
+
+  /**
+   * AC9: Progress restored from localStorage on mount
+   * Set localStorage to Step 3, remount component, verify starts at Step 3
+   */
+  it('test_progress_restored_from_localstorage', async () => {
+    // Mock localStorage with saved progress at Step 3
+    const savedProgress = {
+      currentStep: 3,
+      gmailConnected: true,
+      telegramConnected: false,
+      folders: [],
+      gmailEmail: 'user@example.com',
+      telegramUsername: undefined,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    localStorageMock.getItem.mockReturnValue(JSON.stringify(savedProgress));
+
+    render(<OnboardingWizard />);
+
+    // Verify component restores to Step 3
+    await waitFor(() => {
+      expect(screen.getByText(/Step 3 of 5/i)).toBeInTheDocument();
+    });
+
+    // Verify localStorage.getItem was called
+    expect(localStorageMock.getItem).toHaveBeenCalledWith('onboarding_progress');
+  });
+});
