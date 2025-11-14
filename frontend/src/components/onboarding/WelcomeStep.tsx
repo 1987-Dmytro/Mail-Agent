@@ -45,7 +45,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
         </div>
         <h1 className="mb-2 text-3xl font-bold">Welcome to Mail Agent</h1>
         <p className="text-lg text-muted-foreground">
-          Your AI-powered email assistant
+          Never miss an important email again
         </p>
       </div>
 
@@ -54,7 +54,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            What Mail Agent Does
+            Here&apos;s how it works
           </CardTitle>
           <CardDescription>
             Intelligent email management with AI and Telegram
@@ -68,7 +68,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
             <div>
               <h3 className="font-semibold">AI Email Sorting</h3>
               <p className="text-sm text-muted-foreground">
-                Gemini AI automatically categorizes your emails into folders based on content
+                AI reads every email and suggests the right folder—so you don&apos;t have to
               </p>
             </div>
           </div>
@@ -86,7 +86,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
             <div>
               <h3 className="font-semibold">One-Tap Telegram Approval</h3>
               <p className="text-sm text-muted-foreground">
-                Approve or reject AI suggestions directly from Telegram with a single tap
+                Approve with one tap on Telegram—no need to open your inbox
               </p>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
             <div>
               <h3 className="font-semibold">Smart Folder Management</h3>
               <p className="text-sm text-muted-foreground">
-                Create custom categories with keywords for precise email organization
+                Set up folders that match how you work—perfect for freelancers and busy professionals
               </p>
             </div>
           </div>
@@ -108,33 +108,33 @@ export default function WelcomeStep({ onNext }: StepProps) {
       {/* Setup steps preview */}
       <Card>
         <CardHeader>
-          <CardTitle>Quick Setup (5-10 minutes)</CardTitle>
-          <CardDescription>We&apos;ll guide you through 4 simple steps</CardDescription>
+          <CardTitle>5-Minute Setup</CardTitle>
+          <CardDescription>We&apos;ll walk you through everything—it&apos;s easier than you think</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex items-center gap-3 text-sm">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
               1
             </div>
-            <span>Connect your Gmail account</span>
+            <span>Connect Gmail <span className="text-muted-foreground">(30 seconds)</span></span>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
               2
             </div>
-            <span>Link your Telegram account</span>
+            <span>Link Telegram <span className="text-muted-foreground">(1 minute)</span></span>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
               3
             </div>
-            <span>Create your first folder categories</span>
+            <span>Create your folders <span className="text-muted-foreground">(2 minutes)</span></span>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
               4
             </div>
-            <span>Complete setup and start managing emails</span>
+            <span>You&apos;re ready to go!</span>
           </div>
         </CardContent>
       </Card>
@@ -153,7 +153,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
           onClick={handleSkip}
           className="text-sm text-muted-foreground underline-offset-4 hover:underline"
         >
-          Skip onboarding (for advanced users)
+          Skip setup—I&apos;ll configure this later
         </button>
       </div>
     </div>

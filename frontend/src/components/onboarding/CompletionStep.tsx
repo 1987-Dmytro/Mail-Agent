@@ -43,13 +43,13 @@ export default function CompletionStep({ currentState }: StepProps) {
       localStorage.removeItem('onboarding_progress');
 
       // Show success toast
-      toast.success('Onboarding complete! Welcome to Mail Agent 🎉');
+      toast.success('Setup complete! Your first email is probably already sorted 🎉');
 
       // Navigate to dashboard
       router.push('/dashboard');
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
-      toast.error('Failed to complete onboarding. Please try again.');
+      toast.error('Oops! Something went wrong. Let\'s try that again.');
       setIsCompleting(false);
     }
   };
@@ -63,18 +63,15 @@ export default function CompletionStep({ currentState }: StepProps) {
             <PartyPopper className="h-16 w-16 text-green-600 dark:text-green-400" />
           </div>
         </div>
-        <h1 className="mb-2 text-3xl font-bold">All Set! 🎉</h1>
+        <h1 className="mb-2 text-3xl font-bold">You&apos;re All Set! 🎉</h1>
         <p className="text-lg text-muted-foreground">
-          Your Mail Agent is ready to start managing your emails
+          Your inbox is now on autopilot. Here&apos;s what we set up:
         </p>
       </div>
 
       {/* Summary card */}
       <Card className="border-green-500/50 bg-green-50/50 dark:bg-green-900/10">
         <CardContent className="space-y-4 py-6">
-          <h3 className="text-center font-semibold text-foreground">
-            Here&apos;s what you configured:
-          </h3>
 
           {/* Gmail connected */}
           <div className="flex items-start gap-3">
@@ -144,19 +141,19 @@ export default function CompletionStep({ currentState }: StepProps) {
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-primary">•</span>
-              <span>Mail Agent will monitor your Gmail inbox for new emails</span>
+              <span>We&apos;ll watch your inbox for new emails</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary">•</span>
-              <span>AI will suggest which folder each email belongs to</span>
+              <span>AI suggests the best folder for each email</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary">•</span>
-              <span>You&apos;ll receive approval requests on Telegram</span>
+              <span>Get instant approval requests on Telegram</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary">•</span>
-              <span>Approve with one tap, and the email will be sorted automatically</span>
+              <span>Tap once to approve, and we&apos;ll file it away</span>
             </li>
           </ul>
         </CardContent>
@@ -172,10 +169,10 @@ export default function CompletionStep({ currentState }: StepProps) {
         {isCompleting ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Completing setup...
+            Almost there...
           </>
         ) : (
-          'Go to Dashboard'
+          'Take Me to My Dashboard'
         )}
       </Button>
     </div>

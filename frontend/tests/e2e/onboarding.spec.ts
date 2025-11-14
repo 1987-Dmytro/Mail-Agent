@@ -96,8 +96,8 @@ test.describe('Onboarding Flow E2E Tests', () => {
     await expect(page.getByText(/telegram linked/i)).toBeVisible();
     await expect(page.getByText(/3 folders configured/i)).toBeVisible();
 
-    // Click "Go to Dashboard" button to complete onboarding
-    const goToDashboardButton = page.getByRole('button', { name: /go to dashboard/i });
+    // Click "Take Me to My Dashboard" button to complete onboarding
+    const goToDashboardButton = page.getByRole('button', { name: /take me to.*dashboard/i });
     await expect(goToDashboardButton).toBeVisible();
     await goToDashboardButton.click();
 
@@ -262,8 +262,8 @@ test.describe('Onboarding Flow E2E Tests', () => {
     // Verify Complete step
     await expect(page.getByRole('heading', { name: /all set/i })).toBeVisible({ timeout: 10000 });
 
-    // Click Go to Dashboard
-    await page.getByRole('button', { name: /go to dashboard/i }).click();
+    // Click "Take Me to My Dashboard"
+    await page.getByRole('button', { name: /take me to.*dashboard/i }).click();
     await page.waitForURL(/\/(dashboard|login)/, { timeout: 10000 });
 
     const endTime = Date.now();
