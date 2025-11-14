@@ -1,0 +1,421 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>5</storyId>
+    <title>Notification Preferences Settings</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-12</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/4-5-notification-preferences-settings.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>to configure when and how I receive Telegram notifications</iWant>
+    <soThat>I can control interruptions and batch timing</soThat>
+    <tasks>
+### Task 1: Notification Settings Page Implementation + Unit Tests (AC: 1-10)
+
+**Subtask 1.1**: Create notification settings page route and component structure
+- Create `frontend/src/app/settings/notifications/page.tsx` - Settings page route for notification preferences
+- Create reusable component `frontend/src/components/settings/NotificationSettings.tsx`
+- Add 'use client' directive for interactivity (useState, form management)
+- Implement UI with loading state, form sections, and save button
+
+**Subtask 1.2**: Implement batch notification settings section
+- Call `apiClient.getNotificationPrefs()` on component mount
+- Display current preferences in form with default values
+- Batch toggle switch (shadcn/ui Switch component)
+- Batch time selector (shadcn/ui Select or time input)
+- Real-time form state management with react-hook-form
+
+**Subtask 1.3**: Implement priority notification settings section
+- Priority toggle switch
+- Confidence threshold slider (optional, advanced)
+- When priority disabled, show warning
+
+**Subtask 1.4**: Implement quiet hours configuration section
+- Quiet hours toggle switch
+- Quiet hours start time picker
+- Quiet hours end time picker
+- Real-time validation: quiet_hours_end must be after quiet_hours_start
+- Handle overnight range (e.g., 22:00 - 08:00 is valid)
+
+**Subtask 1.5**: Implement test notification button
+- Add "Send Test Notification" button at bottom of form
+- On click: Call `apiClient.testNotification()`
+- Show loading spinner on button during API call
+- On success: Show success toast
+- On error: Show error toast with reason
+
+**Subtask 1.6**: Implement form submission and save logic
+- Form validation using react-hook-form + zod schema
+- Display validation errors inline below each field
+- onSubmit: Call `apiClient.updateNotificationPrefs(data)`
+- Show loading spinner on Save button during API call
+- Disable form while submitting (prevent double-submit)
+
+**Subtask 1.7**: Implement default settings and pre-population
+- If user has no saved preferences (first visit): Pre-populate form with best-practice defaults
+- If user has saved preferences: Load from backend and populate form
+
+**Subtask 1.8**: Write unit tests for notification settings component
+- Implement 8 unit test functions covering form rendering, toggles, validation, save, test notification
+- Use React Testing Library + Vitest
+- Mock apiClient methods with vi.mock()
+
+### Task 2: Integration Tests + Backend Synchronization (AC: 7, 10)
+
+**Subtask 2.1**: Implement preferences state management
+- Create custom hook: `useNotificationPrefs()` that calls `GET /api/v1/settings/notifications`
+- Hook fetches preferences on mount and caches result
+- Hook provides method: updatePrefs(data) that calls PUT endpoint
+- Optimistic UI updates: Update local state immediately, rollback on error
+
+**Subtask 2.2**: Implement integration test scenarios
+- Implement exactly 5 integration test functions
+- Use vi.mock() to mock all backend APIs
+- Verify all integration tests passing
+
+### Task 3: Documentation + Security Review (AC: All)
+
+**Subtask 3.1**: Create component documentation
+- Add JSDoc comments to `NotificationSettings.tsx` component
+- Document notification preferences logic in code comments
+- Update frontend/README.md with notification settings section
+
+**Subtask 3.2**: Security review
+- Verify no sensitive data in frontend code
+- Verify time inputs sanitized (prevent XSS via time strings)
+- Verify API client uses HTTPS
+- Run `npm audit` and fix any vulnerabilities
+
+### Task 4: Final Validation (AC: all)
+
+**Subtask 4.1**: Run complete test suite
+- All unit tests passing (8 functions)
+- All integration tests passing (5 functions)
+- Test coverage ≥80% for new code
+
+**Subtask 4.2**: Manual testing checklist
+- Notification settings page loads successfully
+- Toggle batch notifications on/off
+- Toggle priority notifications on/off
+- Set quiet hours (normal range and overnight range)
+- Click "Send Test Notification"
+- Save preferences - verify success toast and persistence after refresh
+
+**Subtask 4.3**: Verify DoD checklist
+- Review each DoD item
+- Update all task checkboxes
+- Mark story as review-ready
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Settings page created with notification preferences section
+2. Batch notification toggle (enable/disable daily batching)
+3. Batch timing selector (dropdown: end of day, morning, custom time)
+4. Priority notification toggle (enable/disable immediate high-priority alerts)
+5. Quiet hours configuration (start time, end time) to suppress notifications
+6. Notification preview mode (test notification button)
+7. Preferences saved to backend (NotificationPreferences table)
+8. Real-time validation (e.g., quiet hours end must be after start)
+9. Default settings pre-selected based on best practices
+10. Changes take effect immediately after save
+
+### Standard Quality & Security Criteria (Auto-included)
+- **Input Validation**: All user inputs and external data validated before processing (type checking, range validation, sanitization)
+- **Security Review**: No hardcoded secrets, credentials in environment variables, parameterized queries for database operations, rate limiting implemented where applicable
+- **Code Quality**: No deprecated APIs used, comprehensive type hints/annotations, structured logging for debugging, error handling with proper exception types
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>Functional Requirements - FR012</section>
+        <snippet>System shall send batch notifications summarizing daily email processing activity</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>Functional Requirements - FR022-FR027</section>
+        <snippet>System shall provide a web-based configuration interface for initial setup and settings management (FR022), allow users to define basic sorting rules (FR026), and provide connection testing functionality to verify integrations (FR027)</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI & Onboarding</title>
+        <section>Data Models - NotificationPreferences</section>
+        <snippet>TypeScript interface defining notification preferences: batch_enabled, batch_time (HH:MM format), quiet_hours_enabled, quiet_hours_start/end, priority_immediate, min_confidence_threshold (0.0-1.0)</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI & Onboarding</title>
+        <section>APIs - Notification Preferences Endpoints</section>
+        <snippet>GET /api/v1/settings/notifications (get preferences), PUT /api/v1/settings/notifications (update preferences), POST /api/v1/settings/notifications/test (send test notification)</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI & Onboarding</title>
+        <section>Workflows - Onboarding Wizard Step 4</section>
+        <snippet>Notification preferences form with batch toggle (default ON, 18:00), quiet hours (default 22:00-08:00), priority immediate (default ON), test notification button, form validation</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/4-4-folder-categories-configuration.md</path>
+        <title>Story 4.4: Folder Categories Configuration</title>
+        <section>Dev Notes - Learnings from Previous Story</section>
+        <snippet>API Client Singleton established at frontend/src/lib/api-client.ts, form validation using react-hook-form + zod, testing with Vitest + React Testing Library + vi.mock(), Next.js 16 + React 19 approved</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>frontend/src/lib/api-client.ts</path>
+        <kind>service</kind>
+        <symbol>ApiClient class</symbol>
+        <lines>1-416</lines>
+        <reason>Existing API client singleton with OAuth, Telegram, and folder methods. Need to ADD notification preference methods: getNotificationPrefs(), updateNotificationPrefs(), testNotification()</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/types/api.ts</path>
+        <kind>types</kind>
+        <symbol>ApiResponse interface</symbol>
+        <lines>1-30</lines>
+        <reason>Generic API response wrapper used by all API methods. ApiResponse&lt;NotificationPreferences&gt; will wrap notification data</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/switch.tsx</path>
+        <kind>component</kind>
+        <symbol>Switch component</symbol>
+        <lines>N/A</lines>
+        <reason>shadcn/ui Switch component for batch/priority/quiet hours toggles</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/select.tsx</path>
+        <kind>component</kind>
+        <symbol>Select component</symbol>
+        <lines>N/A</lines>
+        <reason>shadcn/ui Select component for batch time selector</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/button.tsx</path>
+        <kind>component</kind>
+        <symbol>Button component</symbol>
+        <lines>N/A</lines>
+        <reason>shadcn/ui Button component for Save and Test Notification buttons</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/form.tsx</path>
+        <kind>component</kind>
+        <symbol>Form components</symbol>
+        <lines>N/A</lines>
+        <reason>shadcn/ui form components with react-hook-form integration for preference settings form</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/settings/FolderManager.tsx</path>
+        <kind>component</kind>
+        <symbol>FolderManager component</symbol>
+        <lines>N/A</lines>
+        <reason>Reference implementation from Story 4.4 showing form patterns, API integration, error handling with toast notifications</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <framework name="Next.js" version="16.0.1">React framework with App Router and Server Components</framework>
+      <framework name="React" version="19.2.0">UI library with latest hooks and compiler optimizations</framework>
+      <library name="axios" version="1.7.9">HTTP client with interceptors and retry logic</library>
+      <library name="react-hook-form" version="7.66.0">Form state management and validation</library>
+      <library name="@hookform/resolvers" version="5.2.2">Zod schema validation resolver for react-hook-form</library>
+      <library name="sonner" version="2.0.7">Toast notifications (from shadcn/ui)</library>
+      <library name="Radix UI" version="various">Accessible primitive components (Switch, Select, Label, Dialog)</library>
+      <library name="vitest" version="4.0.8">Test runner for unit and integration tests</library>
+      <library name="@testing-library/react" version="16.3.0">React component testing utilities</library>
+      <library name="@testing-library/user-event" version="14.6.1">User interaction simulation for tests</library>
+      <library name="msw" version="2.12.1">Mock Service Worker for API mocking (not used per Story 4.4 - use vi.mock instead)</library>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <category>Architecture</category>
+      <rule>Use Next.js 16 App Router with Server Components by default. Only add 'use client' directive when needed (useState, form handling, interactivity)</rule>
+    </constraint>
+    <constraint>
+      <category>Architecture</category>
+      <rule>API client singleton pattern: Use apiClient from frontend/src/lib/api-client.ts for all backend calls. Add notification methods if not present</rule>
+    </constraint>
+    <constraint>
+      <category>Architecture</category>
+      <rule>Component structure: Page components in src/app/settings/notifications/page.tsx route to reusable NotificationSettings component in src/components/settings/</rule>
+    </constraint>
+    <constraint>
+      <category>Validation</category>
+      <rule>Form validation: Use react-hook-form + zod schema. Time format validation: HH:MM regex /^([01]\d|2[0-3]):([0-5]\d)$/. Overnight quiet hours (22:00-08:00) are VALID</rule>
+    </constraint>
+    <constraint>
+      <category>Validation</category>
+      <rule>Client-side validation required but server-side is final authority. Display inline errors below fields. Disable form during submission</rule>
+    </constraint>
+    <constraint>
+      <category>Testing</category>
+      <rule>Unit tests: 8 test functions covering form rendering, toggles, validation, save, test notification. Use Vitest + React Testing Library</rule>
+    </constraint>
+    <constraint>
+      <category>Testing</category>
+      <rule>Integration tests: 5 test scenarios. Mock APIs with vi.mock() (NOT MSW per Story 4.4 pattern). Verify persistence across navigation</rule>
+    </constraint>
+    <constraint>
+      <category>Testing</category>
+      <rule>Test coverage target: 80%+ for new code (NotificationSettings component)</rule>
+    </constraint>
+    <constraint>
+      <category>Styling</category>
+      <rule>Use shadcn/ui components (Switch, Select, Button, Label, toast). Tailwind CSS v4 for styling. Dark mode only (no toggle)</rule>
+    </constraint>
+    <constraint>
+      <category>TypeScript</category>
+      <rule>Strict mode enabled. No 'any' types allowed. All props, state, API responses must be properly typed</rule>
+    </constraint>
+    <constraint>
+      <category>Error Handling</category>
+      <rule>Toast notifications via Sonner for user feedback (success, error). Inline validation errors in form fields. Show actionable error messages</rule>
+    </constraint>
+    <constraint>
+      <category>State Management</category>
+      <rule>Component state with useState for UI state. react-hook-form for form state. Optional: Custom hook useNotificationPrefs() for data fetching</rule>
+    </constraint>
+    <constraint>
+      <category>Security</category>
+      <rule>No sensitive data in frontend code. Time inputs sanitized to prevent XSS. API client uses HTTPS. Run npm audit (0 vulnerabilities)</rule>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>GET /api/v1/settings/notifications</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/settings/notifications → ApiResponse&lt;NotificationPreferences&gt;</signature>
+      <path>Backend API (Epic 2)</path>
+      <description>Retrieve user notification preferences. Returns batch settings, quiet hours, priority settings with defaults if not configured</description>
+    </interface>
+    <interface>
+      <name>PUT /api/v1/settings/notifications</name>
+      <kind>REST endpoint</kind>
+      <signature>PUT /api/v1/settings/notifications (body: UpdateNotificationPrefsRequest) → ApiResponse&lt;NotificationPreferences&gt;</signature>
+      <path>Backend API (Epic 2)</path>
+      <description>Update user notification preferences. Validates time formats, quiet hours logic. Changes take effect immediately</description>
+    </interface>
+    <interface>
+      <name>POST /api/v1/settings/notifications/test</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/v1/settings/notifications/test → ApiResponse&lt;{message: string, success: boolean}&gt;</signature>
+      <path>Backend API (Epic 2)</path>
+      <description>Send test notification to user's Telegram. Requires Telegram connection. Returns success/error status</description>
+    </interface>
+    <interface>
+      <name>apiClient.getNotificationPrefs()</name>
+      <kind>API client method</kind>
+      <signature>async getNotificationPrefs(): Promise&lt;ApiResponse&lt;NotificationPreferences&gt;&gt;</signature>
+      <path>frontend/src/lib/api-client.ts</path>
+      <description>NEEDS TO BE ADDED: Wrapper method calling GET /api/v1/settings/notifications. Use existing this.get() pattern</description>
+    </interface>
+    <interface>
+      <name>apiClient.updateNotificationPrefs()</name>
+      <kind>API client method</kind>
+      <signature>async updateNotificationPrefs(data: UpdateNotificationPrefsRequest): Promise&lt;ApiResponse&lt;NotificationPreferences&gt;&gt;</signature>
+      <path>frontend/src/lib/api-client.ts</path>
+      <description>NEEDS TO BE ADDED: Wrapper method calling PUT /api/v1/settings/notifications. Use existing this.put() pattern</description>
+    </interface>
+    <interface>
+      <name>apiClient.testNotification()</name>
+      <kind>API client method</kind>
+      <signature>async testNotification(): Promise&lt;ApiResponse&lt;{message: string, success: boolean}&gt;&gt;</signature>
+      <path>frontend/src/lib/api-client.ts</path>
+      <description>NEEDS TO BE ADDED: Wrapper method calling POST /api/v1/settings/notifications/test. Use existing this.post() pattern</description>
+    </interface>
+    <interface>
+      <name>NotificationPreferences TypeScript interface</name>
+      <kind>TypeScript type</kind>
+      <signature>interface NotificationPreferences { id: number; user_id: number; batch_enabled: boolean; batch_time: string; quiet_hours_enabled: boolean; quiet_hours_start: string; quiet_hours_end: string; priority_immediate: boolean; min_confidence_threshold: number; created_at: string; updated_at: string; }</signature>
+      <path>frontend/src/types/settings.ts</path>
+      <description>NEEDS TO BE CREATED: Type definition for notification preferences matching backend model. All time fields use HH:MM format</description>
+    </interface>
+    <interface>
+      <name>UpdateNotificationPrefsRequest TypeScript interface</name>
+      <kind>TypeScript type</kind>
+      <signature>interface UpdateNotificationPrefsRequest { batch_enabled?: boolean; batch_time?: string; quiet_hours_enabled?: boolean; quiet_hours_start?: string; quiet_hours_end?: string; priority_immediate?: boolean; min_confidence_threshold?: number; }</signature>
+      <path>frontend/src/types/settings.ts</path>
+      <description>NEEDS TO BE CREATED: Request payload type for updating notification preferences. All fields optional (partial update)</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Testing framework: Vitest 4.0.8 + React Testing Library 16.3.0 + @testing-library/user-event 14.6.1
+
+Test patterns established in Stories 4.1-4.4:
+- Unit tests: Isolated component testing with vi.mock() for API mocking (NOT MSW)
+- Integration tests: Full flow testing with mocked backend responses
+- Coverage target: 80%+ for new code
+- Test structure: Describe/test blocks with clear naming (e.g., "test_notification_form_renders_with_defaults")
+- Mock pattern: vi.mock('@/lib/api-client') for apiClient methods
+- User interaction: Use fireEvent or userEvent for clicks, toggles, input changes
+- Async testing: Use waitFor() for async state updates and API calls
+- Assertions: Verify UI state, form values, toast notifications, API call arguments
+
+Quality gates:
+- All tests must pass (npm run test:run)
+- No test warnings or errors
+- ESLint: Zero errors (npm run lint)
+- TypeScript: Zero errors (npm run type-check)
+- Coverage: ≥80% for new components
+- npm audit: 0 vulnerabilities
+    </standards>
+    <locations>
+frontend/tests/components/ - Unit tests for isolated components
+frontend/tests/integration/ - Integration tests for full user flows
+frontend/tests/utils/ - Test utilities and mocks (if needed)
+    </locations>
+    <ideas>
+      <test id="AC-1" criteria="Settings page created with notification preferences section">
+        <description>Verify notification settings form renders with all sections (batch, priority, quiet hours, test button)</description>
+        <file>frontend/tests/components/notification-settings.test.tsx</file>
+        <function>test_notification_form_renders_with_defaults()</function>
+      </test>
+      <test id="AC-2,3" criteria="Batch notification toggle and timing selector">
+        <description>Verify batch toggle shows/hides time selector. When disabled, time selector hidden</description>
+        <file>frontend/tests/components/notification-settings.test.tsx</file>
+        <function>test_batch_toggle_shows_hides_time_selector()</function>
+      </test>
+      <test id="AC-4" criteria="Priority notification toggle">
+        <description>Verify priority toggle enables/disables priority immediate notifications</description>
+        <file>frontend/tests/components/notification-settings.test.tsx</file>
+        <function>test_priority_toggle_enables_disables()</function>
+      </test>
+      <test id="AC-5,8" criteria="Quiet hours configuration and validation">
+        <description>Verify quiet hours validation: invalid time range (10:00-08:00 same day) shows error. Overnight range (22:00-08:00) is valid</description>
+        <file>frontend/tests/components/notification-settings.test.tsx</file>
+        <function>test_quiet_hours_validation() and test_overnight_quiet_hours_valid()</function>
+      </test>
+      <test id="AC-6" criteria="Test notification button">
+        <description>Verify test notification button calls API and shows success toast</description>
+        <file>frontend/tests/components/notification-settings.test.tsx</file>
+        <function>test_test_notification_button()</function>
+      </test>
+      <test id="AC-7,10" criteria="Save preferences and immediate effect">
+        <description>Verify save button calls updateNotificationPrefs API, shows success toast, form disabled during submit</description>
+        <file>frontend/tests/components/notification-settings.test.tsx</file>
+        <function>test_save_preferences_success() and test_form_disables_during_submit()</function>
+      </test>
+      <test id="AC-9" criteria="Default settings pre-selected">
+        <description>Integration test: Verify complete preferences flow (load defaults → modify → save → reload → verify persisted)</description>
+        <file>frontend/tests/integration/notification-prefs-flow.test.tsx</file>
+        <function>test_complete_preferences_flow()</function>
+      </test>
+      <test id="AC-10" criteria="Persistence across navigation">
+        <description>Integration test: Save preferences, navigate away, return, verify settings still applied</description>
+        <file>frontend/tests/integration/notification-prefs-flow.test.tsx</file>
+        <function>test_preferences_persist_across_navigation()</function>
+      </test>
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,220 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>8</storyId>
+    <title>End-to-End Onboarding Testing and Polish</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-14</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/4-8-end-to-end-onboarding-testing-and-polish.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>the onboarding experience to be smooth, clear, and error-free</iWant>
+    <soThat>I can successfully complete setup on my first attempt without technical knowledge</soThat>
+    <tasks>
+      <task id="1" title="End-to-End Test Suite Implementation" ac="1, 9">
+        <subtask id="1.1">Set up Playwright test infrastructure</subtask>
+        <subtask id="1.2">Implement complete onboarding flow E2E test</subtask>
+        <subtask id="1.3">Implement dashboard E2E test</subtask>
+        <subtask id="1.4">Implement folder management E2E test</subtask>
+        <subtask id="1.5">Implement notification preferences E2E test</subtask>
+        <subtask id="1.6">Implement error scenario E2E tests</subtask>
+        <subtask id="1.7">Configure test execution and CI integration</subtask>
+      </task>
+      <task id="2" title="Usability Testing and Feedback Collection" ac="2, 3, 4">
+        <subtask id="2.1">Prepare usability testing materials</subtask>
+        <subtask id="2.2">Recruit and conduct usability testing sessions</subtask>
+        <subtask id="2.3">Analyze usability testing results</subtask>
+      </task>
+      <task id="3" title="Polish and Refinement Based on Feedback" ac="5, 6, 7">
+        <subtask id="3.1">Refine copy and messaging</subtask>
+        <subtask id="3.2">Visual design polish</subtask>
+        <subtask id="3.3">Improve loading states and error messages</subtask>
+      </task>
+      <task id="4" title="Accessibility Validation and Documentation" ac="8, 9, 10, 11, 12, 13, 14, 15, 16">
+        <subtask id="4.1">Mobile responsiveness validation</subtask>
+        <subtask id="4.2">Browser compatibility testing</subtask>
+        <subtask id="4.3">WCAG 2.1 Level AA compliance validation</subtask>
+        <subtask id="4.4">Screen reader compatibility testing</subtask>
+        <subtask id="4.5">Keyboard-only navigation testing</subtask>
+        <subtask id="4.6">Create comprehensive setup documentation</subtask>
+        <subtask id="4.7">Create help/FAQ and support links</subtask>
+        <subtask id="4.8">Record video tutorial (optional)</subtask>
+      </task>
+      <task id="5" title="Final Validation and Epic Completion" ac="all">
+        <subtask id="5.1">Run complete test suite</subtask>
+        <subtask id="5.2">Performance validation</subtask>
+        <subtask id="5.3">Security final review</subtask>
+        <subtask id="5.4">Production deployment verification</subtask>
+        <subtask id="5.5">Epic 4 completion checklist</subtask>
+        <subtask id="5.6">Final DoD verification</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Usability testing conducted with 3-5 non-technical users</criterion>
+    <criterion id="2">Onboarding completion time measured (target: &lt;10 minutes per NFR005)</criterion>
+    <criterion id="3">Success rate tracked (target: 90%+ complete successfully)</criterion>
+    <criterion id="4">Pain points identified and addressed (confusing instructions, unclear errors)</criterion>
+    <criterion id="5">Copy and messaging refined based on user feedback</criterion>
+    <criterion id="6">Visual design polished (consistent spacing, colors, typography)</criterion>
+    <criterion id="7">Loading states and error messages improved for clarity</criterion>
+    <criterion id="8">Mobile responsiveness validated (works on phone browsers)</criterion>
+    <criterion id="9">Browser compatibility tested (Chrome, Firefox, Safari, Edge)</criterion>
+    <criterion id="10">Comprehensive documentation created for setup process</criterion>
+    <criterion id="11">Video tutorial recorded showing complete onboarding flow (optional)</criterion>
+    <criterion id="12">Help/support link added to every page with FAQ</criterion>
+    <criterion id="13">WCAG 2.1 Level AA compliance validated for all pages</criterion>
+    <criterion id="14">Screen reader compatibility tested (NVDA or VoiceOver)</criterion>
+    <criterion id="15">Keyboard-only navigation tested for complete onboarding flow</criterion>
+    <criterion id="16">Color contrast checked (minimum 4.5:1 for text)</criterion>
+    <criterion id="standard-input">Input Validation: All user inputs and external data validated before processing</criterion>
+    <criterion id="standard-security">Security Review: No hardcoded secrets, credentials in environment variables, parameterized queries</criterion>
+    <criterion id="standard-quality">Code Quality: No deprecated APIs, comprehensive type hints/annotations, structured logging</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>NFR005: Usability</section>
+        <snippet>Non-technical users shall complete onboarding (Gmail OAuth + Telegram bot setup + folder configuration) within 10 minutes, achieving 90%+ successful completion rate. This is the primary usability target for Epic 4 and Story 4.8 validation.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Overview and AC-4.8</section>
+        <snippet>Epic 4 implements user-facing configuration web app with Next.js 16.0.1 + React 19.2.0 + TypeScript strict mode + shadcn/ui. AC-4.8 specifies end-to-end testing with Playwright, WCAG 2.1 Level AA accessibility validation, and comprehensive integration testing strategy.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Test Strategy Summary</section>
+        <snippet>Testing Pyramid includes E2E tests (Playwright) at top, integration tests (Vitest + MSW) in middle, and unit tests (React Testing Library) at base. E2E tests cover complete onboarding flow, dashboard, folders, notifications, and error scenarios. Target: ≥95% pass rate over 10 runs, execution time &lt;5 minutes.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 4.8</section>
+        <snippet>Story 4.8 is the final story in Epic 4 focusing on end-to-end testing, usability validation with 3-5 non-technical users, WCAG 2.1 Level AA compliance, comprehensive documentation, and production readiness verification. Prerequisites: All Epic 4 stories (4.1-4.7).</snippet>
+      </doc>
+      <doc>
+        <path>docs/ux-design-specification.md</path>
+        <title>UX Design Specification</title>
+        <section>Design System Foundation</section>
+        <snippet>shadcn/ui chosen for WCAG 2.1 Level AA accessibility compliance built-in. Dark mode support essential for evening email review. Minimal aesthetic inspired by N26 banking UX. Components accessible out-of-the-box with Radix UI primitives.</snippet>
+      </doc>
+      <doc>
+        <path>frontend/README.md</path>
+        <title>Frontend Documentation</title>
+        <section>Testing and Structure</section>
+        <snippet>Tech stack: Next.js 16.0.1, TypeScript 5 strict mode, Tailwind CSS v4, shadcn/ui, Vitest + React Testing Library + MSW. Test structure includes unit tests (components), integration tests (API + components), and E2E tests (Story 4.8). Test execution: npm test, npm run test:coverage.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact path="frontend/tests/components" kind="test" symbol="gmail-connect.test.tsx, telegram-link.test.tsx, folder-manager.test.tsx, notification-settings.test.tsx, onboarding-wizard.test.tsx, dashboard.test.tsx" reason="Existing unit tests for all Epic 4 components - Story 4.8 E2E tests should complement these, not duplicate them"/>
+      <artifact path="frontend/tests/integration" kind="test" symbol="oauth-flow.test.tsx, telegram-linking-flow.test.tsx, folder-crud-flow.test.tsx, notification-prefs-flow.test.tsx, onboarding-flow.test.tsx, dashboard-page.test.tsx" reason="Existing integration tests (76 tests total) - Story 4.8 adds Playwright E2E tests on top of these"/>
+      <artifact path="frontend/vitest.config.ts" kind="config" symbol="defineConfig" lines="1-49" reason="Current test configuration using Vitest + Happy DOM + React Testing Library. Story 4.8 adds separate Playwright config for E2E tests"/>
+      <artifact path="frontend/src/components/onboarding/OnboardingWizard.tsx" kind="component" reason="Main onboarding wizard component - E2E tests will test complete flow through this component"/>
+      <artifact path="frontend/src/components/onboarding/GmailConnect.tsx" kind="component" reason="Gmail OAuth component - E2E tests mock OAuth flow"/>
+      <artifact path="frontend/src/components/onboarding/TelegramLink.tsx" kind="component" reason="Telegram linking component - E2E tests mock code generation and verification"/>
+      <artifact path="frontend/src/components/settings/FolderManager.tsx" kind="component" reason="Folder CRUD component - E2E tests verify create, edit, delete, reorder operations"/>
+      <artifact path="frontend/src/components/settings/NotificationSettings.tsx" kind="component" reason="Notification preferences component - E2E tests verify all settings toggles and save"/>
+      <artifact path="frontend/src/app/dashboard/page.tsx" kind="page" reason="Dashboard page - E2E tests verify data loading, stats display, auto-refresh"/>
+      <artifact path="frontend/src/lib/api-client.ts" kind="service" symbol="ApiClient" lines="34-200" reason="Axios API client with interceptors - E2E tests will mock API responses"/>
+      <artifact path="frontend/src/lib/auth.ts" kind="library" symbol="getToken, setToken, removeToken" reason="JWT auth utilities - used by E2E test fixtures"/>
+      <artifact path="frontend/package.json" kind="config" symbol="scripts, dependencies, devDependencies" lines="1-58" reason="NPM dependencies and scripts - Story 4.8 adds Playwright and E2E test scripts"/>
+    </code>
+    <dependencies>
+      <node>
+        <package name="next" version="16.0.1" reason="Next.js framework - E2E tests run against dev server"/>
+        <package name="react" version="19.2.0" reason="React library - component E2E testing"/>
+        <package name="typescript" version="^5" reason="TypeScript strict mode - E2E test type safety"/>
+        <package name="vitest" version="^4.0.8" reason="Current unit/integration test runner - separate from Playwright"/>
+        <package name="@testing-library/react" version="^16.3.0" reason="Component testing library - used in integration tests, not E2E"/>
+        <package name="msw" version="^2.12.1" reason="Mock Service Worker - API mocking for integration tests"/>
+        <package name="axios" version="^1.7.9" reason="HTTP client - E2E tests will mock API responses"/>
+        <package name="swr" version="^2.3.6" reason="Data fetching - dashboard auto-refresh E2E testing"/>
+        <package name="tailwindcss" version="^4" reason="CSS framework - E2E tests verify responsive design"/>
+      </node>
+      <playwright>
+        <note>Story 4.8 will add: @playwright/test (latest), playwright.config.ts, E2E test scripts</note>
+        <browsers>Chromium, Firefox, WebKit - cross-browser E2E testing per AC 9</browsers>
+      </playwright>
+      <accessibility>
+        <tool name="Lighthouse" purpose="WCAG 2.1 Level AA compliance validation (AC 13)" target="≥95 accessibility score"/>
+        <tool name="VoiceOver or NVDA" purpose="Screen reader compatibility testing (AC 14)"/>
+        <tool name="Chrome DevTools" purpose="Color contrast validation (AC 16) - minimum 4.5:1 for text"/>
+      </accessibility>
+      <documentation>
+        <tool name="Screen Recording" purpose="Video tutorial creation (AC 11 - optional)"/>
+        <tool name="YouTube or Vimeo" purpose="Video hosting and embedding"/>
+      </documentation>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>DO NOT duplicate existing Vitest unit/integration tests - Story 4.8 adds Playwright E2E tests on TOP of existing test suite (76 tests already passing)</constraint>
+    <constraint>E2E test execution time MUST be &lt;5 minutes total - use parallelization and efficient test design</constraint>
+    <constraint>E2E tests MUST achieve ≥95% pass rate over 10 consecutive runs - flaky tests are unacceptable</constraint>
+    <constraint>WCAG 2.1 Level AA compliance is MANDATORY - Lighthouse accessibility score ≥95, color contrast ≥4.5:1 for text</constraint>
+    <constraint>Usability testing MUST include 3-5 non-technical users - target completion time &lt;10 minutes per NFR005</constraint>
+    <constraint>Mobile responsiveness REQUIRED - touch targets ≥44x44px, single-column layout &lt;640px width</constraint>
+    <constraint>Browser compatibility: Chrome, Firefox, Safari 15+, Edge (latest versions) - all critical functionality must work</constraint>
+    <constraint>NO NEW FEATURES - Story 4.8 is validation and polish only, no new component development</constraint>
+    <constraint>Follow Epic 4 retrospective task ordering: (1) E2E tests, (2) Usability testing, (3) Polish, (4) Accessibility, (5) Final validation</constraint>
+    <constraint>TypeScript strict mode MUST be maintained - 0 TypeScript errors</constraint>
+    <constraint>Security: No secrets in repository, JWT in httpOnly cookies (not localStorage for production), HTTPS for all API calls</constraint>
+    <constraint>Documentation MUST be comprehensive - setup guide, FAQ, help links on every page per AC 10, 12</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="GET /api/v1/dashboard/stats" kind="REST" signature="Returns: { connections, email_stats, time_saved, recent_activity }" path="backend API endpoint - used by dashboard E2E test"/>
+    <interface name="GET /api/v1/auth/gmail/config" kind="REST" signature="Returns: { auth_url, client_id, scopes }" path="backend API endpoint - used by Gmail OAuth E2E test"/>
+    <interface name="POST /api/v1/auth/gmail/callback" kind="REST" signature="Params: { code, state }; Returns: { user, token }" path="backend API endpoint - used by Gmail OAuth E2E test"/>
+    <interface name="POST /api/v1/telegram/link/generate" kind="REST" signature="Returns: { code, expires_at }" path="backend API endpoint - used by Telegram linking E2E test"/>
+    <interface name="GET /api/v1/telegram/link/verify/:code" kind="REST" signature="Returns: { verified, telegram_id, telegram_username }" path="backend API endpoint - used by Telegram linking E2E test"/>
+    <interface name="GET /api/v1/folders" kind="REST" signature="Returns: FolderCategory[]" path="backend API endpoint - used by folder management E2E test"/>
+    <interface name="POST /api/v1/folders" kind="REST" signature="Body: { name, keywords, color }; Returns: FolderCategory" path="backend API endpoint - used by folder management E2E test"/>
+    <interface name="PATCH /api/v1/folders/:id" kind="REST" signature="Body: { name?, keywords?, color? }; Returns: FolderCategory" path="backend API endpoint - used by folder management E2E test"/>
+    <interface name="DELETE /api/v1/folders/:id" kind="REST" signature="Returns: void" path="backend API endpoint - used by folder management E2E test"/>
+    <interface name="GET /api/v1/notifications/preferences" kind="REST" signature="Returns: NotificationPreferences" path="backend API endpoint - used by notification preferences E2E test"/>
+    <interface name="PATCH /api/v1/notifications/preferences" kind="REST" signature="Body: NotificationPreferences; Returns: NotificationPreferences" path="backend API endpoint - used by notification preferences E2E test"/>
+    <interface name="ApiClient class" kind="TypeScript class" signature="get&lt;T&gt;(), post&lt;T&gt;(), put&lt;T&gt;(), patch&lt;T&gt;(), delete&lt;T&gt;() methods" path="frontend/src/lib/api-client.ts - E2E tests will mock responses"/>
+    <interface name="Playwright Page API" kind="Test framework" signature="page.goto(), page.click(), page.fill(), page.waitForSelector(), page.screenshot()" path="Playwright browser automation - core E2E test API"/>
+  </interfaces>
+  <tests>
+    <standards>
+Epic 4 uses a comprehensive testing pyramid: (1) E2E tests with Playwright at the top for complete user journeys, (2) Integration tests with Vitest + MSW in the middle for component + API interaction, (3) Unit tests with React Testing Library at the base for isolated component behavior. Existing test suite has 76 tests passing (100% pass rate) across Stories 4.1-4.7. Story 4.8 adds Playwright E2E tests to validate complete workflows end-to-end in real browsers (Chromium, Firefox, WebKit). E2E tests MUST achieve ≥95% pass rate over 10 consecutive runs, execution time &lt;5 minutes total. Use page object pattern for maintainability. Mock backend API responses using Playwright's route interception. Accessibility testing uses Lighthouse (target ≥95 score), VoiceOver/NVDA for screen readers, Chrome DevTools for color contrast (≥4.5:1 for text). Usability testing with 3-5 non-technical users, target &lt;10 min completion time per NFR005.
+    </standards>
+    <locations>
+      <location>frontend/tests/e2e/ - NEW: Playwright E2E test specs (*.spec.ts files)</location>
+      <location>frontend/tests/e2e/pages/ - NEW: Page object classes for E2E tests</location>
+      <location>frontend/tests/e2e/fixtures/ - NEW: Test data fixtures for E2E tests</location>
+      <location>frontend/tests/components/ - EXISTING: Unit tests (6 files, component-focused)</location>
+      <location>frontend/tests/integration/ - EXISTING: Integration tests (6 files, API + component)</location>
+      <location>frontend/playwright.config.ts - NEW: Playwright configuration (browsers, timeouts, reporters)</location>
+      <location>docs/usability-testing/ - NEW: Usability testing protocol, checklist, results</location>
+      <location>docs/user-guide/ - NEW: Setup guide, FAQ, troubleshooting docs</location>
+    </locations>
+    <ideas>
+      <test id="e2e-1" ac="1, 9" priority="critical">Complete onboarding flow E2E test - Full 4-step wizard from /onboarding through Gmail OAuth, Telegram linking, folder creation, notification preferences, to /dashboard redirect. Verify user.onboarding_completed = true. Use page object pattern. Target: &lt;2 min execution.</test>
+      <test id="e2e-2" ac="1" priority="critical">Dashboard page loads and displays data - Navigate to /dashboard, verify connection status cards (Gmail + Telegram), email stats (4 cards), recent activity feed (10 items), auto-refresh every 30 seconds via SWR polling. Mock API responses.</test>
+      <test id="e2e-3" ac="1" priority="critical">Folder CRUD operations E2E test - Navigate to /settings/folders, create folder with name/keywords/color, edit folder name, reorder via drag-drop, delete with confirmation. Verify persistence after page refresh.</test>
+      <test id="e2e-4" ac="1" priority="critical">Notification preferences update E2E test - Navigate to /settings/notifications, toggle batch notifications, set quiet hours (overnight range 22:00-08:00), enable priority immediate, click Test Notification, verify toast confirmation.</test>
+      <test id="e2e-5" ac="1" priority="critical">Error scenario handling - Mock API failure (500 error), verify error toast displays, retry button works, UI doesn't break. Simulate network offline, verify offline banner, test recovery when back online.</test>
+      <test id="usability-1" ac="1, 2, 3" priority="high">Usability testing with 3-5 non-technical users - Recruit German-speaking professionals with Gmail + Telegram. Task: "Set up Mail Agent from scratch." Observe think-aloud protocol. Measure completion time (target &lt;10 min), success rate (target 90%+), pain points. Conduct post-test interview, collect SUS scores.</test>
+      <test id="usability-2" ac="4" priority="high">Pain point analysis and remediation - Review usability testing recordings, compile confusion points (ranked by severity/frequency), categorize issues (critical/major/minor), create prioritized fix list for Task 3 polish work.</test>
+      <test id="accessibility-1" ac="13, 16" priority="high">WCAG 2.1 Level AA compliance validation - Run Lighthouse accessibility audit on all pages (/onboarding, /dashboard, /settings/*), target score ≥95. Verify color contrast ratios (body text ≥4.5:1, large text ≥3:1, UI components ≥3:1). Fix failing audits.</test>
+      <test id="accessibility-2" ac="14" priority="high">Screen reader compatibility - Test with VoiceOver (macOS) or NVDA (Windows). Navigate onboarding wizard with screen reader only, verify form fields announced, button purposes clear, error messages read aloud, success confirmations announced.</test>
+      <test id="accessibility-3" ac="15" priority="high">Keyboard-only navigation - Complete onboarding with keyboard only (Tab/Shift+Tab, Enter/Space). Verify visible focus indicators on all elements, no keyboard traps, logical tab order, can submit forms with Enter.</test>
+      <test id="accessibility-4" ac="8" priority="high">Mobile responsiveness validation - Test onboarding wizard on iPhone SE (375px) and Samsung Galaxy S21 (360px). Verify single-column layout, touch targets ≥44x44px, no horizontal scrolling, form inputs sized appropriately.</test>
+      <test id="browser-compat-1" ac="9" priority="high">Browser compatibility testing - Test complete onboarding flow on Chrome (latest), Firefox (latest), Safari 15+, Edge (latest). Verify OAuth redirects, form submissions, button interactions, toast notifications, drag-drop all work. Document browser-specific issues.</test>
+      <test id="performance-1" ac="all" priority="medium">Performance validation - Run Lighthouse performance audit: Performance score ≥90, First Contentful Paint &lt;1.5s, Time to Interactive &lt;3s, Largest Contentful Paint &lt;2.5s, Cumulative Layout Shift &lt;0.1. Verify JavaScript bundle &lt;250KB gzipped, dashboard loads within 2 seconds (P95).</test>
+      <test id="security-1" ac="all" priority="high">Security final review - Verify JWT token in httpOnly cookie (not localStorage), CSRF protection via SameSite=Strict, all API requests use HTTPS, no secrets in repository (.env.local in .gitignore), npm audit shows 0 high/critical vulnerabilities, input validation prevents XSS, OAuth state parameter validated.</test>
+    </ideas>
+  </tests>
+</story-context>

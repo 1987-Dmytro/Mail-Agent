@@ -1,0 +1,361 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.2</storyId>
+    <title>Gmail OAuth Connection Page</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-11</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/4-2-gmail-oauth-connection-page.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to connect my Gmail account through a simple web interface</iWant>
+    <soThat>I can authorize Mail Agent to access my email</soThat>
+    <tasks>
+### Task 1: Gmail OAuth Page Implementation + Unit Tests (AC: 1, 2, 3, 5)
+
+**Subtask 1.1**: Create Gmail OAuth page component
+- Create `frontend/src/app/onboarding/gmail/page.tsx` for onboarding wizard route
+- Create reusable component `frontend/src/components/onboarding/GmailConnect.tsx`
+- Add 'use client' directive for interactivity (useState, onClick)
+- Implement UI with three states: initial, loading, success
+- Initial state: "Connect Gmail" button with permission explanation
+- Loading state: Spinner during OAuth redirect/callback processing
+- Success state: Green checkmark ✓ with "Connected to [email]" message
+
+**Subtask 1.2**: Implement OAuth initiation flow
+- Call `apiClient.gmailOAuthConfig()` on component mount
+- Extract `auth_url`, `client_id`, `scopes` from response
+- Generate CSRF state token: `crypto.randomUUID()` (store in sessionStorage)
+- Construct OAuth redirect URL with state parameter
+- "Connect Gmail" button onClick: `window.location.href = authUrl`
+- Handle API errors (show error toast, allow retry)
+
+**Subtask 1.3**: Implement OAuth callback handling
+- Check URL params for `?code=xxx&state=yyy` on page load
+- Validate state parameter matches sessionStorage value (CSRF protection)
+- Call `apiClient.gmailCallback(code, state)` with URL params
+- Parse response: extract `user` object and `token` from `ApiResponse<T>`
+- Store JWT token: `setToken(token)` from auth.ts
+- Update UI to success state: show email, enable "Continue" button
+- Clear state from sessionStorage after successful callback
+
+**Subtask 1.4**: Write unit tests for OAuth component
+- Implement 5 unit test functions:
+  1. `test_gmail_connect_button_renders()` (AC: 1) - Verify button and permission text display
+  2. `test_oauth_initiation_constructs_url()` (AC: 1, 5) - Mock API, verify auth URL includes state
+  3. `test_oauth_callback_processes_code()` (AC: 2) - Mock callback API, verify token stored
+  4. `test_csrf_state_validation()` (AC: 5) - Test state mismatch rejection
+  5. `test_success_state_displays_email()` (AC: 3) - Verify checkmark and email shown
+- Use React Testing Library + Vitest
+- Mock apiClient methods with MSW
+- Verify all unit tests passing
+
+### Task 2: Error Handling + Integration Tests (AC: 4, 6)
+
+**Subtask 2.1**: Implement comprehensive error handling
+- Handle OAuth config fetch failure: Show "Cannot load OAuth configuration" error
+- Handle user denies permission: Detect `?error=access_denied` param, show "Permission denied" message
+- Handle invalid state: Show "Security validation failed, please try again" error
+- Handle callback API failure: Show "Authentication failed" with retry button
+- Handle network errors: Show "Network error, check connection" with retry
+- All errors display via toast notification (Sonner)
+- Error UI includes "Try Again" button to restart flow
+
+**Subtask 2.2**: Implement connection status persistence
+- Create custom hook: `useAuthStatus()` that calls `GET /api/v1/auth/status`
+- Hook checks if user already authenticated on page load
+- If authenticated, skip OAuth flow and show success state immediately
+- Test: Refresh page after OAuth → should stay in success state
+- Test: Navigate away and back → should preserve connection
+
+**Subtask 2.3**: Implement integration test scenarios
+- `test_complete_oauth_flow()` (AC: 1-3, 5-6) - Full flow from button click → callback → success
+- `test_oauth_error_user_denies()` (AC: 4) - User denies permission, error shown
+- `test_oauth_state_mismatch_rejected()` (AC: 5) - Invalid state parameter rejected
+- `test_connection_persists_on_refresh()` (AC: 6) - Refresh preserves connection
+- `test_network_error_retry()` (AC: 4) - Network failure shows retry button
+- Use MSW to mock all backend APIs
+- Verify all integration tests passing
+
+### Task 3: Documentation + Security Review (AC: All)
+
+**Subtask 3.1**: Create component documentation
+- Add JSDoc comments to `GmailConnect.tsx` component
+- Document OAuth flow sequence in code comments
+- Update frontend/README.md with OAuth setup instructions
+- Document environment variables: NEXT_PUBLIC_API_URL
+
+**Subtask 3.2**: Security review
+- Verify no OAuth client secret in frontend code (only client_id public)
+- Verify state parameter generated and validated (CSRF protection)
+- Verify OAuth redirect URI matches backend configuration exactly
+- Verify HTTPS-only for OAuth flow (production)
+- Verify token stored securely (localStorage, MVP-acceptable)
+- Run `npm audit` and fix any vulnerabilities
+- Document security considerations in SECURITY.md
+
+### Task 4: Final Validation (AC: all)
+
+**Subtask 4.1**: Run complete test suite
+- All unit tests passing (5 functions)
+- All integration tests passing (5 functions)
+- No test warnings or errors
+- Test coverage ≥80% for new code
+
+**Subtask 4.2**: Manual testing checklist
+- OAuth flow works on localhost:3000
+- OAuth callback redirects correctly
+- Success state shows correct email address
+- Connection persists after page refresh
+- Error handling works (test by denying permission)
+- "Try Again" button restarts flow correctly
+- Console shows no errors or warnings
+- TypeScript type-check passes: `npm run type-check`
+- ESLint passes: `npm run lint`
+
+**Subtask 4.3**: Verify DoD checklist
+- Review each DoD item above
+- Update all task checkboxes
+- Mark story as review-ready
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. User can click "Connect Gmail" button and be redirected to Google OAuth consent screen
+2. OAuth callback successfully processes authorization code and returns JWT token
+3. Success state displays green checkmark and enables "Continue" button
+4. Error states display actionable error messages (e.g., "Permission denied", "Network error")
+5. OAuth state parameter prevents CSRF attacks
+6. Connection status persists across page refreshes
+
+**Standard Quality & Security Criteria (Auto-included):**
+- **Input Validation**: All user inputs and external data validated before processing (type checking, range validation, sanitization)
+- **Security Review**: No hardcoded secrets, credentials in environment variables, parameterized queries for database operations, rate limiting implemented where applicable
+- **Code Quality**: No deprecated APIs used, comprehensive type hints/annotations, structured logging for debugging, error handling with proper exception types
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Backend Integration Points &amp; API Endpoints</section>
+        <snippet>Frontend consumes FastAPI backend via RESTful JSON APIs. Gmail OAuth Flow: POST /api/v1/auth/gmail/callback (Epic 1), OAuth Connection Status: GET /api/v1/auth/status (Epic 1). JWT Authentication: Backend issues JWT after OAuth success, stored in httpOnly cookie (XSS protection), 7-day expiration with sliding refresh.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Technology Version Decisions</section>
+        <snippet>Next.js 16.0.1 (latest stable, React 19 support), React 19.2.0 (latest with improved hooks, concurrent rendering), Axios 1.7.9 (latest stable with security patches). All 17 tests passing, no compatibility issues detected.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Functional Requirements - Gmail Integration</section>
+        <snippet>FR001: System shall authenticate users via Gmail OAuth 2.0 and obtain read/write email access permissions. FR023: System shall guide users through Gmail OAuth connection with clear permission explanations.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture</title>
+        <section>JWT Authentication Flow</section>
+        <snippet>Backend issues JWT access token after Gmail OAuth success (Epic 1). Frontend stores JWT in httpOnly cookie (XSS protection). All API requests include JWT in Authorization header. Token refresh handled automatically via axios interceptor. 7-day token expiration with sliding refresh window.</snippet>
+      </doc>
+      <doc>
+        <path>docs/ux-design-specification.md</path>
+        <title>UX Design Specification</title>
+        <section>Design System Foundation</section>
+        <snippet>Selected Design System: shadcn/ui with Next.js 15 and Tailwind CSS v4. WCAG 2.1 Level AA accessibility compliance built-in. Dark mode support (evening email review). 50+ accessible components ready. Core Experience: "AI proposes, I approve in one tap" - Telegram-first approval workflow.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/4-1-frontend-project-setup.md</path>
+        <title>Story 4.1: Frontend Project Setup</title>
+        <section>Implementation Status &amp; Infrastructure</section>
+        <snippet>API Client Singleton at frontend/src/lib/api-client.ts using Axios 1.7.9 with interceptors for auth headers and error responses. Auth Helper Functions at frontend/src/lib/auth.ts: setToken(), getToken(), removeToken(), isAuthenticated(). TypeScript Types: User, ApiResponse&lt;T&gt;, ApiError. shadcn/ui: 13 components installed (Button, Card, Toast/Sonner). Vitest + React Testing Library + MSW for testing. 17/17 tests passing, 0 vulnerabilities.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/1-4-gmail-oauth-flow-backend-implementation.md</path>
+        <title>Story 1.4: Gmail OAuth Flow Backend</title>
+        <section>OAuth Endpoints &amp; Implementation</section>
+        <snippet>Backend endpoints: POST /api/v1/auth/gmail/login (returns authorization URL), GET /api/v1/auth/gmail/callback (handles OAuth redirect, exchanges code for tokens). OAuth scopes: gmail.readonly, gmail.modify, gmail.send, gmail.labels. Tokens encrypted and stored in database. Token refresh logic implemented for expired access tokens.</snippet>
+      </doc>
+      <doc>
+        <path>docs/adrs/epic-4-architecture-decisions.md</path>
+        <title>Epic 4 Architecture Decision Records</title>
+        <section>ADR-017: Localhost OAuth Redirect</section>
+        <snippet>Decision: Use localhost:8000 redirect URI for Gmail OAuth callback. Rationale: Zero cost, officially supported by Google OAuth, secure (localhost not exposed to internet). Authorized Redirect URIs: http://localhost:8000/auth/gmail/callback, http://127.0.0.1:8000/auth/gmail/callback. OAuth Flow: User clicks button, opens browser, completes Google consent, redirects to localhost callback, backend saves tokens and sends Telegram notification.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>frontend/src/lib/api-client.ts</path>
+        <kind>service</kind>
+        <symbol>ApiClient</symbol>
+        <lines>34-236</lines>
+        <reason>API client singleton with Axios, interceptors for auth/error handling, token refresh logic. NEEDS EXTENSION: Add gmailOAuthConfig() and gmailCallback() methods for OAuth flow (methods currently missing, documented in Dev Notes).</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/lib/auth.ts</path>
+        <kind>utility</kind>
+        <symbol>getToken, setToken, removeToken, isAuthenticated</symbol>
+        <lines>1-145</lines>
+        <reason>Token management functions. Use setToken() to store JWT after OAuth callback. Use isAuthenticated() to check connection status. localStorage storage (MVP-acceptable per Story 4.1 review).</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/types/api.ts</path>
+        <kind>type</kind>
+        <symbol>ApiResponse, ApiError</symbol>
+        <lines>1-30</lines>
+        <reason>API response wrapper types. OAuth callback returns ApiResponse&lt;{ user: User, token: string }&gt;. Error handling uses ApiError interface.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/types/user.ts</path>
+        <kind>type</kind>
+        <symbol>User</symbol>
+        <lines>1-22</lines>
+        <reason>User model with gmail_connected and telegram_connected boolean fields. OAuth success should update gmail_connected: true.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/button.tsx</path>
+        <kind>component</kind>
+        <symbol>Button</symbol>
+        <lines>N/A</lines>
+        <reason>shadcn/ui Button component. Use for "Connect Gmail" button and "Try Again" error button. Supports variant prop for styling.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/card.tsx</path>
+        <kind>component</kind>
+        <symbol>Card</symbol>
+        <lines>N/A</lines>
+        <reason>shadcn/ui Card component. Use for OAuth page layout container and permission explanation cards.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/alert.tsx</path>
+        <kind>component</kind>
+        <symbol>Alert</symbol>
+        <lines>N/A</lines>
+        <reason>shadcn/ui Alert component. Use for error states and informational messages during OAuth flow.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <frontend>
+        <runtime>
+          <dep name="next" version="16.0.1">Latest stable Next.js with React 19 support, App Router</dep>
+          <dep name="react" version="19.2.0">Latest React with improved hooks and concurrent rendering</dep>
+          <dep name="axios" version="1.7.9">HTTP client with interceptors, token refresh, error handling</dep>
+          <dep name="sonner" version="2.0.7">Toast notifications (shadcn/ui wrapper) for error/success feedback</dep>
+          <dep name="react-hook-form" version="7.66.0">Form handling (if needed for editing OAuth tokens)</dep>
+          <dep name="lucide-react" version="0.553.0">Icon library for checkmarks, error icons, loading spinners</dep>
+          <dep name="@radix-ui/react-dialog" version="1.1.15">Accessible dialog component for OAuth explanations</dep>
+        </runtime>
+        <development>
+          <dep name="vitest" version="4.0.8">Fast test runner for unit tests</dep>
+          <dep name="@testing-library/react" version="16.3.0">Component testing with user-centric queries</dep>
+          <dep name="@testing-library/jest-dom" version="6.9.1">Custom matchers for DOM assertions</dep>
+          <dep name="msw" version="2.12.1">Mock Service Worker for API mocking in tests</dep>
+          <dep name="happy-dom" version="20.0.10">Lightweight DOM implementation for Vitest</dep>
+          <dep name="typescript" version="5">TypeScript compiler with strict mode</dep>
+        </development>
+      </frontend>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+1. **TypeScript Strict Mode**: All types required, no `any` allowed. Must define types for OAuth response, state parameter, and callback params.
+2. **Next.js 16 + React 19 Patterns**: Use Server Components by default, add 'use client' directive only when needed (useState, onClick, useEffect).
+3. **API Client Extension Required**: Must add OAuth-specific methods to api-client.ts (gmailOAuthConfig, gmailCallback, authStatus). Methods currently missing.
+4. **CSRF Protection Mandatory**: Generate crypto.randomUUID() state parameter, store in sessionStorage, validate on callback (AC: 5).
+5. **OAuth Redirect URI**: Must match backend exactly: http://localhost:8000/auth/gmail/callback (per ADR-017, cannot deviate).
+6. **Token Storage**: JWT stored in localStorage (MVP-acceptable per Story 4.1 review, httpOnly cookies planned for production).
+7. **Error Handling Strategy**: All errors via Sonner toast notifications. Include "Try Again" button to restart flow.
+8. **Testing Requirements**: 5 unit tests + 5 integration tests. Use Vitest + React Testing Library + MSW. Coverage target: 80%+.
+9. **shadcn/ui Components Only**: Use existing shadcn/ui components (Button, Card, Alert, Sonner). No custom UI libraries.
+10. **Zero npm Vulnerabilities**: Run `npm audit` and fix any issues before review (Story 4.1 maintained 0 vulnerabilities).
+11. **Accessibility**: WCAG 2.1 Level AA compliance via shadcn/ui components (keyboard navigation, screen reader support).
+12. **Dark Mode**: Use dark theme from Story 4.1 setup (Sophisticated Dark per UX spec). No light mode toggle needed.
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/auth/gmail/config</name>
+      <kind>REST endpoint</kind>
+      <signature>Response: { data: { auth_url: string, client_id: string, scopes: string[] } }</signature>
+      <path>Backend endpoint (Epic 1) - Returns OAuth authorization URL with client_id and scopes</path>
+    </interface>
+    <interface>
+      <name>POST /api/v1/auth/gmail/callback</name>
+      <kind>REST endpoint</kind>
+      <signature>Request: { code: string, state: string } | Response: { data: { user: User, token: string } }</signature>
+      <path>Backend endpoint (Epic 1) - Exchanges OAuth code for JWT token, returns user object and token</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/auth/status</name>
+      <kind>REST endpoint</kind>
+      <signature>Response: { data: { authenticated: boolean, user?: User } }</signature>
+      <path>Backend endpoint (Epic 1) - Checks if user authenticated and returns connection status (for AC: 6 persistence)</path>
+    </interface>
+    <interface>
+      <name>apiClient.gmailOAuthConfig()</name>
+      <kind>API client method</kind>
+      <signature>async gmailOAuthConfig(): Promise&lt;ApiResponse&lt;GmailOAuthConfig&gt;&gt;</signature>
+      <path>frontend/src/lib/api-client.ts (NEEDS TO BE ADDED) - Fetches OAuth configuration from backend</path>
+    </interface>
+    <interface>
+      <name>apiClient.gmailCallback(code, state)</name>
+      <kind>API client method</kind>
+      <signature>async gmailCallback(code: string, state: string): Promise&lt;ApiResponse&lt;{ user: User, token: string }&gt;&gt;</signature>
+      <path>frontend/src/lib/api-client.ts (NEEDS TO BE ADDED) - Sends OAuth code to backend, receives JWT token</path>
+    </interface>
+    <interface>
+      <name>apiClient.authStatus()</name>
+      <kind>API client method</kind>
+      <signature>async authStatus(): Promise&lt;ApiResponse&lt;{ authenticated: boolean, user?: User }&gt;&gt;</signature>
+      <path>frontend/src/lib/api-client.ts (NEEDS TO BE ADDED) - Checks authentication status for connection persistence</path>
+    </interface>
+    <interface>
+      <name>setToken(token: string)</name>
+      <kind>utility function</kind>
+      <signature>setToken(token: string, remember?: boolean): void</signature>
+      <path>frontend/src/lib/auth.ts:36 - Stores JWT token in localStorage (or sessionStorage if remember=false)</path>
+    </interface>
+    <interface>
+      <name>isAuthenticated()</name>
+      <kind>utility function</kind>
+      <signature>isAuthenticated(): boolean</signature>
+      <path>frontend/src/lib/auth.ts:74 - Checks if user has token (for showing success state immediately on refresh)</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Use Vitest 4.0.8 as test runner (fast, Vite-native). React Testing Library 16.3.0 for component testing with user-centric queries (getByRole, getByText). MSW 2.12.1 for API mocking (mock all backend OAuth endpoints). @testing-library/jest-dom 6.9.1 for custom matchers (toBeInTheDocument, toHaveTextContent). Happy-DOM 20.0.10 as lightweight DOM implementation. TypeScript strict mode in tests (all types required). Coverage target: 80%+ for new code. Test structure: Unit tests (isolated component behavior), Integration tests (full OAuth flow with mocked APIs). All tests must PASS with no warnings before review.</standards>
+    <locations>
+- frontend/tests/components/gmail-connect.test.tsx (5 unit tests for GmailConnect component)
+- frontend/tests/integration/oauth-flow.test.tsx (5 integration tests for complete OAuth flow)
+- frontend/tests/hooks/useAuthStatus.test.ts (unit tests for custom auth status hook)
+- Test mocks: frontend/tests/mocks/handlers.ts (MSW request handlers for OAuth endpoints)
+- Test setup: frontend/tests/setup.ts (Vitest config, MSW server setup)
+    </locations>
+    <ideas>
+**Unit Tests (5 tests mapped to ACs):**
+1. test_gmail_connect_button_renders (AC: 1) - Verify "Connect Gmail" button displays with permission explanation text. Assert button text, explanation content visible.
+2. test_oauth_initiation_constructs_url (AC: 1, 5) - Mock gmailOAuthConfig API. Verify auth URL includes state parameter. Check state stored in sessionStorage.
+3. test_oauth_callback_processes_code (AC: 2) - Mock gmailCallback API with success response. Verify setToken() called with JWT. Assert user object updated.
+4. test_csrf_state_validation (AC: 5) - Test state mismatch rejection. Mock callback with mismatched state. Verify error shown, token NOT stored.
+5. test_success_state_displays_email (AC: 3) - Mock successful OAuth. Verify checkmark icon visible, email displayed, "Continue" button enabled.
+
+**Integration Tests (5 scenarios mapped to ACs):**
+1. test_complete_oauth_flow (AC: 1-3, 5-6) - Full flow: button click → OAuth config fetch → redirect simulation → callback with code → token storage → success state. Verify all steps complete.
+2. test_oauth_error_user_denies (AC: 4) - Simulate user denies permission (?error=access_denied). Verify "Permission denied" error message shown, "Try Again" button visible.
+3. test_oauth_state_mismatch_rejected (AC: 5) - Simulate callback with invalid state parameter. Verify "Security validation failed" error, no token stored, OAuth restarted.
+4. test_connection_persists_on_refresh (AC: 6) - Mock authStatus API. Refresh component. Verify authenticated user sees success state immediately without re-auth.
+5. test_network_error_retry (AC: 4) - Mock network error on OAuth config fetch. Verify "Network error" toast shown, "Try Again" button restarts flow successfully.
+
+**OAuth-Specific Test Considerations:**
+- Cannot test actual Google OAuth redirect (mock entire flow with MSW)
+- Simulate callback URL params: ?code=mock_auth_code&amp;state=mock_state_value
+- Verify sessionStorage for CSRF state token (generate, store, validate, clear)
+- Verify localStorage for JWT token persistence across page refreshes
+- Test all error scenarios: config fetch failure, user denial, invalid state, callback API failure, network errors
+    </ideas>
+  </tests>
+</story-context>

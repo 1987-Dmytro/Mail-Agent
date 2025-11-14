@@ -12,7 +12,7 @@ Mail Agent helps you manage your inbox efficiently by:
 
 ## Project Status
 
-🚧 **In Development** - Currently implementing Epic 1: Foundation & Gmail Integration
+🚧 **In Development** - Currently implementing Epic 4: Frontend Development
 
 ## Prerequisites
 
@@ -66,7 +66,7 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-### 3. Frontend Setup (Epic 4)
+### 3. Frontend Setup
 
 ```bash
 cd frontend
@@ -75,11 +75,16 @@ cd frontend
 npm install
 
 # Configure environment variables
-cp .env.local.example .env.local
+cp .env.example .env.local
+# Edit .env.local with backend API URL (defaults to http://localhost:8000)
 
 # Start development server
 npm run dev
 ```
+
+The frontend application will be available at http://localhost:3000
+
+For detailed frontend documentation, see [frontend/README.md](frontend/README.md)
 
 ## Configuration
 
@@ -170,6 +175,7 @@ For issues or questions, please refer to the project documentation in `docs/` di
 
 ---
 
-**Last Updated**: 2025-11-03
-**Current Epic**: Epic 1 - Foundation & Gmail Integration
-**Next Milestone**: Backend service foundation (Story 1.2)
+**Last Updated**: 2025-11-11
+**Current Epic**: Epic 4 - Frontend Development
+**Completed**: Epics 1-3 (Backend infrastructure, Gmail integration, AI classification, Telegram approvals)
+**Next Milestone**: Frontend user interface (Story 4.1 - Project Setup)

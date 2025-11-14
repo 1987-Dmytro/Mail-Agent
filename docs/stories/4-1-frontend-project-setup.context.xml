@@ -1,0 +1,266 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>1</storyId>
+    <title>Frontend Project Setup</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-11</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/4-1-frontend-project-setup.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer</asA>
+    <iWant>to set up the Next.js frontend project with proper structure and tooling</iWant>
+    <soThat>I have a foundation for building the configuration UI</soThat>
+    <tasks>
+      <task n="1">Next.js Project Initialization + Unit Tests (AC: 1, 2, 7)
+        <subtask n="1.1">Initialize Next.js 15 project with TypeScript</subtask>
+        <subtask n="1.2">Create project structure following Epic 4 architecture</subtask>
+        <subtask n="1.3">Write unit tests for project setup validation (3 test functions)</subtask>
+      </task>
+      <task n="2">Tailwind CSS &amp; shadcn/ui Setup + Unit Tests (AC: 3, 4)
+        <subtask n="2.1">Configure Tailwind CSS v4 with design tokens</subtask>
+        <subtask n="2.2">Initialize shadcn/ui component library</subtask>
+        <subtask n="2.3">Write unit tests for styling and UI components (2 test functions)</subtask>
+      </task>
+      <task n="3">API Client &amp; Environment Setup + Unit Tests (AC: 5, 6)
+        <subtask n="3.1">Configure environment variables</subtask>
+        <subtask n="3.2">Implement API client base class</subtask>
+        <subtask n="3.3">Create auth helper utilities</subtask>
+        <subtask n="3.4">Write unit tests for API client and auth (4 test functions)</subtask>
+      </task>
+      <task n="4">Basic Layout &amp; Navigation Component + Unit Tests (AC: 8)
+        <subtask n="4.1">Create root layout with dark theme</subtask>
+        <subtask n="4.2">Create basic navigation components</subtask>
+        <subtask n="4.3">Write unit tests for layout components (3 test functions)</subtask>
+      </task>
+      <task n="5">Integration Tests (AC: 1-8)
+        <subtask n="5.1">Set up integration test infrastructure</subtask>
+        <subtask n="5.2">Implement integration test scenarios (3 test functions)</subtask>
+        <subtask n="5.3">Verify all integration tests passing</subtask>
+      </task>
+      <task n="6">Documentation + Security Review (AC: All)
+        <subtask n="6.1">Create frontend documentation</subtask>
+        <subtask n="6.2">Update project-level documentation</subtask>
+        <subtask n="6.3">Security review</subtask>
+      </task>
+      <task n="7">Final Validation (AC: all)
+        <subtask n="7.1">Run complete test suite</subtask>
+        <subtask n="7.2">Manual testing checklist</subtask>
+        <subtask n="7.3">Quality checks</subtask>
+        <subtask n="7.4">Verify DoD checklist</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Next.js project initialized with TypeScript support</criterion>
+    <criterion id="AC2">Project structure created (pages, components, lib, styles folders)</criterion>
+    <criterion id="AC3">Tailwind CSS configured for styling</criterion>
+    <criterion id="AC4">Component library integrated (shadcn/ui or Material-UI)</criterion>
+    <criterion id="AC5">API client configured to communicate with backend (fetch or axios)</criterion>
+    <criterion id="AC6">Environment variables setup for backend API URL</criterion>
+    <criterion id="AC7">Development server runs successfully on localhost:3000</criterion>
+    <criterion id="AC8">Basic layout component created with header and navigation</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI &amp; Onboarding</title>
+        <section>System Architecture Alignment</section>
+        <snippet>Next.js 15.5 with App Router, TypeScript 5.x, Tailwind CSS v4 with custom design tokens, shadcn/ui (Radix UI primitives), React Server Components, Axios-based API client. JWT authentication with httpOnly cookies.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI &amp; Onboarding</title>
+        <section>Project Structure Alignment</section>
+        <snippet>Frontend structure: src/app/ (App Router), src/components/ui/ (shadcn/ui), src/components/shared/ (reusable), src/lib/ (API client, auth, utils), src/types/ (TypeScript definitions). Vercel deployment.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI &amp; Onboarding</title>
+        <section>Data Models and Contracts</section>
+        <snippet>TypeScript type definitions for User, FolderCategory, NotificationPreferences, DashboardStats, ApiResponse&lt;T&gt;, ApiError interfaces. All API responses follow JSON format with data, message, status fields.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI &amp; Onboarding</title>
+        <section>APIs and Interfaces - ApiClient Implementation</section>
+        <snippet>Axios-based client with singleton pattern, request interceptor for JWT tokens, response interceptor for 401/403 handling, exponential backoff retry logic (max 3 attempts), 30-second timeout, withCredentials for httpOnly cookies.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI &amp; Onboarding</title>
+        <section>NFR Alignment</section>
+        <snippet>NFR005 (Usability): 10-minute onboarding, 90%+ completion rate target. NFR004 (Security): httpOnly cookies, HTTPS-only, CSRF via SameSite. NFR001 (Performance): SWR caching, React Server Components, optimistic UI, &lt;250KB bundle.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Functional Requirements - Configuration Web UI</section>
+        <snippet>FR022: System shall provide a web-based configuration interface for initial setup and settings management. Enables non-technical users to configure Gmail, Telegram, folders, and notification preferences.</snippet>
+      </doc>
+      <doc>
+        <path>docs/ux-design-specification.md</path>
+        <title>UX Design Specification</title>
+        <section>Color System - Sophisticated Dark Theme</section>
+        <snippet>Primary: #3b82f6 (Blue 500), Background: #0f172a (Slate 900), Text Primary: #f8fafc (Slate 50), Success: #34d399 (Green 400), Error: #f87171 (Red 400). Dark mode optimized for evening use.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Product Epics</title>
+        <section>Epic 4: Configuration UI &amp; Onboarding - Story 4.1</section>
+        <snippet>Story 4.1: Frontend Project Setup. Foundation for building the configuration UI with Next.js, TypeScript, Tailwind CSS, shadcn/ui, API client, and basic layout components. Prerequisite for all subsequent Epic 4 stories.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/api/v1/auth.py</path>
+        <kind>API endpoints</kind>
+        <symbol>Gmail OAuth endpoints</symbol>
+        <lines></lines>
+        <reason>Backend API that frontend will integrate with for Gmail OAuth flow. Provides POST /api/v1/auth/gmail/callback, GET /api/v1/auth/status, POST /api/v1/auth/logout endpoints.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/folders.py</path>
+        <kind>API endpoints</kind>
+        <symbol>Folder management endpoints</symbol>
+        <lines></lines>
+        <reason>Backend API for CRUD operations on folder categories. Frontend will consume GET/POST/PUT/DELETE /api/v1/folders and POST /api/v1/folders/reorder for Story 4.4+.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/telegram.py</path>
+        <kind>API endpoints</kind>
+        <symbol>Telegram linking endpoints</symbol>
+        <lines></lines>
+        <reason>Backend API for Telegram bot connection. Provides POST /api/v1/telegram/link, GET /api/v1/telegram/verify/{code}, DELETE /api/v1/telegram/unlink for Story 4.3+.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/stats.py</path>
+        <kind>API endpoints</kind>
+        <symbol>Dashboard statistics endpoints</symbol>
+        <lines></lines>
+        <reason>Backend API for dashboard data. Likely provides GET /api/v1/dashboard/stats and GET /api/v1/dashboard/activity endpoints for Story 4.7.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/pyproject.toml</path>
+        <kind>configuration</kind>
+        <symbol>Backend dependencies</symbol>
+        <lines></lines>
+        <reason>Python backend dependency manifest. Reference for understanding backend tech stack (FastAPI, SQLAlchemy, Alembic, PostgreSQL drivers) that frontend will integrate with.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <ecosystem name="npm">
+        <package name="next" version="^15.5.0" />
+        <package name="react" version="^18.3.0" />
+        <package name="react-dom" version="^18.3.0" />
+        <package name="typescript" version="^5.7.0" />
+        <package name="tailwindcss" version="^4.0.0" />
+        <package name="@radix-ui/react-*" version="latest" note="shadcn/ui components use Radix UI primitives" />
+        <package name="axios" version="^1.7.0" note="API client for backend communication" />
+        <package name="swr" version="^2.2.0" note="API data caching and revalidation" />
+        <package name="sonner" version="^1.5.0" note="Toast notifications (used by shadcn/ui)" />
+        <package name="lucide-react" version="^0.460.0" note="Icon library for shadcn/ui" />
+        <package name="clsx" version="^2.1.0" note="Utility for className composition" />
+        <package name="tailwind-merge" version="^2.5.0" note="Merge Tailwind classes intelligently" />
+      </ecosystem>
+      <ecosystem name="npm-dev">
+        <package name="vitest" version="^2.1.0" note="Unit test framework" />
+        <package name="@testing-library/react" version="^16.0.0" note="Component testing utilities" />
+        <package name="@testing-library/jest-dom" version="^6.6.0" note="Custom DOM matchers" />
+        <package name="msw" version="^2.6.0" note="Mock Service Worker for API mocking" />
+        <package name="eslint" version="^9.0.0" note="Linting" />
+        <package name="prettier" version="^3.4.0" note="Code formatting" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="architecture">Next.js 15 App Router: Server Components by default, use 'use client' directive for components with interactivity (useState, useEffect, onClick).</constraint>
+    <constraint type="architecture">File-based routing: Pages defined by folder structure in src/app/. Layouts defined via layout.tsx files.</constraint>
+    <constraint type="typescript">TypeScript strict mode required: noUncheckedIndexedAccess, noImplicitAny, strictNullChecks all enabled. Target ES2020 with DOM libraries.</constraint>
+    <constraint type="styling">Tailwind CSS v4 with custom design tokens from UX spec. Dark mode as default (class strategy). System font stack for typography.</constraint>
+    <constraint type="components">shadcn/ui components copied to src/components/ui/ (not installed as npm package). Customize as needed per story requirements.</constraint>
+    <constraint type="testing">Vitest for unit tests, React Testing Library for component tests, MSW for API mocking. 80%+ coverage target for new code.</constraint>
+    <constraint type="security">Never commit secrets (.env.local must be gitignored). JWT tokens in httpOnly cookies preferred. HTTPS-only for production (Vercel auto-provides).</constraint>
+    <constraint type="api">All backend API calls via ApiClient singleton. Handle 401 (token refresh), 403 (redirect to login), network errors (retry with exponential backoff).</constraint>
+    <constraint type="error-handling">Error boundaries for React errors. Toast notifications for user feedback (success, error, info). Offline detection banner.</constraint>
+    <constraint type="pattern">Follow Epic 2 retrospective learnings: Interleave unit tests with implementation (Task 1), integration tests during development (Task 2), not after.</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/auth/gmail/callback</name>
+      <kind>REST endpoint</kind>
+      <signature>Request: { code: string, state: string } → Response: { user: User, token: string }</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/auth/status</name>
+      <kind>REST endpoint</kind>
+      <signature>Response: { authenticated: boolean, user?: User }</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/folders</name>
+      <kind>REST endpoint</kind>
+      <signature>Response: FolderCategory[]</signature>
+      <path>backend/app/api/v1/folders.py</path>
+    </interface>
+    <interface>
+      <name>POST /api/v1/telegram/link</name>
+      <kind>REST endpoint</kind>
+      <signature>Response: TelegramLinkingCode { code: string, expires_at: string }</signature>
+      <path>backend/app/api/v1/telegram.py</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/dashboard/stats</name>
+      <kind>REST endpoint</kind>
+      <signature>Response: DashboardStats { total_emails, pending, sorted, responses_sent, time_saved_minutes }</signature>
+      <path>backend/app/api/v1/stats.py (likely)</path>
+    </interface>
+    <interface>
+      <name>ApiClient class</name>
+      <kind>TypeScript class</kind>
+      <signature>Singleton with methods: get&lt;T&gt;(url), post&lt;T&gt;(url, data), put&lt;T&gt;(url, data), delete&lt;T&gt;(url). Returns ApiResponse&lt;T&gt; or throws ApiError.</signature>
+      <path>src/lib/api-client.ts (to be created)</path>
+    </interface>
+    <interface>
+      <name>AuthService utilities</name>
+      <kind>TypeScript functions</kind>
+      <signature>getToken(): string | null, setToken(token: string): void, removeToken(): void, isAuthenticated(): boolean</signature>
+      <path>src/lib/auth.ts (to be created)</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Vitest for unit tests with React Testing Library for component testing. MSW (Mock Service Worker) for API mocking in integration tests. Tests organized in frontend/tests/ directory with subdirectories for components, lib, and integration. Coverage target: 80%+ for new code. Test file naming: *.test.ts or *.test.tsx. All tests must be real implementations (no placeholder pass statements).</standards>
+    <locations>
+      <location>frontend/tests/setup.ts - Test configuration with MSW handlers</location>
+      <location>frontend/tests/components/*.test.tsx - Component unit tests</location>
+      <location>frontend/tests/lib/*.test.ts - Library function unit tests (api-client, auth, utils)</location>
+      <location>frontend/tests/integration/*.test.tsx - Integration test scenarios</location>
+    </locations>
+    <ideas>
+      <idea criteriaId="AC1">test_typescript_configuration() - Verify tsconfig.json has strict mode enabled with all required compiler options</idea>
+      <idea criteriaId="AC2">test_project_structure_exists() - Verify all required directories exist (src/app, src/components/ui, src/lib, src/types)</idea>
+      <idea criteriaId="AC7">test_dev_server_starts() - Smoke test that development server starts without errors on port 3000</idea>
+      <idea criteriaId="AC3">test_tailwind_dark_theme_active() - Verify dark theme styles applied correctly using design tokens from UX spec</idea>
+      <idea criteriaId="AC4">test_shadcn_components_render() - Verify shadcn/ui Button component renders and has correct Radix UI classes</idea>
+      <idea criteriaId="AC5">test_api_client_initialization() - Verify API client creates with correct base URL from environment variable</idea>
+      <idea criteriaId="AC5">test_api_client_interceptor_adds_token() - Mock request, verify Authorization header includes JWT token</idea>
+      <idea criteriaId="AC5">test_api_client_handles_401() - Mock 401 response, verify token refresh flow triggered</idea>
+      <idea criteriaId="AC6">test_auth_helpers_token_storage() - Verify getToken/setToken/removeToken work correctly with localStorage/cookies</idea>
+      <idea criteriaId="AC8">test_root_layout_renders() - Verify layout component renders children with dark theme class on body</idea>
+      <idea criteriaId="AC8">test_navbar_renders_navigation() - Verify navbar shows logo and navigation links (Dashboard, Settings)</idea>
+      <idea criteriaId="AC8">test_landing_page_renders() - Verify landing page shows welcome message and "Get Started" CTA button</idea>
+      <idea criteriaId="AC1-8">test_frontend_loads_and_renders - Integration test for full page load with styling, components, and layout</idea>
+      <idea criteriaId="AC5-6">test_api_client_makes_backend_call - Mock backend API with MSW, verify request sent with correct headers and base URL</idea>
+      <idea criteriaId="AC8">test_error_boundary_catches_errors - Simulate component error, verify ErrorBoundary displays fallback UI</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,356 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>6</storyId>
+    <title>Onboarding Wizard Flow</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-12</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/4-6-onboarding-wizard-flow.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to be guided through setup with a step-by-step wizard</iWant>
+    <soThat>I complete all required configuration without getting lost</soThat>
+    <tasks>
+      Task 1: Wizard Container &amp; Progress Tracking Implementation + Unit Tests (AC: 1, 7, 8, 9)
+        - Subtask 1.1: Create wizard container with multi-step state management
+        - Subtask 1.2: Implement progress indicator UI
+        - Subtask 1.3: Implement navigation controls with validation
+        - Subtask 1.4: Implement localStorage progress persistence
+        - Subtask 1.5: Write unit tests for wizard container logic (8 test functions)
+
+      Task 2: Step Components Integration + End-to-End Tests (AC: 2, 3, 4, 5, 6, 11)
+        - Subtask 2.1: Integrate Step 1 (Welcome) component
+        - Subtask 2.2: Integrate Step 2 (Gmail Connection) component
+        - Subtask 2.3: Integrate Step 3 (Telegram Linking) component
+        - Subtask 2.4: Integrate Step 4 (Folder Setup) component
+        - Subtask 2.5: Integrate Step 5 (Completion) component
+        - Subtask 2.6: Implement first-time user redirect logic
+        - Subtask 2.7: Implement integration test scenarios (6 test functions)
+
+      Task 3: Documentation + Security Review (AC: All)
+        - Subtask 3.1: Create onboarding workflow documentation
+        - Subtask 3.2: Security review
+
+      Task 4: Final Validation (AC: all)
+        - Subtask 4.1: Run complete test suite
+        - Subtask 4.2: Manual testing checklist
+        - Subtask 4.3: Verify DoD checklist
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Wizard component created with progress indicator showing current step (Step 1 of 4, 2 of 4, etc.)</criterion>
+    <criterion id="AC2">Step 1 (Welcome): Welcome screen explaining Mail Agent benefits and what to expect</criterion>
+    <criterion id="AC3">Step 2 (Gmail): Gmail connection page (reuses existing Gmail OAuth component from Story 4.2)</criterion>
+    <criterion id="AC4">Step 3 (Telegram): Telegram linking page (reuses existing Telegram component from Story 4.3)</criterion>
+    <criterion id="AC5">Step 4 (Folders): Folder setup page (simplified category creation, minimum 1 folder required, suggests 3 defaults)</criterion>
+    <criterion id="AC6">Step 5 (Complete): Completion celebration screen with "Go to Dashboard" button</criterion>
+    <criterion id="AC7">Navigation buttons (Next, Back) with proper enable/disable states based on step completion</criterion>
+    <criterion id="AC8">Steps cannot proceed to next until required actions completed (e.g., Gmail connected before Step 3)</criterion>
+    <criterion id="AC9">Progress saved to localStorage (user can close browser and resume from same step)</criterion>
+    <criterion id="AC10">Completion updates user.onboarding_completed = true in backend</criterion>
+    <criterion id="AC11">First-time users automatically redirected to /onboarding on login</criterion>
+    <criterion id="STD-INPUT">Input Validation: All user inputs and external data validated before processing</criterion>
+    <criterion id="STD-SECURITY">Security Review: No hardcoded secrets, credentials in environment variables, parameterized queries, rate limiting</criterion>
+    <criterion id="STD-QUALITY">Code Quality: No deprecated APIs, comprehensive type hints, structured logging, error handling</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Mail Agent Product Requirements Document</title>
+        <section>Non-Functional Requirements - NFR005</section>
+        <snippet>Non-technical users shall complete onboarding (Gmail OAuth + Telegram bot setup + folder configuration) within 10 minutes, achieving 90%+ successful completion rate</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI &amp; Onboarding</title>
+        <section>Onboarding Wizard Flow (4 Steps)</section>
+        <snippet>Complete wizard sequence: Step 1 (Welcome &amp; Gmail), Step 2 (Telegram Bot Linking), Step 3 (Folder Configuration), Step 4 (Notification Preferences &amp; Complete). User must complete each step before proceeding with validation checkpoints.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic Technical Specification: Configuration UI &amp; Onboarding</title>
+        <section>Technology Version Decisions</section>
+        <snippet>Next.js 16.0.1 + React 19.2.0 implemented (upgraded from 15.5/18.x spec). All 17 tests passing, zero vulnerabilities, fully compatible with shadcn/ui.</snippet>
+      </doc>
+      <doc>
+        <path>docs/ux-design-specification.md</path>
+        <title>Mail Agent UX Design Specification</title>
+        <section>Design System Foundation - shadcn/ui</section>
+        <snippet>shadcn/ui selected with Next.js 15 + Tailwind CSS v4. WCAG 2.1 Level AA accessibility, dark mode support, minimal N26-inspired aesthetic. 50+ accessible components available.</snippet>
+      </doc>
+      <doc>
+        <path>docs/ux-design-specification.md</path>
+        <title>Mail Agent UX Design Specification</title>
+        <section>Core User Experience</section>
+        <snippet>Core statement: "AI proposes, I approve in one tap". Target emotional response: SUCCESS - users feel accomplished when completing email review. iOS-style patterns + N26 banking UX.</snippet>
+      </doc>
+      <doc>
+        <path>frontend/README.md</path>
+        <title>Frontend Documentation</title>
+        <section>Gmail OAuth Setup</section>
+        <snippet>OAuth flow with CSRF protection using crypto.randomUUID(), state parameter validation, JWT token storage in localStorage. Security features: state token validation, secure storage, connection persistence.</snippet>
+      </doc>
+      <doc>
+        <path>frontend/README.md</path>
+        <title>Frontend Documentation</title>
+        <section>Telegram Bot Linking</section>
+        <snippet>6-digit code generation, polling every 3 seconds, 10-minute expiration. Security: no secrets in frontend, code in component state only, polling cleanup on unmount.</snippet>
+      </doc>
+      <doc>
+        <path>frontend/README.md</path>
+        <title>Frontend Documentation</title>
+        <section>Folder Categories Management</section>
+        <snippet>CRUD operations with optimistic UI updates. Default suggestions: Important (red), Government (orange), Clients (blue), Newsletters (gray). Form validation: name 1-50 chars, unique, keywords optional comma-separated.</snippet>
+      </doc>
+      <doc>
+        <path>frontend/README.md</path>
+        <title>Frontend Documentation</title>
+        <section>Notification Preferences Settings</section>
+        <snippet>Batch timing, quiet hours (overnight ranges supported 22:00-08:00), priority immediate alerts, confidence threshold 50-100%. Defaults: batch enabled 18:00, quiet hours 22:00-08:00, priority immediate enabled, 70% threshold.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>frontend/src/components/onboarding/GmailConnect.tsx</path>
+        <kind>component</kind>
+        <symbol>GmailConnect</symbol>
+        <lines>1-50</lines>
+        <reason>Gmail OAuth component from Story 4.2. Reuse in wizard Step 2. Accepts onSuccess/onError callbacks. Handles complete OAuth flow with CSRF protection.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/onboarding/TelegramLink.tsx</path>
+        <kind>component</kind>
+        <symbol>TelegramLink</symbol>
+        <lines>1-50</lines>
+        <reason>Telegram linking component from Story 4.3. Reuse in wizard Step 3. Generates 6-digit code, polls verification, handles expiration.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/lib/api-client.ts</path>
+        <kind>service</kind>
+        <symbol>ApiClient</symbol>
+        <lines>34-80</lines>
+        <reason>Axios-based API client singleton. Already has createFolder/getFolders methods. Need to ADD updateUser() method for onboarding_completed flag update.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/lib/api-client.ts</path>
+        <kind>service</kind>
+        <symbol>createFolder</symbol>
+        <lines>367-375</lines>
+        <reason>Folder creation API method. Use in wizard Step 4 (simplified folder setup).</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/lib/api-client.ts</path>
+        <kind>service</kind>
+        <symbol>getFolders</symbol>
+        <lines>348-360</lines>
+        <reason>Get all folders API method. Check folder count in Step 4 validation (minimum 1 required).</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/hooks/useAuthStatus.ts</path>
+        <kind>hook</kind>
+        <symbol>useAuthStatus</symbol>
+        <lines>N/A</lines>
+        <reason>Authentication status hook. Use to check user.gmail_connected for Step 2 validation.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/hooks/useTelegramStatus.ts</path>
+        <kind>hook</kind>
+        <symbol>useTelegramStatus</symbol>
+        <lines>N/A</lines>
+        <reason>Telegram connection status hook. Use to check telegram_connected for Step 3 validation.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/types/user.ts</path>
+        <kind>type</kind>
+        <symbol>User</symbol>
+        <lines>4-11</lines>
+        <reason>User model interface. MISSING onboarding_completed field - must be added for AC10 (completion updates backend).</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/types/folder.ts</path>
+        <kind>type</kind>
+        <symbol>FolderCategory</symbol>
+        <lines>4-14</lines>
+        <reason>Folder category model. Use for wizard Step 4 folder creation and validation.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <node>
+        <package name="next" version="16.0.1">Next.js framework with App Router</package>
+        <package name="react" version="19.2.0">React library with hooks and concurrent rendering</package>
+        <package name="react-dom" version="19.2.0">React DOM renderer</package>
+        <package name="typescript" version="^5">TypeScript for type safety</package>
+        <package name="axios" version="^1.7.9">HTTP client for API calls</package>
+        <package name="react-hook-form" version="^7.66.0">Form state management</package>
+        <package name="@hookform/resolvers" version="^5.2.2">Form validation resolvers</package>
+        <package name="lucide-react" version="^0.553.0">Icon library</package>
+        <package name="sonner" version="^2.0.7">Toast notifications</package>
+        <package name="next-themes" version="^0.4.6">Theme management (dark mode)</package>
+        <package name="tailwindcss" version="^4">Utility-first CSS framework</package>
+        <package name="class-variance-authority" version="^0.7.1">Component variants</package>
+        <package name="clsx" version="^2.1.1">Class name utility</package>
+        <package name="tailwind-merge" version="^3.4.0">Merge Tailwind classes</package>
+      </node>
+      <node devDependencies="true">
+        <package name="vitest" version="^4.0.8">Test runner</package>
+        <package name="@testing-library/react" version="^16.3.0">React testing utilities</package>
+        <package name="@testing-library/user-event" version="^14.6.1">User interaction simulation</package>
+        <package name="@testing-library/jest-dom" version="^6.9.1">Custom Jest matchers</package>
+        <package name="happy-dom" version="^20.0.10">Lightweight DOM implementation for tests</package>
+        <package name="msw" version="^2.12.1">API mocking for tests</package>
+      </node>
+      <shadcn-ui>
+        <component>button - Primary action buttons (Next, Back, Get Started)</component>
+        <component>card - Container for wizard steps and completion screen</component>
+        <component>dialog - Modals for folder creation</component>
+        <component>progress - Visual progress indicator</component>
+        <component>skeleton - Loading states</component>
+        <component>alert - Error messages</component>
+      </shadcn-ui>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    ARCHITECTURAL CONSTRAINTS:
+    - Container/Presentation pattern: OnboardingWizard (container) orchestrates step components (presentation)
+    - State management: React useState + localStorage (no global state needed)
+    - Validation strategy: Each step defines completion criteria, wizard enforces before Next
+    - Step composition: Wizard wraps 5 existing/new components (Welcome, Gmail, Telegram, Folders, Complete)
+    - Server Components: Use 'use client' only when needed (useState, useEffect, browser APIs)
+
+    TECHNICAL CONSTRAINTS:
+    - Next.js 16.0.1 + React 19.2.0 (from Story 4.1)
+    - TypeScript strict mode (no 'any' types allowed)
+    - Tailwind CSS v4 with shadcn/ui components
+    - Dark mode only (no light mode toggle for MVP)
+    - Mobile-responsive design required
+    - WCAG 2.1 Level AA accessibility compliance
+
+    REUSE CONSTRAINTS:
+    - MUST reuse GmailConnect.tsx from Story 4.2 (no modifications)
+    - MUST reuse TelegramLink.tsx from Story 4.3 (no modifications)
+    - MUST use apiClient singleton from Story 4.1
+    - Folder creation uses existing apiClient.createFolder() method
+    - Follow testing patterns from Stories 4.2-4.5 (vi.mock, fireEvent, Vitest)
+
+    SECURITY CONSTRAINTS:
+    - NO sensitive data in localStorage (only wizard progress, no tokens)
+    - All API calls MUST use authenticated apiClient with JWT bearer tokens
+    - CSRF protection already implemented in GmailConnect (crypto.randomUUID state tokens)
+    - Input validation for custom folder creation (XSS prevention)
+    - HTTPS communication via NEXT_PUBLIC_API_URL
+
+    VALIDATION CONSTRAINTS:
+    - Step 1 (Welcome): No validation, always can proceed
+    - Step 2 (Gmail): gmailConnected === true required before Next
+    - Step 3 (Telegram): telegramConnected === true required before Next
+    - Step 4 (Folders): folders.length &gt;= 1 required before Next
+    - Step 5 (Complete): No validation, just navigate to dashboard
+
+    PERFORMANCE CONSTRAINTS:
+    - Wizard initial render: &lt;1s
+    - Step transitions: &lt;300ms (should feel instant)
+    - localStorage operations: &lt;10ms (synchronous, wrapped in try/catch)
+    - Total onboarding time: &lt;10 minutes (NFR005 target)
+
+    DATA PERSISTENCE CONSTRAINTS:
+    - localStorage key: "onboarding_progress"
+    - Save on every step change
+    - Load on component mount
+    - Clear on completion (when user.onboarding_completed = true)
+    - Handle corrupted data (fallback to Step 1)
+    - Stale progress warning (&gt;7 days old)
+
+    NAVIGATION CONSTRAINTS:
+    - First-time users (user.onboarding_completed = false) redirected to /onboarding from any authenticated route
+    - Completed users (user.onboarding_completed = true) can access /onboarding (support re-running)
+    - Back button disabled on Step 1
+    - Next button disabled until step validation passes
+    - Skip onboarding link on Welcome step (advanced users only)
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>GmailConnect Component API</name>
+      <kind>React Component Props</kind>
+      <signature>interface GmailConnectProps { onSuccess?: () =&gt; void; onError?: (error: string) =&gt; void; }</signature>
+      <path>frontend/src/components/onboarding/GmailConnect.tsx</path>
+    </interface>
+    <interface>
+      <name>TelegramLink Component API</name>
+      <kind>React Component Props</kind>
+      <signature>interface TelegramLinkProps { onSuccess?: () =&gt; void; onError?: (error: string) =&gt; void; }</signature>
+      <path>frontend/src/components/onboarding/TelegramLink.tsx</path>
+    </interface>
+    <interface>
+      <name>API Client - createFolder</name>
+      <kind>REST API Method</kind>
+      <signature>async createFolder(data: { name: string; keywords?: string[]; color?: string }): Promise&lt;FolderCategory&gt;</signature>
+      <path>frontend/src/lib/api-client.ts:367</path>
+    </interface>
+    <interface>
+      <name>API Client - getFolders</name>
+      <kind>REST API Method</kind>
+      <signature>async getFolders(): Promise&lt;FolderCategory[]&gt;</signature>
+      <path>frontend/src/lib/api-client.ts:348</path>
+    </interface>
+    <interface>
+      <name>API Client - updateUser (TO BE ADDED)</name>
+      <kind>REST API Method</kind>
+      <signature>async updateUser(data: { onboarding_completed?: boolean }): Promise&lt;User&gt; { return this.patch&lt;User&gt;('/api/v1/users/me', data); }</signature>
+      <path>frontend/src/lib/api-client.ts (NEW METHOD REQUIRED)</path>
+    </interface>
+    <interface>
+      <name>Backend API - PATCH /api/v1/users/me</name>
+      <kind>REST endpoint</kind>
+      <signature>PATCH /api/v1/users/me | Request: { onboarding_completed?: boolean } | Response: User</signature>
+      <path>Backend API (Epic 1)</path>
+    </interface>
+    <interface>
+      <name>localStorage - onboarding_progress</name>
+      <kind>Browser Storage Schema</kind>
+      <signature>interface OnboardingProgress { currentStep: number; gmailConnected: boolean; telegramConnected: boolean; folders: FolderCategory[]; gmailEmail?: string; telegramUsername?: string; lastUpdated: string; } // Key: "onboarding_progress"</signature>
+      <path>localStorage (NEW - AC9 requirement)</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      Framework: Vitest 4.0.8 + React Testing Library 16.3.0 + @testing-library/user-event 14.6.1. Test runner: Vitest with happy-dom for DOM simulation. API mocking: vi.mock() for direct API client mocking (following Story 4.2-4.5 pattern). Assertion library: @testing-library/jest-dom for custom matchers (toBeInTheDocument, toBeDisabled, etc.). Coverage target: 80%+ for new code. Test structure: Unit tests (8 functions) + Integration tests (6 functions) = 14 total test scenarios. Naming convention: test_feature_description() using snake_case. Mock localStorage: vi.spyOn(window.localStorage, 'setItem/getItem/removeItem'). Mock router: vi.mock('next/navigation') for useRouter and redirect testing.
+    </standards>
+    <locations>
+      frontend/tests/components/onboarding-wizard.test.tsx - 8 unit tests (wizard state, navigation, validation, persistence)
+      frontend/tests/integration/onboarding-flow.test.tsx - 6 integration tests (complete wizard flow, resume, redirects)
+    </locations>
+    <ideas>
+      AC1: test_wizard_renders_with_progress_indicator() - Verify wizard displays "Step 1 of 5" on initial render
+      AC2: test_welcome_step_displays_benefits() - Verify Welcome step shows Mail Agent benefits, estimated time, "Get Started" button
+      AC3: test_gmail_step_wraps_existing_component() - Verify GmailConnect component rendered in Step 2
+      AC3: test_gmail_onSuccess_callback_enables_next() - Verify Next button enabled when onSuccess callback fired
+      AC4: test_telegram_step_wraps_existing_component() - Verify TelegramLink component rendered in Step 3
+      AC4: test_telegram_onSuccess_callback_enables_next() - Verify Next button enabled when onSuccess callback fired
+      AC5: test_folder_step_shows_3_default_suggestions() - Verify "Important", "Government", "Clients" suggested folders displayed
+      AC5: test_add_defaults_creates_all_3_folders() - Click "Add These Defaults", verify 3 API calls to createFolder()
+      AC6: test_completion_step_shows_summary() - Verify summary displays Gmail email, Telegram username, folder count
+      AC6: test_go_to_dashboard_button() - Click button, verify updateUser() called and router.push('/dashboard')
+      AC7: test_next_button_advances_step() - Click Next on Step 1, verify moves to Step 2
+      AC7: test_back_button_returns_to_previous_step() - Advance to Step 2, click Back, verify returns to Step 1
+      AC7: test_back_disabled_on_step_1() - Verify Back button disabled on Welcome step
+      AC8: test_next_disabled_without_gmail_connection() - On Step 2, verify Next disabled until gmailConnected=true
+      AC8: test_next_disabled_without_telegram_connection() - On Step 3, verify Next disabled until telegramConnected=true
+      AC8: test_next_disabled_without_folders() - On Step 4, verify Next disabled until folders.length >= 1
+      AC9: test_progress_persisted_to_localstorage() - Advance to Step 3, verify localStorage.setItem called with correct data
+      AC9: test_progress_restored_from_localstorage() - Set localStorage to Step 3, remount component, verify starts at Step 3
+      AC10: test_completion_updates_backend() - Complete wizard, verify apiClient.updateUser({ onboarding_completed: true }) called
+      AC11: test_first_time_user_redirect() - Mock user.onboarding_completed=false, visit /dashboard, verify redirected to /onboarding
+      INTEGRATION: test_complete_wizard_flow() - Full flow: Welcome → Gmail → Telegram → Folders → Complete → Dashboard
+      INTEGRATION: test_wizard_resume_from_localstorage() - Start wizard, advance to Step 3, refresh page, verify resumes at Step 3
+      INTEGRATION: test_cannot_skip_required_steps() - Try to advance without completing requirements, verify blocked
+      INTEGRATION: test_back_navigation() - Advance to Step 4, click Back 3 times, verify returns to Step 1
+    </ideas>
+  </tests>
+</story-context>

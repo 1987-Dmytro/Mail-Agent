@@ -1,0 +1,160 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4</storyId>
+    <title>Folder Categories Configuration</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-12</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/4-4-folder-categories-configuration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to create and manage my email folder categories through an intuitive interface</iWant>
+    <soThat>I can organize emails according to my needs</soThat>
+    <tasks>
+      <task id="1" title="Folder Management Page Implementation + Unit Tests">
+        <subtask id="1.1">Create folder management page route and component structure</subtask>
+        <subtask id="1.2">Implement folder list display with existing categories</subtask>
+        <subtask id="1.3">Implement "Add Category" dialog with form</subtask>
+        <subtask id="1.4">Implement folder creation logic</subtask>
+        <subtask id="1.5">Implement folder edit functionality</subtask>
+        <subtask id="1.6">Implement folder delete with confirmation</subtask>
+        <subtask id="1.7">Implement default categories pre-population</subtask>
+        <subtask id="1.8">Implement color picker/selector</subtask>
+        <subtask id="1.9">Write unit tests for folder management component (8 tests)</subtask>
+      </task>
+      <task id="2" title="Integration Tests + Folder Persistence">
+        <subtask id="2.1">Implement folder state persistence with useFolders() hook</subtask>
+        <subtask id="2.2">Implement integration test scenarios (5 tests)</subtask>
+      </task>
+      <task id="3" title="Documentation + Security Review">
+        <subtask id="3.1">Create component documentation</subtask>
+        <subtask id="3.2">Security review checklist</subtask>
+      </task>
+      <task id="4" title="Final Validation">
+        <subtask id="4.1">Run complete test suite (13 tests total)</subtask>
+        <subtask id="4.2">Manual testing checklist</subtask>
+        <subtask id="4.3">Verify DoD checklist</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Folder management page displays list of existing categories</criterion>
+    <criterion id="AC2">"Add Category" button opens creation dialog</criterion>
+    <criterion id="AC3">Creation dialog includes: category name input, optional keywords field, color picker</criterion>
+    <criterion id="AC4">Category name validation (not empty, max 50 chars, no duplicates)</criterion>
+    <criterion id="AC5">Keywords field allows comma-separated list (e.g., "finanzamt, tax, steuer")</criterion>
+    <criterion id="AC6">Created categories displayed as cards with edit/delete actions</criterion>
+    <criterion id="AC7">Edit functionality allows updating name and keywords</criterion>
+    <criterion id="AC8">Delete confirmation dialog prevents accidental deletion</criterion>
+    <criterion id="AC9">Default categories pre-populated (Important, Government, Clients, Newsletters)</criterion>
+    <criterion id="AC10">Changes automatically sync with backend (create Gmail labels)</criterion>
+    <criterion id="AC11">Visual feedback for save success/failure</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/PRD.md" title="Product Requirements Document" section="FR025-FR026: Folder Configuration">
+        System shall enable users to create and name custom email folder categories (Gmail labels) and define basic sorting rules using keywords or sender patterns. Foundation for folder management UI requirements.
+      </doc>
+      <doc path="docs/tech-spec-epic-4.md" title="Epic 4 Technical Specification" section="Backend Integration Points">
+        Folder CRUD API endpoints: GET/POST/PUT/DELETE /api/v1/folders. Next.js 16.0.1 + React 19.2.0 + TypeScript strict mode framework. shadcn/ui component library with Dialog, AlertDialog, Button, Card, Input components.
+      </doc>
+      <doc path="docs/tech-spec-epic-4.md" title="Epic 4 Technical Specification" section="Project Structure">
+        Frontend structure: app/settings/folders/page.tsx for folder management route, components/settings/ for reusable components, lib/api-client.ts for API integration, types/folder.ts for TypeScript definitions.
+      </doc>
+      <doc path="docs/architecture.md" title="System Architecture" section="Next.js 15 Frontend Architecture">
+        React Server Components by default (add 'use client' only for interactivity). State management via React hooks (useState, useContext). API layer: Axios-based client with interceptors for auth/error handling. Tailwind CSS v4 styling.
+      </doc>
+      <doc path="docs/adrs/epic-4-architecture-decisions.md" title="Epic 4 Architecture Decisions" section="ADR-018: PostgreSQL UserSettings">
+        Backend folder persistence via folder_categories table with fields: user_id, name, keywords (comma-separated), color (hex), gmail_label_id, is_default. Frontend syncs with backend via REST APIs.
+      </doc>
+    </docs>
+    <code>
+      <artifact path="frontend/src/lib/api-client.ts" kind="service" symbol="ApiClient" lines="1-343" reason="Axios-based API client singleton with JWT auth, token refresh, and error handling. Provides generic GET/POST/PUT/DELETE methods. Need to add folder CRUD methods: getFolders(), createFolder(), updateFolder(), deleteFolder()." />
+      <artifact path="frontend/src/types/folder.ts" kind="types" symbol="FolderCategory" lines="1-24" reason="TypeScript interfaces already defined: FolderCategory (id, name, color, icon, order, gmail_label_id, timestamps) and FolderCategoryInput (name, color, icon, order). Can be reused as-is." />
+      <artifact path="frontend/src/types/api.ts" kind="types" symbol="ApiResponse" lines="1-20" reason="Generic ApiResponse&lt;T&gt; type wrapper for backend responses. Provides consistent error handling structure." />
+      <artifact path="frontend/src/lib/auth.ts" kind="service" symbol="getToken" lines="1-50" reason="JWT token management: getToken(), setToken(), removeToken(). Used by API client for Authorization headers." />
+      <artifact path="frontend/src/components/ui/button.tsx" kind="component" symbol="Button" lines="1-50" reason="shadcn/ui Button component with variants (default, outline, destructive). Used for all action buttons in folder management." />
+      <artifact path="frontend/src/components/ui/card.tsx" kind="component" symbol="Card" lines="1-80" reason="shadcn/ui Card component (Card, CardHeader, CardTitle, CardDescription, CardContent). Used to display folder cards in grid layout." />
+      <artifact path="frontend/src/components/ui/dialog.tsx" kind="component" symbol="Dialog" lines="1-150" reason="shadcn/ui Dialog component for create/edit folder forms. Supports DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter." />
+      <artifact path="frontend/src/components/ui/alert.tsx" kind="component" symbol="AlertDialog" lines="1-120" reason="shadcn/ui AlertDialog for delete confirmation. Supports AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel." />
+      <artifact path="frontend/src/components/ui/input.tsx" kind="component" symbol="Input" lines="1-30" reason="shadcn/ui Input component for text fields. Used for folder name input in create/edit dialog." />
+      <artifact path="frontend/src/components/onboarding/TelegramLink.tsx" kind="component" symbol="TelegramLink" lines="1-501" reason="Reference implementation: Demonstrates 'use client' directive, useState hooks, toast notifications (Sonner), shadcn/ui component integration (Card, Button, Alert), API client usage patterns, error handling, and polling mechanism." />
+      <artifact path="frontend/src/components/shared/ErrorBoundary.tsx" kind="component" symbol="ErrorBoundary" lines="1-50" reason="React error boundary for graceful error handling. Wrap FolderManager component with ErrorBoundary to catch runtime errors." />
+    </code>
+    <dependencies>
+      <ecosystem name="node">
+        <package name="next" version="16.0.1" reason="React framework with App Router, Server Components, and RSC" />
+        <package name="react" version="19.2.0" reason="UI library with hooks, concurrent rendering, and React 19 compiler" />
+        <package name="typescript" version="5.x" reason="Type-safe JavaScript with strict mode enabled" />
+        <package name="axios" version="1.7.9" reason="HTTP client for backend API calls with interceptors" />
+        <package name="react-hook-form" version="latest" reason="Form state management and validation (to be used in Story 4.4)" />
+        <package name="zod" version="latest" reason="Schema validation for form inputs" />
+        <package name="sonner" version="latest" reason="Toast notification library (already integrated in Story 4.1-4.3)" />
+        <package name="lucide-react" version="latest" reason="Icon library (Trash, Edit, Plus, X, Check, etc.)" />
+        <package name="tailwindcss" version="4.x" reason="Utility-first CSS framework with v4 features" />
+        <package name="shadcn/ui" version="latest" reason="Accessible component library (Button, Card, Dialog, AlertDialog, Input)" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>TypeScript strict mode enabled: no 'any' types allowed, all functions must have explicit return types</constraint>
+    <constraint>'use client' directive required only for components with interactivity (useState, useEffect, event handlers, dialogs)</constraint>
+    <constraint>Optimistic UI updates: Update local state immediately, rollback on API error to provide instant feedback</constraint>
+    <constraint>Form validation: Use react-hook-form for form state + zod schemas for validation rules</constraint>
+    <constraint>Error handling: All API calls must be wrapped in try-catch, display errors via toast notifications (Sonner)</constraint>
+    <constraint>Test coverage: Minimum 80% coverage for new code (FolderManager component, API client methods)</constraint>
+    <constraint>No npm vulnerabilities: Run 'npm audit' and fix all vulnerabilities before marking story complete</constraint>
+    <constraint>Folder name validation: Required, 1-50 characters, no duplicates (case-insensitive check)</constraint>
+    <constraint>Keywords validation: Optional, comma-separated, trim whitespace from each keyword</constraint>
+    <constraint>Color picker: Provide predefined palette (10 colors) + optional custom hex input for advanced users</constraint>
+    <constraint>Project-relative paths only: No absolute file paths in code or documentation</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="GET /api/v1/folders" kind="REST" signature="GET /api/v1/folders → ApiResponse&lt;FolderCategory[]&gt;" path="backend/app/api/v1/folders.py" reason="Retrieve all folder categories for authenticated user. Returns array of FolderCategory objects with id, name, keywords, color, gmail_label_id." />
+    <interface name="POST /api/v1/folders" kind="REST" signature="POST /api/v1/folders → ApiResponse&lt;FolderCategory&gt;" path="backend/app/api/v1/folders.py" reason="Create new folder category. Request body: FolderCategoryInput (name, keywords?, color?). Returns created FolderCategory with assigned id and gmail_label_id." />
+    <interface name="PUT /api/v1/folders/:id" kind="REST" signature="PUT /api/v1/folders/:id → ApiResponse&lt;FolderCategory&gt;" path="backend/app/api/v1/folders.py" reason="Update existing folder category. Request body: Partial&lt;FolderCategoryInput&gt;. Returns updated FolderCategory. Validates name uniqueness (excluding current folder)." />
+    <interface name="DELETE /api/v1/folders/:id" kind="REST" signature="DELETE /api/v1/folders/:id → ApiResponse&lt;void&gt;" path="backend/app/api/v1/folders.py" reason="Delete folder category and associated Gmail label. Returns success confirmation or error if folder is in use." />
+    <interface name="apiClient.getFolders()" kind="method" signature="async getFolders(): Promise&lt;ApiResponse&lt;FolderCategory[]&gt;&gt;" path="frontend/src/lib/api-client.ts" reason="API client method to fetch folders. To be added in Story 4.4. Calls GET /api/v1/folders with JWT auth header." />
+    <interface name="apiClient.createFolder(data)" kind="method" signature="async createFolder(data: FolderCategoryInput): Promise&lt;ApiResponse&lt;FolderCategory&gt;&gt;" path="frontend/src/lib/api-client.ts" reason="API client method to create folder. To be added in Story 4.4. Calls POST /api/v1/folders with request body." />
+    <interface name="apiClient.updateFolder(id, data)" kind="method" signature="async updateFolder(id: string, data: Partial&lt;FolderCategoryInput&gt;): Promise&lt;ApiResponse&lt;FolderCategory&gt;&gt;" path="frontend/src/lib/api-client.ts" reason="API client method to update folder. To be added in Story 4.4. Calls PUT /api/v1/folders/:id with request body." />
+    <interface name="apiClient.deleteFolder(id)" kind="method" signature="async deleteFolder(id: string): Promise&lt;ApiResponse&lt;void&gt;&gt;" path="frontend/src/lib/api-client.ts" reason="API client method to delete folder. To be added in Story 4.4. Calls DELETE /api/v1/folders/:id." />
+  </interfaces>
+  <tests>
+    <standards>
+      Testing framework: Vitest + React Testing Library + @testing-library/user-event.
+      Mocking strategy: Use vi.mock() to mock apiClient methods (following Story 4.2-4.3 pattern, NOT MSW).
+      Test structure: Unit tests in frontend/tests/components/, integration tests in frontend/tests/integration/.
+      Coverage target: 80%+ for new code (FolderManager component, useFolders hook if created).
+      Assertion library: Vitest expect() with @testing-library/jest-dom matchers.
+      Component testing: Render components, simulate user interactions (click, type), assert DOM state and API calls.
+      Async testing: Use waitFor() for async state updates, findBy* queries for elements that appear asynchronously.
+      Mock cleanup: Clear all mocks in beforeEach() to ensure test isolation.
+    </standards>
+    <locations>
+      <location>frontend/tests/components/*.test.tsx - Unit tests for React components</location>
+      <location>frontend/tests/integration/*.test.tsx - Integration tests for complete workflows</location>
+      <location>frontend/tests/*.test.tsx - General test utilities and setup</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1" test="test_folder_list_renders_existing_folders">Render FolderManager with 3 mocked folders. Assert: 3 folder cards displayed with name, color indicator, keywords badges, edit/delete buttons.</idea>
+      <idea ac="AC2" test="test_add_category_button_opens_dialog">Click "Add Category" button. Assert: Dialog opens, form fields visible (name input, keywords textarea, color picker).</idea>
+      <idea ac="AC3-5" test="test_create_folder_form_validation">Submit form with invalid data (empty name, name too long, duplicate name). Assert: Validation errors displayed inline below fields.</idea>
+      <idea ac="AC10-11" test="test_create_folder_success">Fill form with valid data, submit. Mock apiClient.createFolder() success response. Assert: Dialog closes, new folder added to list, success toast shown.</idea>
+      <idea ac="AC7" test="test_edit_folder_pre_fills_form">Click edit button on folder card. Assert: Dialog opens with form pre-filled with current folder data (name, keywords, color).</idea>
+      <idea ac="AC8" test="test_delete_folder_shows_confirmation">Click delete button on folder card. Assert: AlertDialog opens with confirmation message, Cancel and Delete buttons.</idea>
+      <idea ac="AC9" test="test_default_categories_suggestions">Render FolderManager when no folders exist. Assert: Empty state shows 4 default suggestions (Important, Government, Clients, Newsletters) with Add buttons.</idea>
+      <idea ac="AC3" test="test_color_picker_selection">Open create dialog, click color swatch in palette. Assert: Selected color highlighted, form state updated.</idea>
+      <idea integration="complete-crud" test="test_complete_folder_crud_flow">Full flow: Create folder → Edit folder name → Delete folder. Mock all API calls. Assert: All operations succeed, UI updates correctly, toasts shown.</idea>
+      <idea integration="name-uniqueness" test="test_folder_name_uniqueness_validation">Create folder "Work", try to create another "Work" (case-insensitive). Assert: Duplicate name rejected with error message.</idea>
+      <idea integration="default-creation" test="test_default_categories_creation">Click "Add" on all 4 default suggestions. Assert: 4 folders created with correct names, keywords, colors.</idea>
+      <idea integration="persistence" test="test_folder_persists_across_navigation">Create folder, navigate away, navigate back. Mock apiClient.getFolders() to return created folder. Assert: Folder still visible in list.</idea>
+      <idea integration="error-handling" test="test_error_handling_api_failure">Attempt to create folder, mock API returns network error. Assert: Error toast shown, dialog remains open, form data preserved, retry succeeds.</idea>
+    </ideas>
+  </tests>
+</story-context>

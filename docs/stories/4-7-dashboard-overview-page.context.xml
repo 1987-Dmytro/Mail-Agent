@@ -1,0 +1,410 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>7</storyId>
+    <title>Dashboard Overview Page</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-12</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/4-7-dashboard-overview-page.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>to see a dashboard showing my system status and recent activity</iWant>
+    <soThat>I can quickly understand if everything is working correctly and monitor email processing without opening Gmail</soThat>
+    <tasks>
+### Task 1: Dashboard Layout & Connection Status + Unit Tests (AC: 1, 2, 14)
+
+- **Subtask 1.1**: Create dashboard page and layout structure
+  - Create `frontend/src/app/dashboard/page.tsx` - Main dashboard page route
+  - Implement responsive grid layout (2-column desktop, 1-column mobile)
+  - Add page title and description ("Dashboard - Mail Agent")
+  - Wrap with OnboardingRedirect to require completed onboarding
+
+- **Subtask 1.2**: Implement connection status cards component
+  - Create `frontend/src/components/dashboard/ConnectionStatus.tsx`
+  - Display Gmail status card with green/red badge, last sync time, reconnect button
+  - Display Telegram status card with green/red badge, username, reconnect button
+  - Use shadcn/ui Card, Badge components for styling
+
+- **Subtask 1.3**: Write unit tests for connection status display
+  - Implement 2 unit test functions for connected/disconnected states
+  - Mock apiClient.getDashboardStats()
+  - Verify all unit tests passing
+
+### Task 2: Email Statistics & Activity Feed + Integration Tests (AC: 3, 4, 7, 11, 12, 13)
+
+- **Subtask 2.1**: Implement email processing statistics cards
+- **Subtask 2.2**: Implement recent activity feed
+- **Subtask 2.3**: Implement RAG indexing progress indicator
+- **Subtask 2.4**: Implement SWR for automatic data refresh
+- **Subtask 2.5**: Implement loading and error states
+- **Subtask 2.6**: Implement integration test scenarios (4 tests)
+
+### Task 3: Quick Actions & Documentation + Security Review (AC: 5, 8, 9, 10)
+
+- **Subtask 3.1**: Implement quick actions section
+- **Subtask 3.2**: Implement helpful tips section for new users
+- **Subtask 3.3**: Implement system health indicator
+- **Subtask 3.4**: Implement responsive design
+- **Subtask 3.5**: Create dashboard documentation
+- **Subtask 3.6**: Security review
+
+### Task 4: Final Validation (AC: all)
+
+- **Subtask 4.1**: Run complete test suite
+- **Subtask 4.2**: Manual testing checklist
+- **Subtask 4.3**: Verify DoD checklist
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Dashboard page created as default view after onboarding
+2. Connection status cards showing Gmail and Telegram status (connected/disconnected)
+3. Email processing statistics: emails processed today, approval rate, pending actions
+4. Recent activity feed: last 10 email actions (sorted, sent, rejected)
+5. Quick actions section: "Manage Folders", "Update Settings", "View Stats"
+6. System health indicator (all systems operational, warnings if issues)
+7. RAG indexing progress shown if initial indexing in progress
+8. Helpful tips section for new users (getting started guidance)
+9. Refresh button to update statistics in real-time
+10. Responsive design (mobile and desktop layouts)
+11. Statistics auto-refresh every 30 seconds via SWR
+12. Skeleton loading states display while data loads
+13. Error states display with retry option for failed API calls
+14. Reconnect buttons available if connections are broken
+
+### Standard Quality & Security Criteria (Auto-included)
+
+- **Input Validation**: All user inputs and external data validated before processing (type checking, range validation, sanitization)
+- **Security Review**: No hardcoded secrets, credentials in environment variables, parameterized queries for database operations, rate limiting implemented where applicable
+- **Code Quality**: No deprecated APIs used, comprehensive type hints/annotations, structured logging for debugging, error handling with proper exception types
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <!-- Primary Technical Specification -->
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Dashboard Statistics Model (lines 304-338)</section>
+        <snippet>Defines DashboardStats interface with connections (Gmail/Telegram ConnectionStatus), email_stats (total_processed, pending_approval, auto_sorted, responses_sent), time_saved metrics, and recent_activity array of ActivityItem objects. Each ActivityItem has id, type (sorted/response_sent/rejected), email_subject, timestamp, and optional folder_name.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Dashboard API Endpoints (lines 509-520)</section>
+        <snippet>Two endpoints: GET /api/v1/dashboard/stats returns DashboardStats object, GET /api/v1/dashboard/activity?limit=10 returns ActivityItem[] array. Both require JWT authentication.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Dashboard Page Load Sequence (lines 766-825)</section>
+        <snippet>Dashboard rendering flow: Check authentication → Show skeleton loading UI → Parallel API calls (stats, activity, users/me) → Render connection status cards, email statistics, time saved metrics, recent activity feed → Auto-refresh every 30 seconds via SWR polling. Error handling includes toast notifications, reconnect buttons, and offline banner.</snippet>
+      </doc>
+
+      <!-- Product Requirements -->
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>User Journeys - Dashboard</section>
+        <snippet>Dashboard shows connection status and basic statistics. Key screens include onboarding wizard completion redirect to dashboard, connection status monitoring, and basic email processing statistics display.</snippet>
+      </doc>
+
+      <!-- Architecture -->
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture</title>
+        <section>Executive Summary</section>
+        <snippet>LangGraph-orchestrated AI agent system with FastAPI backend, Next.js 15 frontend, PostgreSQL database, ChromaDB vector database, Google Gemini 2.5 Flash LLM. System designed for zero-cost infrastructure operation with production-grade quality through comprehensive monitoring and structured logging.</snippet>
+      </doc>
+
+      <!-- Frontend Overview -->
+      <doc>
+        <path>frontend/README.md</path>
+        <title>Frontend Documentation</title>
+        <section>Tech Stack</section>
+        <snippet>Next.js 16.0.1, TypeScript 5 strict mode, Tailwind CSS v4, shadcn/ui with Radix UI, Axios, Vitest + React Testing Library + MSW, Lucide React icons, next-themes for dark mode, Sonner for toast notifications. Testing structure includes unit, integration, and component tests with MSW for API mocking.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <!-- Existing API Client - Needs Extension -->
+      <artifact>
+        <path>frontend/src/lib/api-client.ts</path>
+        <kind>service</kind>
+        <symbol>ApiClient</symbol>
+        <lines>1-200</lines>
+        <reason>Singleton API client with JWT authentication, token refresh, and error handling. Needs two new methods added: getDashboardStats() and getRecentActivity(limit). Already configured with baseURL, timeout, interceptors.</reason>
+      </artifact>
+
+      <!-- Existing Type Definitions - Will Be Reused -->
+      <artifact>
+        <path>frontend/src/types/user.ts</path>
+        <kind>types</kind>
+        <symbol>User</symbol>
+        <lines>4-12</lines>
+        <reason>User interface with id, email, gmail_connected, telegram_connected, onboarding_completed fields. Dashboard needs gmail_connected and telegram_connected to display connection status cards.</reason>
+      </artifact>
+
+      <artifact>
+        <path>frontend/src/types/api.ts</path>
+        <kind>types</kind>
+        <symbol>ApiResponse, ApiError</symbol>
+        <lines>1-30</lines>
+        <reason>Generic API response wrappers and error types. Dashboard API calls will return these standard response structures.</reason>
+      </artifact>
+
+      <!-- Existing UI Components - Will Be Reused -->
+      <artifact>
+        <path>frontend/src/components/ui/card.tsx</path>
+        <kind>component</kind>
+        <symbol>Card, CardHeader, CardTitle, CardContent</symbol>
+        <lines>1-50</lines>
+        <reason>shadcn/ui Card components for connection status cards, stats cards, activity feed card, quick actions card.</reason>
+      </artifact>
+
+      <artifact>
+        <path>frontend/src/components/ui/button.tsx</path>
+        <kind>component</kind>
+        <symbol>Button</symbol>
+        <lines>1-50</lines>
+        <reason>shadcn/ui Button component for reconnect buttons, refresh button, quick action buttons.</reason>
+      </artifact>
+
+      <artifact>
+        <path>frontend/src/components/ui/skeleton.tsx</path>
+        <kind>component</kind>
+        <symbol>Skeleton</symbol>
+        <lines>1-20</lines>
+        <reason>shadcn/ui Skeleton component for loading states. Dashboard needs DashboardSkeleton component using these primitives.</reason>
+      </artifact>
+
+      <artifact>
+        <path>frontend/src/components/ui/alert.tsx</path>
+        <kind>component</kind>
+        <symbol>Alert, AlertTitle, AlertDescription</symbol>
+        <lines>1-50</lines>
+        <reason>shadcn/ui Alert component for system health indicator banner and error states.</reason>
+      </artifact>
+
+      <!-- Existing Shared Components - Will Be Reused -->
+      <artifact>
+        <path>frontend/src/components/shared/ErrorBoundary.tsx</path>
+        <kind>component</kind>
+        <symbol>ErrorBoundary</symbol>
+        <lines>1-100</lines>
+        <reason>React error boundary to wrap dashboard page. Catches component errors, displays fallback UI, logs to backend.</reason>
+      </artifact>
+
+      <artifact>
+        <path>frontend/src/components/shared/OnboardingRedirect.tsx</path>
+        <kind>component</kind>
+        <symbol>OnboardingRedirect</symbol>
+        <lines>1-46</lines>
+        <reason>Redirects users to /onboarding if onboarding_completed is false. Dashboard page needs this protection to ensure completed onboarding before access.</reason>
+      </artifact>
+
+      <!-- Existing Hooks - Will Be Reused -->
+      <artifact>
+        <path>frontend/src/hooks/useAuthStatus.ts</path>
+        <kind>hook</kind>
+        <symbol>useAuthStatus</symbol>
+        <lines>1-50</lines>
+        <reason>Custom hook returning isAuthenticated, isLoading, user. Dashboard uses this to check authentication and get user data for onboarding_completed check.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <!-- Node.js / Frontend Dependencies -->
+      <ecosystem name="node">
+        <package name="next" version="16.0.1">Next.js framework for React applications</package>
+        <package name="react" version="19.2.0">React library for building UI components</package>
+        <package name="react-dom" version="19.2.0">React DOM rendering</package>
+        <package name="typescript" version="^5">TypeScript for type safety</package>
+        <package name="axios" version="^1.7.9">HTTP client for API calls (already configured in ApiClient)</package>
+        <package name="lucide-react" version="^0.553.0">Icon library for dashboard icons (Mail, Clock, FolderOpen, Send, etc.)</package>
+        <package name="sonner" version="^2.0.7">Toast notification library for error/success messages</package>
+        <package name="date-fns" version="NOT INSTALLED - NEEDS INSTALLATION">Date formatting for relative timestamps ("2m ago", "1h ago") in activity feed</package>
+        <package name="swr" version="NOT INSTALLED - NEEDS INSTALLATION">Data fetching library for auto-refresh and caching (30-second polling)</package>
+      </ecosystem>
+
+      <!-- shadcn/ui Components (via Radix UI) -->
+      <ecosystem name="radix-ui">
+        <package name="@radix-ui/react-slot" version="^1.2.4">Button primitive for shadcn/ui</package>
+        <package name="@radix-ui/react-label" version="^2.1.8">Label primitive for shadcn/ui</package>
+        <package name="@radix-ui/react-dialog" version="^1.1.15">Dialog primitive for shadcn/ui</package>
+        <package name="@radix-ui/react-alert-dialog" version="^1.1.15">Alert dialog primitive for shadcn/ui</package>
+      </ecosystem>
+
+      <!-- Testing Dependencies -->
+      <ecosystem name="testing">
+        <package name="vitest" version="^4.0.8">Fast test runner (Vite-powered)</package>
+        <package name="@testing-library/react" version="^16.3.0">React component testing utilities</package>
+        <package name="@testing-library/user-event" version="^14.6.1">User interaction simulation</package>
+        <package name="@testing-library/jest-dom" version="^6.9.1">Custom matchers for DOM assertions</package>
+        <package name="msw" version="^2.12.1">Mock Service Worker for API mocking</package>
+        <package name="happy-dom" version="^20.0.10">Fast DOM implementation for testing</package>
+      </ecosystem>
+
+      <!-- Styling Dependencies -->
+      <ecosystem name="styling">
+        <package name="tailwindcss" version="^4">Utility-first CSS framework</package>
+        <package name="tailwind-merge" version="^3.4.0">Utility for merging Tailwind classes</package>
+        <package name="class-variance-authority" version="^0.7.1">Utility for creating component variants</package>
+        <package name="clsx" version="^2.1.1">Utility for conditional class names</package>
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <!-- Development Constraints from Dev Notes and Architecture -->
+
+    <!-- Architecture Patterns -->
+    <constraint type="architecture">
+      <title>Container/Presentation Component Pattern</title>
+      <description>Dashboard page (page.tsx) acts as Container component orchestrating data fetching and layout. Presentation components (ConnectionStatus, StatsCard, RecentActivity, DashboardSkeleton) receive props and render UI without data fetching logic.</description>
+    </constraint>
+
+    <constraint type="architecture">
+      <title>SWR for Data Fetching</title>
+      <description>Use SWR library for automatic caching, revalidation, and 30-second polling of dashboard statistics. Must configure useSWR with refreshInterval: 30000, revalidateOnFocus: true, revalidateOnReconnect: true.</description>
+    </constraint>
+
+    <constraint type="architecture">
+      <title>Authentication Required</title>
+      <description>Dashboard page must wrap with OnboardingRedirect component to ensure user.onboarding_completed is true before allowing access. Redirect to /onboarding if not completed.</description>
+    </constraint>
+
+    <!-- Testing Requirements -->
+    <constraint type="testing">
+      <title>Test Coverage Requirement</title>
+      <description>80%+ test coverage for new dashboard components. 2 unit test functions for connection status, 4 integration test functions for data loading/display scenarios. Use Vitest + React Testing Library + vi.mock() for API mocking.</description>
+    </constraint>
+
+    <!-- Performance Requirements -->
+    <constraint type="performance">
+      <title>Dashboard Load Time</title>
+      <description>Dashboard must load within 2 seconds (NFR from tech-spec). Parallel API calls (stats + activity) fetched concurrently. Skeleton loading prevents layout shift during data fetch.</description>
+    </constraint>
+
+    <!-- Code Quality Standards -->
+    <constraint type="code-quality">
+      <title>TypeScript Strict Mode</title>
+      <description>Zero TypeScript errors required. No 'any' types allowed. All props, state, and API responses must have explicit type definitions.</description>
+    </constraint>
+
+    <constraint type="code-quality">
+      <title>Zero Vulnerabilities</title>
+      <description>npm audit must report 0 vulnerabilities. Continue standard from Stories 4.1-4.6.</description>
+    </constraint>
+
+    <!-- Responsive Design Requirements -->
+    <constraint type="ui">
+      <title>Responsive Breakpoints</title>
+      <description>Mobile (&lt;640px): Single column layout, all cards stacked. Tablet (640px-1024px): 2-column grid, connection cards side-by-side. Desktop (1024px+): 3-column grid for stats, 2-column for other sections.</description>
+    </constraint>
+
+    <constraint type="ui">
+      <title>Touch Target Size</title>
+      <description>All interactive elements (buttons, links) must be ≥44x44px on mobile for accessibility.</description>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <!-- API Endpoints -->
+    <interface>
+      <name>GET /api/v1/dashboard/stats</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/dashboard/stats → Response: DashboardStats</signature>
+      <path>docs/tech-spec-epic-4.md:509-520</path>
+    </interface>
+
+    <interface>
+      <name>GET /api/v1/dashboard/activity</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/dashboard/activity?limit=10 → Response: ActivityItem[]</signature>
+      <path>docs/tech-spec-epic-4.md:509-520</path>
+    </interface>
+
+    <!-- TypeScript Interfaces to Create -->
+    <interface>
+      <name>DashboardStats</name>
+      <kind>TypeScript interface</kind>
+      <signature>interface DashboardStats { connections: { gmail: ConnectionStatus; telegram: ConnectionStatus; }; email_stats: { total_processed: number; pending_approval: number; auto_sorted: number; responses_sent: number; }; time_saved: { today_minutes: number; total_minutes: number; }; recent_activity: ActivityItem[]; }</signature>
+      <path>frontend/src/types/dashboard.ts (to be created)</path>
+    </interface>
+
+    <interface>
+      <name>ConnectionStatus</name>
+      <kind>TypeScript interface</kind>
+      <signature>interface ConnectionStatus { connected: boolean; last_sync?: string; error?: string; }</signature>
+      <path>frontend/src/types/dashboard.ts (to be created)</path>
+    </interface>
+
+    <interface>
+      <name>ActivityItem</name>
+      <kind>TypeScript interface</kind>
+      <signature>interface ActivityItem { id: number; type: 'sorted' | 'response_sent' | 'rejected'; email_subject: string; timestamp: string; folder_name?: string; }</signature>
+      <path>frontend/src/types/dashboard.ts (to be created)</path>
+    </interface>
+
+    <!-- API Client Methods to Add -->
+    <interface>
+      <name>ApiClient.getDashboardStats()</name>
+      <kind>API client method</kind>
+      <signature>async getDashboardStats(): Promise&lt;DashboardStats&gt; { return this.client.get('/api/v1/dashboard/stats'); }</signature>
+      <path>frontend/src/lib/api-client.ts:200+ (to be added)</path>
+    </interface>
+
+    <interface>
+      <name>ApiClient.getRecentActivity()</name>
+      <kind>API client method</kind>
+      <signature>async getRecentActivity(limit: number = 10): Promise&lt;ActivityItem[]&gt; { return this.client.get(`/api/v1/dashboard/activity?limit=${limit}`); }</signature>
+      <path>frontend/src/lib/api-client.ts:200+ (to be added)</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Testing framework: Vitest + React Testing Library + vi.mock() for direct API mocking (following Stories 4.2-4.6 pattern). Test coverage requirement: 80%+ for new dashboard components. Unit tests (2 functions) cover connection status display logic for connected/disconnected states. Integration tests (4 scenarios) cover dashboard data loading, activity feed rendering, loading skeleton display, and error handling with retry. Mock SWR useSWR hook to control loading/error/data states. Mock apiClient.getDashboardStats() and getRecentActivity() methods. Test auto-refresh behavior by verifying refreshInterval=30000 passed to SWR. Test manual refresh button by verifying mutate() called on click. Test responsive layout by verifying grid changes at breakpoints. Test connection status logic with green/red badges based on connected field. Test activity feed rendering for all 3 activity types (sorted, response_sent, rejected). Use @testing-library/user-event for button click simulations. Use date-fns mocking for timestamp testing. Performance targets: Dashboard initial load &lt;2 seconds, API calls &lt;1 second per endpoint, auto-refresh 30 seconds interval, component render &lt;100ms. Quality gates: ESLint zero errors, TypeScript zero errors (strict mode), all tests passing with 80%+ coverage, manual testing on Chrome/Firefox/Safari, responsive design on mobile/tablet/desktop.
+    </standards>
+    <locations>
+      <location>frontend/tests/components/dashboard.test.tsx</location>
+      <location>frontend/tests/integration/dashboard-page.test.tsx</location>
+    </locations>
+    <ideas>
+      <!-- Unit Test Ideas (AC: 2, 14) -->
+      <idea criteria="AC2">
+        <test>test_connection_status_displays_connected_state()</test>
+        <description>Mock apiClient.getDashboardStats() to return connections.gmail.connected=true and connections.telegram.connected=true. Render ConnectionStatus component. Verify green badges display with text "Connected". Verify last_sync time displays correctly using date-fns relative formatting.</description>
+      </idea>
+
+      <idea criteria="AC14">
+        <test>test_connection_status_displays_reconnect_buttons()</test>
+        <description>Mock apiClient.getDashboardStats() to return connections.gmail.connected=false and connections.telegram.connected=false. Render ConnectionStatus component. Verify red badges display with text "Disconnected". Verify "Reconnect Gmail" and "Reconnect Telegram" buttons appear. Verify buttons link to correct onboarding steps (/onboarding?step=gmail, /onboarding?step=telegram).</description>
+      </idea>
+
+      <!-- Integration Test Ideas (AC: 3, 4, 12, 13) -->
+      <idea criteria="AC3, AC12">
+        <test>test_dashboard_loads_and_displays_stats()</test>
+        <description>Mock useSWR to return isLoading=true initially, then transition to data state. Verify DashboardSkeleton displays during loading. Mock apiClient.getDashboardStats() to return 4 email_stats values. Verify all 4 StatsCard components render with correct values (total_processed, pending_approval, auto_sorted, responses_sent). Verify time_saved displays today_minutes and total_minutes (convert to hours if &gt;60).</description>
+      </idea>
+
+      <idea criteria="AC4">
+        <test>test_dashboard_displays_activity_feed()</test>
+        <description>Mock apiClient.getRecentActivity(10) to return array of 10 ActivityItem objects with mixed types (sorted, response_sent, rejected). Render RecentActivity component. Verify 10 activity items display. Verify each item shows correct icon based on type (FolderOpen for sorted, Send for response_sent, X for rejected). Verify email_subject truncates if &gt;50 chars. Verify folder_name displays for type='sorted'. Verify timestamps use date-fns relative format ("2m ago", "1h ago").</description>
+      </idea>
+
+      <idea criteria="AC12">
+        <test>test_dashboard_shows_loading_skeleton()</test>
+        <description>Mock useSWR with isLoading=true (no data yet). Render dashboard page. Verify DashboardSkeleton component displays with skeleton cards matching final layout. Verify no actual data cards render during loading. Transition to data state and verify skeleton replaced with actual components.</description>
+      </idea>
+
+      <idea criteria="AC13">
+        <test>test_dashboard_handles_api_errors_with_retry()</test>
+        <description>Mock useSWR to return error state (error: ApiError). Render dashboard page. Verify error toast notification displays with message "Failed to load dashboard stats". Verify toast has "Retry" button. Mock mutate() function from useSWR. Click retry button and verify mutate() called to force data reload. Verify skeleton displays again during retry. Mock successful response and verify dashboard renders correctly after retry.</description>
+      </idea>
+    </ideas>
+  </tests>
+</story-context>

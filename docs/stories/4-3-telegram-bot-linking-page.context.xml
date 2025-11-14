@@ -1,0 +1,405 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>3</storyId>
+    <title>Telegram Bot Linking Page</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-12</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/4-3-telegram-bot-linking-page.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to link my Telegram account with step-by-step guidance</iWant>
+    <soThat>I can receive email notifications without confusion</soThat>
+    <tasks>
+      <!-- Task 1: Telegram Linking Page Implementation + Unit Tests -->
+      <task id="1" title="Telegram Linking Page Implementation + Unit Tests" ac="1-5, 8-9">
+        <subtask id="1.1" title="Create Telegram linking page component structure">
+          - Create page route: frontend/src/app/onboarding/telegram/page.tsx
+          - Create reusable component: frontend/src/components/onboarding/TelegramLink.tsx
+          - Add 'use client' directive for interactivity (useState, polling, onClick)
+          - Implement UI with four states: initial, polling, success, error
+        </subtask>
+        <subtask id="1.2" title="Implement linking code generation and display">
+          - Call apiClient.generateTelegramLink() on component mount
+          - Extract code, expires_at from response
+          - Display code prominently (text-4xl, monospace, tracking-widest)
+          - Calculate and display countdown timer until expiration
+          - Handle API errors with retry option
+        </subtask>
+        <subtask id="1.3" title="Implement Copy Code functionality">
+          - Create "Copy Code" button with clipboard icon
+          - Use navigator.clipboard.writeText(code) to copy
+          - Show success toast: "Code copied to clipboard!"
+          - Handle clipboard permission errors
+          - Keyboard accessible (Enter key triggers copy)
+        </subtask>
+        <subtask id="1.4" title="Implement Telegram deep link">
+          - Create "Open Telegram" button with Telegram icon
+          - Construct deep link: tg://resolve?domain=mailagentbot&amp;start=${code}
+          - onClick: window.open() with deep link
+          - Fallback for manual Telegram opening if deep link fails
+        </subtask>
+        <subtask id="1.5" title="Implement verification polling mechanism">
+          - Create polling with setInterval() every 3 seconds
+          - Call apiClient.verifyTelegramLink(code) every 3 seconds
+          - If verified === true: Extract telegram_username, update UI to success state, clear interval
+          - Stop polling after 10 minutes (code expiration)
+          - Clear interval on component unmount (prevent memory leaks)
+        </subtask>
+        <subtask id="1.6" title="Implement code expiration handling">
+          - Calculate time remaining: expires_at - current_time
+          - Display countdown: "Expires in 9:42"
+          - When time reaches 0: Stop polling, show "Code expired" error
+          - Display "Generate New Code" button that restarts flow
+        </subtask>
+        <subtask id="1.7" title="Implement error handling">
+          - Handle API failure on code generation
+          - Handle network errors during polling
+          - Handle invalid code response
+          - All errors display via Sonner toast
+          - Error UI includes "Try Again" button
+        </subtask>
+        <subtask id="1.8" title="Write unit tests for Telegram linking component">
+          - 6 unit test functions covering:
+            1. Page renders instructions and code display (AC 1-2)
+            2. Copy code button copies to clipboard (AC 4)
+            3. Deep link opens Telegram (AC 5)
+            4. Polling verifies link success (AC 6-7)
+            5. Code expiration shows error (AC 8)
+            6. Error handling for network failure (AC 9)
+          - Use React Testing Library + Vitest
+          - Mock apiClient with vi.mock()
+          - Mock timers for polling: vi.useFakeTimers(), vi.advanceTimersByTime()
+        </subtask>
+      </task>
+
+      <!-- Task 2: Integration Tests + Connection Persistence -->
+      <task id="2" title="Integration Tests + Connection Persistence" ac="6-7, 9">
+        <subtask id="2.1" title="Implement connection persistence">
+          - Create custom hook: useTelegramStatus() calls GET /api/v1/telegram/status
+          - Check if user already linked on page load
+          - If already linked, skip polling and show success state immediately
+          - Test: Refresh preserves linked state
+        </subtask>
+        <subtask id="2.2" title="Implement integration test scenarios">
+          - 5 integration tests:
+            1. Complete telegram linking flow (AC 1-7)
+            2. Copy code to clipboard (AC 4)
+            3. Code expiration timeout (AC 8)
+            4. Connection persists on refresh (AC 6-7)
+            5. Network error retry (AC 9)
+          - Use vi.mock() to mock backend APIs
+          - Verify all integration tests passing
+        </subtask>
+      </task>
+
+      <!-- Task 3: Documentation + Security Review -->
+      <task id="3" title="Documentation + Security Review" ac="All">
+        <subtask id="3.1" title="Create component documentation">
+          - Add JSDoc comments to TelegramLink.tsx
+          - Document polling mechanism in code comments
+          - Update frontend/README.md with Telegram linking setup
+          - Document environment variables
+        </subtask>
+        <subtask id="3.2" title="Security review">
+          - Verify no bot token in frontend code
+          - Verify linking code displayed safely (no XSS)
+          - Verify polling interval reasonable (3 seconds)
+          - Verify code stored only in component state (not localStorage)
+          - Run npm audit and fix vulnerabilities
+          - Document security considerations
+        </subtask>
+      </task>
+
+      <!-- Task 4: Final Validation -->
+      <task id="4" title="Final Validation" ac="all">
+        <subtask id="4.1" title="Run complete test suite">
+          - All unit tests passing (6 functions)
+          - All integration tests passing (5 functions)
+          - Test coverage ≥80% for new code
+        </subtask>
+        <subtask id="4.2" title="Manual testing checklist">
+          - Telegram linking flow works on localhost:3000
+          - Code generation succeeds
+          - Copy Code copies to clipboard
+          - Deep link opens Telegram app
+          - Polling detects verification
+          - Success state shows username
+          - Connection persists after refresh
+          - Code expiration shows error and new code button
+          - Error handling works
+          - Console shows no errors
+          - TypeScript type-check passes
+          - ESLint passes
+        </subtask>
+        <subtask id="4.3" title="Verify DoD checklist">
+          - Review each DoD item
+          - Update all task checkboxes
+          - Mark story as review-ready
+        </subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1" priority="must">
+      Telegram linking page displays step-by-step instructions with clear visual hierarchy
+    </criterion>
+    <criterion id="2" priority="must">
+      Instructions include: "1. Open Telegram, 2. Search for @MailAgentBot, 3. Send /start [code]"
+    </criterion>
+    <criterion id="3" priority="must">
+      Unique 6-digit alphanumeric linking code generated and displayed prominently (large font, copyable)
+    </criterion>
+    <criterion id="4" priority="must">
+      "Copy Code" button copies code to clipboard with visual confirmation toast
+    </criterion>
+    <criterion id="5" priority="must">
+      Deep link button opens Telegram app directly (tg://resolve?domain=mailagentbot)
+    </criterion>
+    <criterion id="6" priority="must">
+      Real-time status polling (checks backend every 3 seconds if code verified)
+    </criterion>
+    <criterion id="7" priority="must">
+      Success confirmation displays Telegram username and checkmark when linked
+    </criterion>
+    <criterion id="8" priority="must">
+      Code expiration after 10 minutes with "Generate New Code" option
+    </criterion>
+    <criterion id="9" priority="must">
+      Error handling for expired codes, invalid codes, and network failures
+    </criterion>
+
+    <standardCriteria>
+      <criterion id="std-1">Input Validation: All user inputs and external data validated before processing</criterion>
+      <criterion id="std-2">Security Review: No hardcoded secrets, credentials in environment variables, parameterized queries, rate limiting</criterion>
+      <criterion id="std-3">Code Quality: No deprecated APIs, comprehensive type hints/annotations, structured logging, proper error handling</criterion>
+    </standardCriteria>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>API Endpoints and Backend Integration</section>
+        <snippet>Epic 4 frontend consumes FastAPI backend APIs: POST /api/v1/telegram/link (generate linking code), GET /api/v1/telegram/verify/{code} (verify connection), GET /api/v1/telegram/status (check connection status). JWT authentication via Authorization header, token refresh handled automatically.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Story 4.3: Telegram Bot Linking Implementation</section>
+        <snippet>Telegram linking requires 6-digit alphanumeric code generation with 10-minute expiration, real-time polling every 3 seconds, deep link button (tg://resolve?domain=mailagentbot&amp;start={code}), and connection persistence. Polling mechanism uses setInterval with cleanup on unmount.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR007-FR012: Telegram Bot Integration</section>
+        <snippet>System shall allow users to link their Telegram account, send proposals via Telegram with interactive approval buttons, allow draft editing within Telegram, and send batch notifications. Onboarding must complete within 10 minutes (NFR005) with 90%+ completion rate.</snippet>
+      </doc>
+      <doc>
+        <path>docs/adrs/epic-4-architecture-decisions.md</path>
+        <title>Epic 4 Architecture Decisions</title>
+        <section>ADR-016: Telegram Bot UI for Configuration (Note: Superseded by Web UI implementation)</section>
+        <snippet>Original decision was Telegram Bot UI only for MVP configuration. However, implementation pivoted to Next.js 16 + React 19 web UI for richer user experience. Telegram linking page follows conversational wizard pattern with step-by-step instructions.</snippet>
+      </doc>
+      <doc>
+        <path>docs/ux-design-specification.md</path>
+        <title>UX Design Specification</title>
+        <section>shadcn/ui Components and Dark Theme</section>
+        <snippet>shadcn/ui component library provides accessible UI primitives (Button, Card, Alert, Toast/Sonner). Dark mode (Sophisticated Dark theme) is default. Focus on clear visual hierarchy, instant feedback, and 2-tap maximum interactions inspired by iOS and N26 banking UX.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/4-2-gmail-oauth-connection-page.md</path>
+        <title>Story 4.2: Gmail OAuth Connection Page</title>
+        <section>Dev Notes and Learnings</section>
+        <snippet>Story 4.2 established patterns: API client singleton with typed methods, custom hooks for status checking (useAuthStatus pattern), Vitest + React Testing Library with vi.mock() for testing, component state management with useState/useEffect, error handling via Sonner toasts.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/4-1-frontend-project-setup.md</path>
+        <title>Story 4.1: Frontend Project Setup</title>
+        <section>Infrastructure and Testing Standards</section>
+        <snippet>Next.js 16.0.1 + React 19.2.0 project with TypeScript strict mode, Tailwind CSS v4, shadcn/ui components installed. Test infrastructure: Vitest 3.0.7 + React Testing Library 16.1.0 + @testing-library/jest-dom. All 17 tests passing, 100% pass rate, 0 vulnerabilities.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>frontend/src/lib/api-client.ts</path>
+        <kind>service</kind>
+        <symbol>ApiClient</symbol>
+        <lines>1-300</lines>
+        <reason>Axios-based API client singleton with JWT token refresh, request/response interceptors, and typed methods. Provides gmailOAuthConfig(), gmailCallback(), authStatus() methods. Pattern to follow for adding generateTelegramLink(), verifyTelegramLink(), telegramStatus() methods.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/types/auth.ts</path>
+        <kind>types</kind>
+        <symbol>GmailOAuthConfig, OAuthCallbackResponse</symbol>
+        <lines>1-68</lines>
+        <reason>TypeScript type definitions for OAuth flows. Need to add TelegramLinkingCode and TelegramVerificationStatus types following same pattern.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/hooks/useAuthStatus.ts</path>
+        <kind>hook</kind>
+        <symbol>useAuthStatus</symbol>
+        <lines>1-100</lines>
+        <reason>Custom hook pattern for checking authentication status and connection persistence. Template for creating useTelegramStatus() hook with similar structure.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/onboarding/GmailConnect.tsx</path>
+        <kind>component</kind>
+        <symbol>GmailConnect</symbol>
+        <lines>1-80</lines>
+        <reason>OAuth connection component with state management, callback handling, and success/error states. Pattern to follow for TelegramLink component: 'initial' | 'polling' | 'success' | 'error' state machine.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/button.tsx</path>
+        <kind>component</kind>
+        <symbol>Button</symbol>
+        <lines>all</lines>
+        <reason>shadcn/ui Button component - use for "Copy Code", "Open Telegram", "Try Again" buttons with appropriate variants.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/card.tsx</path>
+        <kind>component</kind>
+        <symbol>Card</symbol>
+        <lines>all</lines>
+        <reason>shadcn/ui Card component - use for code display card and instructions layout.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/ui/alert.tsx</path>
+        <kind>component</kind>
+        <symbol>Alert</symbol>
+        <lines>all</lines>
+        <reason>shadcn/ui Alert component - use for error states, expiration warnings, and status messages.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <ecosystem name="node">
+        <package name="next" version="16.0.1" />
+        <package name="react" version="19.2.0" />
+        <package name="react-dom" version="19.2.0" />
+        <package name="typescript" version="^5" />
+        <package name="axios" version="1.7.9" />
+        <package name="tailwindcss" version="^4" />
+        <package name="lucide-react" version="latest" />
+        <package name="sonner" version="latest" />
+        <package name="vitest" version="3.0.7" />
+        <package name="@testing-library/react" version="16.1.0" />
+        <package name="@testing-library/jest-dom" version="6.6.3" />
+        <package name="@testing-library/user-event" version="14.5.2" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint priority="must">Use Next.js 16 Server Components by default. Only add 'use client' directive when component needs interactivity (useState, useEffect, onClick, setInterval)</constraint>
+    <constraint priority="must">Follow GmailConnect component pattern: State machine with 'initial' | 'polling' | 'success' | 'error' states. Use useState for state management.</constraint>
+    <constraint priority="must">Polling interval: 3 seconds (per tech spec). Duration: Poll for up to 10 minutes (code expiration time). Clear interval on success, error, or component unmount.</constraint>
+    <constraint priority="must">Reuse apiClient singleton from frontend/src/lib/api-client.ts. Add telegramLink(), verifyTelegramLink(), telegramStatus() methods following OAuth methods pattern.</constraint>
+    <constraint priority="must">Create useTelegramStatus() custom hook following useAuthStatus() pattern from Story 4.2 for connection persistence.</constraint>
+    <constraint priority="must">TypeScript strict mode: All types required, no 'any' allowed. Add TelegramLinkingCode and TelegramVerificationStatus types to frontend/src/types/auth.ts.</constraint>
+    <constraint priority="must">Error handling via Sonner toast notifications (imported from sonner). All error messages must be actionable with "Try Again" or "Generate New Code" buttons.</constraint>
+    <constraint priority="must">Deep link format: tg://resolve?domain=mailagentbot&amp;start={code}. Test on desktop with Telegram installed. Fallback to manual instructions if deep link fails.</constraint>
+    <constraint priority="must">Timer mocking for polling tests: Use vi.useFakeTimers() and vi.advanceTimersByTime(3000) to simulate 3-second intervals. Test interval cleanup on unmount.</constraint>
+    <constraint priority="should">Code displayed prominently: text-4xl font, monospace (font-mono), tracking-widest, border, background color, padding for visual emphasis.</constraint>
+    <constraint priority="should">Countdown timer updates every 1 second showing "Expires in 9:42" format. Calculate from expires_at - current_time.</constraint>
+    <constraint priority="should">Linking code stored only in component state (not localStorage for security). Code expires after 10 minutes, automatically cleared.</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/telegram/link</name>
+      <kind>REST endpoint</kind>
+      <signature>Request: {} (empty body). Response: { code: string, expires_at: string, verified: false }</signature>
+      <path>backend/app/api/v1/telegram.py (from Epic 2, Story 2.5)</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/telegram/verify/{code}</name>
+      <kind>REST endpoint</kind>
+      <signature>Request: { code: string } (path param). Response: { verified: boolean, telegram_id?: string, telegram_username?: string }</signature>
+      <path>backend/app/api/v1/telegram.py (from Epic 2, Story 2.5)</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/telegram/status</name>
+      <kind>REST endpoint</kind>
+      <signature>Request: {} (empty). Response: { connected: boolean, telegram_id?: string, telegram_username?: string }</signature>
+      <path>backend/app/api/v1/telegram.py (from Epic 2, Story 2.5)</path>
+    </interface>
+    <interface>
+      <name>apiClient.generateTelegramLink()</name>
+      <kind>API client method</kind>
+      <signature>async generateTelegramLink(): Promise&lt;ApiResponse&lt;TelegramLinkingCode&gt;&gt; - Calls POST /api/v1/telegram/link</signature>
+      <path>frontend/src/lib/api-client.ts (NEW METHOD TO ADD)</path>
+    </interface>
+    <interface>
+      <name>apiClient.verifyTelegramLink(code)</name>
+      <kind>API client method</kind>
+      <signature>async verifyTelegramLink(code: string): Promise&lt;ApiResponse&lt;TelegramVerificationStatus&gt;&gt; - Calls GET /api/v1/telegram/verify/{code}</signature>
+      <path>frontend/src/lib/api-client.ts (NEW METHOD TO ADD)</path>
+    </interface>
+    <interface>
+      <name>apiClient.telegramStatus()</name>
+      <kind>API client method</kind>
+      <signature>async telegramStatus(): Promise&lt;ApiResponse&lt;TelegramConnectionStatus&gt;&gt; - Calls GET /api/v1/telegram/status</signature>
+      <path>frontend/src/lib/api-client.ts (NEW METHOD TO ADD)</path>
+    </interface>
+    <interface>
+      <name>useTelegramStatus()</name>
+      <kind>React custom hook</kind>
+      <signature>function useTelegramStatus(): { isLinked: boolean, isLoading: boolean, error: string | null, telegramUsername: string | null, refresh: () =&gt; Promise&lt;void&gt; }</signature>
+      <path>frontend/src/hooks/useTelegramStatus.ts (NEW FILE TO CREATE)</path>
+    </interface>
+    <interface>
+      <name>TelegramLink component</name>
+      <kind>React client component</kind>
+      <signature>export function TelegramLink({ onSuccess, onError }: { onSuccess?: () =&gt; void, onError?: (error: string) =&gt; void })</signature>
+      <path>frontend/src/components/onboarding/TelegramLink.tsx (NEW FILE TO CREATE)</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Vitest 3.0.7 + React Testing Library 16.1.0 + @testing-library/jest-dom 6.6.3 for component testing. Use vi.mock() for direct API mocking (not MSW) following Story 4.2 pattern. Timer mocking via vi.useFakeTimers() for polling tests. Mock navigator.clipboard.writeText() for clipboard tests. Mock window.open() for deep link tests. All tests must be real implementations with assertions, NO placeholder tests with pass statements. Coverage target: 80%+ for new code.</standards>
+    <locations>
+      - frontend/tests/components/telegram-link.test.tsx (6 unit tests)
+      - frontend/tests/integration/telegram-linking-flow.test.tsx (5 integration tests)
+    </locations>
+    <ideas>
+      <idea criteriaId="1-2" title="Test linking page renders instructions and code display">
+        Unit test: Render TelegramLink component, verify step-by-step instructions visible (text "1. Open Telegram"), verify code display area present, verify "Copy Code" and "Open Telegram" buttons rendered.
+      </idea>
+      <idea criteriaId="4" title="Test Copy Code button copies to clipboard">
+        Unit test: Mock navigator.clipboard.writeText(), click "Copy Code" button, verify writeText called with correct code, verify success toast shown with "Code copied to clipboard!" message.
+      </idea>
+      <idea criteriaId="5" title="Test deep link opens Telegram app">
+        Unit test: Mock window.open(), click "Open Telegram" button, verify window.open called with correct deep link URL (tg://resolve?domain=mailagentbot&amp;start=CODE123).
+      </idea>
+      <idea criteriaId="6-7" title="Test polling verifies link success">
+        Unit test: Mock apiClient.verifyTelegramLink() to return { verified: false } then { verified: true, telegram_username: "@testuser" }. Use vi.useFakeTimers(), advance time by 3000ms intervals, verify polling calls every 3 seconds, verify success state displays username.
+      </idea>
+      <idea criteriaId="8" title="Test code expiration shows error">
+        Unit test: Mock code with expires_at 10 minutes in past, verify "Code expired" error shown, verify "Generate New Code" button visible, click button, verify new code generated.
+      </idea>
+      <idea criteriaId="9" title="Test error handling for network failure">
+        Unit test: Mock apiClient.verifyTelegramLink() to throw network error, verify error toast shown, verify "Try Again" button visible, click button, verify polling restarts.
+      </idea>
+      <idea criteriaId="1-7" title="Integration test: Complete Telegram linking flow">
+        Integration test: Render component, verify code generation API called, mock verification polling (3 calls with verified: false, then verified: true), advance timers, verify success state with username displayed.
+      </idea>
+      <idea criteriaId="4" title="Integration test: Copy code to clipboard">
+        Integration test: Render component, wait for code generation, click "Copy Code" button, verify clipboard API integration works, verify success toast.
+      </idea>
+      <idea criteriaId="8" title="Integration test: Code expiration timeout">
+        Integration test: Mock code with short expiration (1 minute), advance timers to expiration, verify error state, verify "Generate New Code" button works.
+      </idea>
+      <idea criteriaId="6-7" title="Integration test: Connection persists on refresh">
+        Integration test: Mock telegramStatus() to return connected: true, render component, verify success state shown immediately (no polling), verify username displayed.
+      </idea>
+      <idea criteriaId="9" title="Integration test: Network error retry">
+        Integration test: Mock API to fail with network error, verify error shown, click "Try Again" button, mock API to succeed, verify retry succeeds and success state shown.
+      </idea>
+    </ideas>
+  </tests>
+</story-context>

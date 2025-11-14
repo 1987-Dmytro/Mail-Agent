@@ -82,13 +82,13 @@ development_status:
   epic-3-retrospective: completed
 
   # Epic 4: Configuration UI & Onboarding
-  epic-4: backlog
-  4-1-frontend-project-setup: drafted
-  4-2-gmail-oauth-connection-page: backlog
-  4-3-telegram-bot-linking-page: backlog
-  4-4-folder-categories-configuration: backlog
-  4-5-notification-preferences-settings: backlog
-  4-6-onboarding-wizard-flow: backlog
-  4-7-dashboard-overview-page: backlog
-  4-8-end-to-end-onboarding-testing-and-polish: backlog
+  epic-4: contexted
+  4-1-frontend-project-setup: done  # 2025-11-11: APPROVED - All 8 AC verified, 24/24 tasks complete, 17/17 tests passing (100%), 0 vulnerabilities, comprehensive review completed
+  4-2-gmail-oauth-connection-page: done  # 2025-11-11: APPROVED - All 6 AC verified, 27/27 tests passing (100%), 0 TypeScript/ESLint errors, 0 vulnerabilities, RFC 9700 OAuth compliant, production-ready
+  4-3-telegram-bot-linking-page: done  # 2025-11-12: APPROVED - All 9 AC implemented with file:line evidence, 11/11 tests passing (100%), 0 TypeScript/ESLint errors, 0 vulnerabilities, comprehensive review completed, all fixes applied, production-ready
+  4-4-folder-categories-configuration: done  # 2025-11-12: APPROVED - All 11 AC verified with file:line evidence, 17/17 tasks verified complete, 13/13 tests passing (100%), 0 TypeScript errors, 0 ESLint errors, 0 vulnerabilities, comprehensive systematic review completed, production-ready
+  4-5-notification-preferences-settings: done  # 2025-11-12: APPROVED (2 reviews, all issues fixed) - All 10 AC verified with file:line evidence, 13/13 tests passing (100%), 0 TypeScript errors, 0 ESLint errors, 0 vulnerabilities, innovative overnight range validation, fresh independent systematic validation completed, all review action items resolved, production-ready
+  4-6-onboarding-wizard-flow: done  # 2025-11-12: APPROVED (2 reviews, all issues fixed) - All 6 action items verified resolved, 0 TypeScript errors, 0 ESLint errors, 76/78 tests passing (97.4%), 14/14 onboarding tests passing (100%), all 11 AC verified working, systematic re-review completed, production-ready
+  4-7-dashboard-overview-page: done  # 2025-11-12: APPROVED (2 reviews, all issues fixed) - All 15 AC verified with file:line evidence, 6/6 tests passing (100%), 0 TypeScript errors, 0 ESLint errors, 0 vulnerabilities, systematic re-review completed, all 4 action items resolved, production-ready
+  4-8-end-to-end-onboarding-testing-and-polish: in-progress  # 2025-11-14: BLOCKED by code review - E2E tests 10.6% passing (need 95%+), usability testing NOT conducted (templates only), WCAG validation NOT performed (checklists only), copy/visual polish documented but NOT implemented, FAQ missing - Est 3-5 days to complete
   epic-4-retrospective: optional

@@ -1,1252 +1,1787 @@
-# Technical Specification: Epic 4 - Configuration UI & Onboarding
+# Epic Technical Specification: Configuration UI & Onboarding
 
-**Version:** 1.0
-**Date:** 2025-11-11
-**Status:** Draft
-**Epic:** 4 - Configuration UI & Onboarding
+Date: 2025-11-11
+Author: Dimcheg
+Epic ID: 4
+Status: In Progress
 
----
+## Implementation Status
 
-## Table of Contents
-
-1. [Executive Summary](#executive-summary)
-2. [Goals and Non-Goals](#goals-and-non-goals)
-3. [Architecture Overview](#architecture-overview)
-4. [Database Schema](#database-schema)
-5. [API Endpoints](#api-endpoints)
-6. [Telegram Bot Commands](#telegram-bot-commands)
-7. [Onboarding Wizard Flow](#onboarding-wizard-flow)
-8. [Integration with Epic 1-3](#integration-with-epic-1-3)
-9. [Testing Strategy](#testing-strategy)
-10. [Security Considerations](#security-considerations)
-11. [Performance Requirements](#performance-requirements)
-12. [Implementation Phases](#implementation-phases)
-
----
-
-## Executive Summary
-
-Epic 4 delivers a user-friendly configuration interface and guided onboarding flow through Telegram Bot UI. The system enables non-technical users to complete setup (Gmail OAuth, folder configuration, notification preferences) within 10 minutes through conversational wizard interactions.
-
-**Key Decisions (from ADRs):**
-- **ADR-016**: Telegram Bot UI for configuration (zero infrastructure cost)
-- **ADR-017**: Localhost OAuth redirect for Gmail (officially supported)
-- **ADR-018**: PostgreSQL UserSettings tables for persistence
-- **ADR-019**: Conversational wizard with inline keyboards
-
-**Business Value:**
-- Accessible 10-minute setup process (NFR005)
-- Zero technical knowledge required
-- Zero infrastructure costs (Telegram Bot only)
-- Multi-user ready (database-backed configuration)
-
----
-
-## Goals and Non-Goals
-
-### Goals
-
-1. **User-Friendly Onboarding (NFR005)**
-   - Complete setup in <10 minutes
-   - Clear step-by-step wizard guidance
-   - Resumable (user can close and continue later)
-   - Error recovery with retry mechanisms
-
-2. **Gmail OAuth Integration**
-   - Secure localhost redirect flow
-   - Token persistence and automatic refresh
-   - Clear permission explanations
-
-3. **Flexible Configuration**
-   - Folder categories customization
-   - Notification preferences (batch timing, quiet hours)
-   - Language preference selection
-
-4. **System Status Visibility**
-   - Connection health (Gmail, Telegram)
-   - Email processing statistics
-   - RAG indexing progress
-
-5. **Zero Infrastructure Cost**
-   - Telegram Bot UI only (no web hosting)
-   - PostgreSQL persistence (already running)
-   - Localhost OAuth (no domain required)
-
-### Non-Goals
-
-1. **Web UI** - Deferred to Epic 5 (optional)
-2. **Multi-User Management UI** - Single user MVP only
-3. **Advanced Analytics Dashboard** - Basic statistics only
-4. **Mobile App** - Telegram Bot sufficient
-5. **Visual Customization** - Functional UI only, no themes/skins
-
----
-
-## Architecture Overview
-
-### System Context
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        User (Dimcheg)                       │
-└─────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Telegram App                            │
-│  - /start, /settings, /status commands                      │
-│  - Inline keyboards for interactions                         │
-│  - Rich text messages with emojis                           │
-└─────────────────────────────────────────────────────────────┘
-                               │
-                               ▼ HTTPS (Telegram API)
-┌─────────────────────────────────────────────────────────────┐
-│                 Telegram Bot Backend                        │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │   OnboardingWizard Service                             │ │
-│  │   - State machine for wizard steps                     │ │
-│  │   - Progress tracking in database                      │ │
-│  │   - Conversational flow with inline buttons            │ │
-│  └────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │   SettingsService                                       │ │
-│  │   - UserSettings CRUD operations                       │ │
-│  │   - Notification preferences management                │ │
-│  │   - Folder categories management                       │ │
-│  └────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │   OAuth Integration                                     │ │
-│  │   - Gmail OAuth flow (localhost:8000)                  │ │
-│  │   - Token persistence and refresh                      │ │
-│  │   - Telegram notification on success                   │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   PostgreSQL Database                        │
-│  - user_settings (preferences, onboarding progress)         │
-│  - folder_categories (custom email categories)              │
-│  - oauth_tokens (Gmail refresh tokens)                      │
-└─────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Google OAuth & Gmail API                        │
-│  - OAuth consent screen (user authorization)                │
-│  - Access token exchange                                     │
-│  - Refresh token management                                 │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Component Architecture
-
-```
-backend/
-├── app/
-│   ├── services/
-│   │   ├── onboarding_wizard.py        # NEW - Wizard state machine
-│   │   ├── settings_service.py         # NEW - Settings CRUD
-│   │   ├── oauth_service.py            # NEW - OAuth flow management
-│   │   └── status_service.py           # NEW - System health checks
-│   ├── models/
-│   │   ├── settings.py                 # NEW - UserSettings, FolderCategory, OAuthTokens
-│   │   └── onboarding.py               # NEW - OnboardingState enum
-│   ├── api/
-│   │   └── v1/
-│   │       ├── auth.py                 # NEW - /auth/gmail/* endpoints
-│   │       └── settings.py             # NEW - /settings/* endpoints
-│   └── api/
-│       └── telegram_handlers.py        # UPDATED - Onboarding commands
-│
-└── alembic/
-    └── versions/
-        └── xxxx_add_user_settings.py   # NEW - Schema migration
-```
-
----
-
-## Database Schema
-
-### UserSettings Table
-
-```sql
-CREATE TABLE user_settings (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
-    -- Notification Preferences
-    batch_notifications_enabled BOOLEAN DEFAULT TRUE,
-    batch_time VARCHAR(5) DEFAULT '18:00',      -- Format: "HH:MM"
-    priority_alerts_enabled BOOLEAN DEFAULT TRUE,
-    quiet_hours_start VARCHAR(5) DEFAULT '22:00',
-    quiet_hours_end VARCHAR(5) DEFAULT '08:00',
-
-    -- Onboarding Progress
-    onboarding_completed BOOLEAN DEFAULT FALSE,
-    onboarding_current_step INTEGER DEFAULT 1,  -- 1-6
-    gmail_connected_at TIMESTAMP,
-    telegram_linked_at TIMESTAMP,
-    folders_setup_at TIMESTAMP,
-
-    -- System Preferences
-    language_preference VARCHAR(2) DEFAULT 'en', -- ru, uk, en, de
-    timezone VARCHAR(50) DEFAULT 'Europe/Berlin',
-
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
-```
-
-**SQLModel Definition:**
-
-```python
-from sqlmodel import SQLModel, Field
-from datetime import datetime
-
-class UserSettings(SQLModel, table=True):
-    __tablename__ = "user_settings"
-
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id", unique=True)
-
-    # Notification preferences
-    batch_notifications_enabled: bool = True
-    batch_time: str = "18:00"
-    priority_alerts_enabled: bool = True
-    quiet_hours_start: str | None = "22:00"
-    quiet_hours_end: str | None = "08:00"
-
-    # Onboarding progress
-    onboarding_completed: bool = False
-    onboarding_current_step: int = 1
-    gmail_connected_at: datetime | None = None
-    telegram_linked_at: datetime | None = None
-    folders_setup_at: datetime | None = None
-
-    # System preferences
-    language_preference: str = "en"
-    timezone: str = "Europe/Berlin"
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-```
-
-### FolderCategories Table
-
-```sql
-CREATE TABLE folder_categories (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
-    name VARCHAR(50) NOT NULL,
-    keywords TEXT,                      -- Comma-separated: "finanzamt, tax, steuer"
-    color VARCHAR(7),                   -- Hex color: "#FF5733"
-    gmail_label_id VARCHAR(100),        -- Gmail label ID after sync
-
-    is_default BOOLEAN DEFAULT FALSE,   -- True for system-created defaults
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-
-    UNIQUE(user_id, name)
-);
-
-CREATE INDEX idx_folder_categories_user_id ON folder_categories(user_id);
-```
-
-**SQLModel Definition:**
-
-```python
-class FolderCategory(SQLModel, table=True):
-    __tablename__ = "folder_categories"
-
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id")
-
-    name: str = Field(max_length=50)
-    keywords: str | None = None
-    color: str | None = None
-    gmail_label_id: str | None = None
-
-    is_default: bool = False
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-```
-
-### OAuthTokens Table
-
-```sql
-CREATE TABLE oauth_tokens (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
-    access_token TEXT NOT NULL,
-    refresh_token TEXT NOT NULL,
-    token_expiry TIMESTAMP NOT NULL,
-    scope TEXT NOT NULL,                -- Space-separated scopes
-
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_oauth_tokens_user_id ON oauth_tokens(user_id);
-CREATE INDEX idx_oauth_tokens_expiry ON oauth_tokens(token_expiry); -- For cleanup job
-```
-
-**SQLModel Definition:**
-
-```python
-class OAuthTokens(SQLModel, table=True):
-    __tablename__ = "oauth_tokens"
-
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id", unique=True)
-
-    access_token: str
-    refresh_token: str
-    token_expiry: datetime
-    scope: str
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-```
-
----
-
-## API Endpoints
-
-### OAuth Endpoints
-
-**Endpoint: `GET /auth/gmail/login`**
-
-Initiate Gmail OAuth flow.
-
-```python
-@router.get("/auth/gmail/login")
-async def gmail_login(user_id: int):
-    """
-    Initiate Gmail OAuth flow
-
-    Query Params:
-        user_id: Telegram user ID
-
-    Returns:
-        Redirect to Google OAuth consent screen
-    """
-    # Generate authorization URL
-    auth_url = oauth_client.get_authorization_url(
-        redirect_uri="http://localhost:8000/auth/gmail/callback",
-        state=f"user_{user_id}",
-        scopes=[
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "https://www.googleapis.com/auth/gmail.send",
-            "https://www.googleapis.com/auth/gmail.labels",
-            "https://www.googleapis.com/auth/gmail.modify"
-        ]
-    )
-
-    return RedirectResponse(auth_url)
-```
-
-**Endpoint: `GET /auth/gmail/callback`**
-
-Handle OAuth callback from Google.
-
-```python
-@router.get("/auth/gmail/callback")
-async def gmail_callback(
-    code: str,
-    state: str,
-    settings_service: SettingsService = Depends(),
-    telegram_bot: TelegramBotClient = Depends()
-):
-    """
-    Handle Gmail OAuth callback
-
-    Query Params:
-        code: Authorization code from Google
-        state: State parameter (contains user_id)
-
-    Returns:
-        HTML success page
-    """
-    # Extract user_id from state
-    user_id = int(state.split("_")[1])
-
-    # Exchange code for tokens
-    tokens = await oauth_client.exchange_code_for_tokens(code)
-
-    # Save tokens to database
-    await settings_service.save_oauth_tokens(
-        user_id=user_id,
-        access_token=tokens["access_token"],
-        refresh_token=tokens["refresh_token"],
-        token_expiry=tokens["expiry"],
-        scope=tokens["scope"]
-    )
-
-    # Mark Gmail as connected in settings
-    await settings_service.mark_gmail_connected(user_id)
-
-    # Send Telegram notification
-    await telegram_bot.send_message(
-        chat_id=user_id,
-        text="✅ Gmail connected successfully!\n\nReturning to onboarding wizard..."
-    )
-
-    # Trigger wizard continuation
-    await onboarding_wizard.handle_gmail_connected(user_id)
-
-    return HTMLResponse("""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Gmail Connected</title>
-            <style>
-                body { font-family: Arial; text-align: center; padding: 50px; }
-                h1 { color: #34A853; }
-            </style>
-        </head>
-        <body>
-            <h1>✅ Success!</h1>
-            <p>Gmail connected successfully.</p>
-            <p><strong>You can close this window and return to Telegram.</strong></p>
-        </body>
-        </html>
-    """)
-```
-
-### Settings Endpoints (Internal)
-
-**Endpoint: `GET /api/settings/{user_id}`**
-
-Get user settings (used by backend services).
-
-```python
-@router.get("/api/settings/{user_id}")
-async def get_settings(
-    user_id: int,
-    settings_service: SettingsService = Depends()
-) -> UserSettings:
-    """Get user settings"""
-    return await settings_service.get_or_create_settings(user_id)
-```
-
-**Endpoint: `PATCH /api/settings/{user_id}/notifications`**
-
-Update notification preferences (used by Telegram bot handlers).
-
-```python
-@router.patch("/api/settings/{user_id}/notifications")
-async def update_notification_preferences(
-    user_id: int,
-    batch_enabled: bool | None = None,
-    batch_time: str | None = None,
-    priority_enabled: bool | None = None,
-    quiet_hours_start: str | None = None,
-    quiet_hours_end: str | None = None,
-    settings_service: SettingsService = Depends()
-):
-    """Update notification preferences"""
-    await settings_service.update_notification_preferences(
-        user_id=user_id,
-        batch_enabled=batch_enabled,
-        batch_time=batch_time,
-        priority_enabled=priority_enabled,
-        quiet_hours_start=quiet_hours_start,
-        quiet_hours_end=quiet_hours_end
-    )
-
-    return {"status": "updated"}
-```
-
----
-
-## Telegram Bot Commands
-
-### Primary Commands
-
-| Command | Description | Handler |
-|---------|-------------|---------|
-| `/start` | Start onboarding wizard or show status if complete | `handle_start_command()` |
-| `/settings` | View and update notification preferences | `handle_settings_command()` |
-| `/folders` | Manage email folder categories | `handle_folders_command()` |
-| `/status` | Show system health and statistics | `handle_status_command()` |
-| `/help` | Show available commands and tutorial | `handle_help_command()` |
-
-### Admin Commands (Future)
-
-| Command | Description | Handler |
-|---------|-------------|---------|
-| `/reset` | Reset onboarding and start over | `handle_reset_command()` |
-| `/logs` | Show recent error logs | `handle_logs_command()` |
-
-### Callback Queries (Inline Buttons)
-
-| Callback Data | Description | Handler |
-|---------------|-------------|---------|
-| `onboarding_next_2` | Advance to step 2 (Gmail connection) | `handle_onboarding_next()` |
-| `onboarding_next_3` | Advance to step 3 (Telegram confirmation) | `handle_onboarding_next()` |
-| `settings_batch_time` | Update batch notification time | `handle_settings_batch_time()` |
-| `folder_add` | Add new folder category | `handle_folder_add()` |
-| `folder_edit_{id}` | Edit folder category | `handle_folder_edit()` |
-| `folder_delete_{id}` | Delete folder category | `handle_folder_delete()` |
-
----
-
-## Onboarding Wizard Flow
-
-### State Machine
-
-```
-┌──────────────┐
-│   START      │
-│  (Step 1)    │
-└──────────────┘
-       │
-       ▼
-┌──────────────┐
-│  WELCOME     │  "Welcome to Mail Agent! Let's set you up."
-│  (Step 1)    │  [▶️ Start Setup]
-└──────────────┘
-       │
-       ▼
-┌──────────────┐
-│GMAIL_CONNECT │  "Step 1 of 4: Connect Gmail"
-│  (Step 2)    │  [🔗 Connect Gmail] → Opens OAuth URL
-└──────────────┘  ⏳ Waits for OAuth callback...
-       │
-       ▼ (OAuth success)
-┌──────────────┐
-│TELEGRAM_CONF │  "Step 2 of 4: Telegram Connection ✅"
-│  (Step 3)    │  "You're already connected!"
-└──────────────┘  [▶️ Continue]
-       │
-       ▼
-┌──────────────┐
-│FOLDER_SETUP  │  "Step 3 of 4: Email Categories 📁"
-│  (Step 4)    │  "Default categories created."
-└──────────────┘  [✏️ Add Category] [✅ Use Defaults]
-       │
-       ▼
-┌──────────────┐
-│NOTIFICATION  │  "Step 4 of 4: Notification Settings 🔔"
-│PREFERENCES   │  "Recommended defaults set."
-│  (Step 5)    │  [⚙️ Customize] [✅ Use Defaults]
-└──────────────┘
-       │
-       ▼
-┌──────────────┐
-│  COMPLETION  │  "🎉 Setup Complete!"
-│  (Step 6)    │  "Mail Agent is now monitoring your inbox."
-└──────────────┘  [🚀 Start Using Mail Agent]
-       │
-       ▼
-┌──────────────┐
-│   ACTIVE     │  Normal operation - user receives email notifications
-│              │  Available commands: /settings, /status, /folders, /help
-└──────────────┘
-```
-
-### Wizard Implementation (Pseudo-Code)
-
-```python
-class OnboardingWizard:
-    """Conversational onboarding wizard"""
-
-    async def handle_start_command(self, user_id: int):
-        """Entry point: /start command"""
-        settings = await self.settings_service.get_or_create_settings(user_id)
-
-        if settings.onboarding_completed:
-            await self.send_already_completed_message(user_id)
-        else:
-            await self.resume_from_step(user_id, settings.onboarding_current_step)
-
-    async def resume_from_step(self, user_id: int, step: int):
-        """Resume wizard from saved step"""
-        if step == 1:
-            await self.send_step_1_welcome(user_id)
-        elif step == 2:
-            await self.send_step_2_gmail_connection(user_id)
-        elif step == 3:
-            await self.send_step_3_telegram_confirmation(user_id)
-        elif step == 4:
-            await self.send_step_4_folder_setup(user_id)
-        elif step == 5:
-            await self.send_step_5_notification_preferences(user_id)
-        elif step == 6:
-            await self.send_step_6_completion(user_id)
-
-    async def send_step_2_gmail_connection(self, user_id: int):
-        """Step 2: Gmail OAuth"""
-        # Check if already connected
-        settings = await self.settings_service.get_settings(user_id)
-        if settings.gmail_connected_at:
-            await self.advance_to_step_3(user_id)
-            return
-
-        # Send connection button
-        auth_url = f"http://localhost:8000/auth/gmail/login?user_id={user_id}"
-        keyboard = [[InlineKeyboardButton("🔗 Connect Gmail", url=auth_url)]]
-
-        await self.bot.send_message(
-            user_id,
-            "**Step 1 of 4: Connect Gmail** 📧\n\n"
-            "Click the button below to authorize access.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-        await self.settings_service.update_onboarding_step(user_id, 2)
-
-    async def handle_gmail_connected(self, user_id: int):
-        """Called by OAuth callback"""
-        await self.bot.send_message(user_id, "✅ Gmail connected!")
-        await self.advance_to_step_3(user_id)
-
-    async def advance_to_step_3(self, user_id: int):
-        """Move to step 3"""
-        await self.send_step_3_telegram_confirmation(user_id)
-```
-
-### Error Handling & Recovery
-
-**Gmail OAuth Failure:**
-```python
-async def handle_gmail_oauth_error(self, user_id: int, error: str):
-    """Handle OAuth error"""
-    message = (
-        "❌ Gmail connection failed\n\n"
-        f"Error: {error}\n\n"
-        "Common issues:\n"
-        "• Browser blocked popup\n"
-        "• Network problem\n\n"
-        "Want to try again?"
-    )
-
-    keyboard = [
-        [InlineKeyboardButton("🔄 Try Again", callback_data="onboarding_retry_gmail")],
-        [InlineKeyboardButton("❓ Get Help", url="https://docs.mailagent.app/troubleshoot")]
-    ]
-
-    await self.bot.send_message(user_id, message, reply_markup=InlineKeyboardMarkup(keyboard))
-```
-
-**Session Resumption:**
-```python
-async def handle_start_command(self, user_id: int):
-    """Resume from last saved step"""
-    settings = await self.settings_service.get_settings(user_id)
-
-    if not settings.onboarding_completed:
-        await self.bot.send_message(
-            user_id,
-            f"Welcome back! Resuming from Step {settings.onboarding_current_step}..."
-        )
-        await self.resume_from_step(user_id, settings.onboarding_current_step)
-```
-
----
-
-## Integration with Epic 1-3
-
-### Reused Services
-
-**From Epic 1 (Foundation & Gmail):**
-- `DatabaseService` - Async session management
-- `GmailClient` - OAuth token refresh, label creation
-- `Users` table - User ID references
-
-**From Epic 2 (AI Sorting & Telegram):**
-- `TelegramBotClient` - Message sending, inline keyboards
-- `EmailClassificationService` - Folder recommendations
-
-**From Epic 3 (RAG & Response Generation):**
-- `EmailIndexingService` - Trigger initial indexing after onboarding
-
-### Integration Points
-
-**1. Post-Onboarding Indexing:**
-```python
-async def send_step_6_completion(self, user_id: int):
-    """Completion step - trigger indexing"""
-    # Mark complete
-    await self.settings_service.mark_onboarding_complete(user_id)
-
-    # Send completion message
-    await self.bot.send_message(
-        user_id,
-        "🎉 Setup Complete!\n\n"
-        "Indexing your email history...\n"
-        "This takes 5-10 minutes."
-    )
-
-    # Trigger background indexing (Story 3.3)
-    await self.indexing_service.start_initial_indexing(user_id)
-```
-
-**2. Settings Integration with Batch Notifications:**
-```python
-# backend/app/services/batch_notification_service.py (Epic 2)
-
-async def should_send_batch(self, user_id: int) -> bool:
-    """Check if batch notifications enabled"""
-    settings = await self.settings_service.get_settings(user_id)
-
-    if not settings.batch_notifications_enabled:
-        return False
-
-    # Check batch time
-    current_time = datetime.now(tz=timezone(settings.timezone)).strftime("%H:%M")
-    if current_time != settings.batch_time:
-        return False
-
-    # Check quiet hours
-    if self.is_quiet_hours(settings):
-        return False
-
-    return True
-```
-
-**3. Folder Sync with Gmail Labels:**
-```python
-# backend/app/services/settings_service.py
-
-async def create_folder_category(
-    self,
-    user_id: int,
-    name: str,
-    keywords: str | None = None,
-    color: str | None = None
-):
-    """Create folder and sync with Gmail"""
-    # Create database record
-    folder = FolderCategory(
-        user_id=user_id,
-        name=name,
-        keywords=keywords,
-        color=color
-    )
-
-    async with self.db.async_session() as session:
-        session.add(folder)
-        await session.commit()
-        await session.refresh(folder)
-
-    # Create Gmail label (Story 1.8 integration)
-    label_id = await self.gmail_client.create_label(user_id, name, color)
-
-    # Update folder with Gmail label ID
-    folder.gmail_label_id = label_id
-    await session.commit()
-
-    return folder
-```
-
----
-
-## Testing Strategy
-
-### Unit Tests
-
-**Test Coverage Targets:**
-- OnboardingWizard: 100% (state machine logic critical)
-- SettingsService: 100% (CRUD operations)
-- OAuthService: 100% (token management)
-
-**Test Files:**
-```
-backend/tests/
-├── test_onboarding_wizard.py           # 15 unit tests
-├── test_settings_service.py            # 12 unit tests
-├── test_oauth_service.py               # 10 unit tests
-└── test_status_service.py              # 8 unit tests
-```
-
-**Example Test:**
-```python
-# backend/tests/test_onboarding_wizard.py
-
-async def test_resume_from_step_2_gmail_connection(mock_bot, mock_db):
-    """Test resuming wizard from Gmail connection step"""
-    wizard = OnboardingWizard(bot=mock_bot, db=mock_db)
-    user_id = 12345
-
-    # Setup: User at step 2, Gmail not connected
-    mock_db.get_settings.return_value = UserSettings(
-        user_id=user_id,
-        onboarding_current_step=2,
-        gmail_connected_at=None
-    )
-
-    # Execute
-    await wizard.resume_from_step(user_id, step=2)
-
-    # Assert: Gmail connection message sent
-    mock_bot.send_message.assert_called_once()
-    message = mock_bot.send_message.call_args[0][1]
-    assert "Step 1 of 4: Connect Gmail" in message
-    assert "http://localhost:8000/auth/gmail/login" in str(mock_bot.send_message.call_args)
-```
-
-### Integration Tests
-
-**Test Scenarios:**
-1. Complete onboarding flow (Step 1 → 6)
-2. Gmail OAuth callback handling
-3. Settings update via Telegram commands
-4. Folder creation and Gmail label sync
-5. Wizard resumption after close
-6. Error recovery (OAuth failure, network errors)
-
-**Test Files:**
-```
-backend/tests/integration/
-├── test_onboarding_flow_e2e.py         # 8 integration tests
-├── test_oauth_integration.py           # 6 integration tests
-├── test_settings_telegram_integration.py # 10 integration tests
-└── test_folder_gmail_sync.py           # 5 integration tests
-```
-
-**Example Integration Test:**
-```python
-# backend/tests/integration/test_onboarding_flow_e2e.py
-
-async def test_complete_onboarding_flow_with_defaults(
-    async_db_session,
-    mock_telegram_bot,
-    mock_gmail_client
-):
-    """Test complete onboarding flow using all defaults"""
-    user_id = 12345
-
-    # Step 1: Start wizard
-    await wizard.handle_start_command(user_id)
-    assert_message_sent(mock_telegram_bot, "Welcome to Mail Agent!")
-
-    # Step 2: Click "Start Setup" button
-    await wizard.handle_callback("onboarding_next_2", user_id)
-    assert_message_sent(mock_telegram_bot, "Step 1 of 4: Connect Gmail")
-
-    # Step 2: Gmail OAuth completes (simulated)
-    await oauth_service.handle_oauth_callback(
-        code="test_code_12345",
-        state=f"user_{user_id}"
-    )
-    assert_message_sent(mock_telegram_bot, "✅ Gmail connected!")
-
-    # Step 3: Telegram auto-confirmed
-    assert_message_sent(mock_telegram_bot, "Step 2 of 4: Telegram Connection ✅")
-
-    # Step 4: Use default folders
-    await wizard.handle_callback("onboarding_next_5", user_id)
-    folders = await db.get_user_folders(user_id)
-    assert len(folders) == 4  # Important, Government, Clients, Newsletters
-    assert all(f.is_default for f in folders)
-
-    # Step 5: Use default notification settings
-    await wizard.handle_callback("onboarding_next_6", user_id)
-    settings = await db.get_settings(user_id)
-    assert settings.batch_time == "18:00"
-    assert settings.quiet_hours_start == "22:00"
-
-    # Step 6: Completion
-    assert_message_sent(mock_telegram_bot, "🎉 Setup Complete!")
-    assert settings.onboarding_completed == True
-
-    # Verify indexing triggered
-    mock_gmail_client.get_messages.assert_called_once()  # Initial indexing started
-```
-
-### Usability Testing
-
-**Target: 3-5 non-technical users**
-
-**Test Protocol:**
-1. Give user only Telegram bot link and say "Set up Mail Agent"
-2. Observe without intervention (screen recording)
-3. Measure completion time
-4. Note confusion points, unclear messages
-5. Collect feedback questionnaire
-
-**Success Criteria:**
-- 90%+ complete onboarding successfully
-- <10 minutes completion time (NFR005)
-- No critical usability issues
-
----
-
-## Security Considerations
-
-### OAuth Security
-
-**1. State Parameter Validation:**
-```python
-@router.get("/auth/gmail/callback")
-async def gmail_callback(code: str, state: str):
-    """Validate state parameter to prevent CSRF"""
-    # Extract user_id from state
-    if not state.startswith("user_"):
-        raise HTTPException(status_code=400, detail="Invalid state parameter")
-
-    user_id = int(state.split("_")[1])
-
-    # Verify user exists
-    user = await db.get_user(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Continue OAuth flow...
-```
-
-**2. Token Storage:**
-```python
-# Encrypt refresh tokens at rest
-from cryptography.fernet import Fernet
-
-class OAuthService:
-    def __init__(self):
-        self.cipher = Fernet(settings.ENCRYPTION_KEY)
-
-    async def save_tokens(self, user_id: int, tokens: dict):
-        """Encrypt and save OAuth tokens"""
-        encrypted_refresh_token = self.cipher.encrypt(
-            tokens["refresh_token"].encode()
-        )
-
-        await self.db.save_oauth_tokens(
-            user_id=user_id,
-            access_token=tokens["access_token"],  # Short-lived, OK to store plaintext
-            refresh_token=encrypted_refresh_token.decode(),
-            token_expiry=tokens["expiry"]
-        )
-```
-
-**3. Localhost Verification:**
-```python
-@router.get("/auth/gmail/login")
-async def gmail_login(user_id: int, request: Request):
-    """Verify request from localhost only"""
-    client_host = request.client.host
-
-    # Only allow localhost requests
-    if client_host not in ["127.0.0.1", "localhost"]:
-        raise HTTPException(
-            status_code=403,
-            detail="OAuth flow only available from localhost"
-        )
-
-    # Continue OAuth flow...
-```
-
-### Input Validation
-
-**Folder Category Name:**
-```python
-async def create_folder_category(
-    self,
-    user_id: int,
-    name: str,
-    keywords: str | None = None
-):
-    """Create folder with validation"""
-    # Validate name
-    if not name or len(name) > 50:
-        raise ValueError("Name must be 1-50 characters")
-
-    if not name.replace(" ", "").isalnum():
-        raise ValueError("Name must be alphanumeric")
-
-    # Prevent SQL injection (SQLModel handles this)
-    # Prevent XSS (Telegram escapes HTML automatically)
-
-    # Check for duplicates
-    existing = await self.db.get_folder_by_name(user_id, name)
-    if existing:
-        raise ValueError(f"Category '{name}' already exists")
-
-    # Create folder...
-```
-
-### Rate Limiting (Future)
-
-```python
-# Prevent abuse of OAuth endpoints
-from fastapi_limiter import FastAPILimiter
-from fastapi_limiter.depends import RateLimiter
-
-@router.get(
-    "/auth/gmail/login",
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))]
-)
-async def gmail_login(user_id: int):
-    """Rate limit: 5 requests per minute per user"""
-    pass
-```
-
----
-
-## Performance Requirements
-
-### NFR005: Onboarding Completion <10 Minutes
-
-**Target Flow (With Defaults):**
-```
-Step 1: Welcome                     30 seconds
-Step 2: Gmail OAuth                 2 minutes (Google consent + redirect)
-Step 3: Telegram Confirmation       10 seconds (auto-detected)
-Step 4: Default Folders             30 seconds (click "Use Defaults")
-Step 5: Default Settings            30 seconds (click "Use Defaults")
-Step 6: Completion                  1 minute (read message, click "Start")
----------------------------------------------------------
-Total: 5 minutes ✅ (50% under target)
-```
-
-**With Customization:**
-```
-Step 4: Add 3 custom folders        +3 minutes (typing names, keywords)
-Step 5: Customize settings          +2 minutes (select times, toggle options)
----------------------------------------------------------
-Total: 10 minutes ✅ (exactly at target)
-```
-
-### Database Performance
-
-**Query Optimization:**
-```sql
--- Index for settings lookups
-CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
-
--- Index for folder queries
-CREATE INDEX idx_folder_categories_user_id ON folder_categories(user_id);
-
--- Index for OAuth token cleanup
-CREATE INDEX idx_oauth_tokens_expiry ON oauth_tokens(token_expiry);
-```
-
-**Expected Query Times:**
-- Get settings: <5ms (indexed lookup)
-- Get folders: <10ms (indexed + LIMIT 50)
-- Save OAuth tokens: <20ms (single INSERT)
-
-### Telegram Bot Response Time
-
-**Target: <1 second for all command responses**
-
-**Optimization:**
-- Use async database queries (no blocking)
-- Cache user settings in memory (Redis future)
-- Inline keyboards pregenerated (no dynamic rendering)
-
-```python
-# backend/app/services/onboarding_wizard.py
-
-async def send_step_4_folder_setup(self, user_id: int):
-    """Fast folder setup message"""
-    # Async database query (non-blocking)
-    folders = await self.db.get_user_folders(user_id)
-
-    # Pregenerate message (no complex logic)
-    message = self._format_folder_list(folders)
-
-    # Send immediately
-    await self.bot.send_message(user_id, message)
-
-    # Total time: <500ms ✅
-```
-
----
-
-## Implementation Phases
-
-### Phase 1: Database & Core Services (Story 4.1)
-
-**Deliverables:**
-- Alembic migration for UserSettings, FolderCategories, OAuthTokens tables
-- SettingsService with CRUD operations
-- OAuthService with token management
-- StatusService with health checks
-
-**Acceptance Criteria:**
-- All tables created successfully
-- All services have unit tests (100% coverage)
-- Database migration reversible
-
-**Estimated Time:** 1-2 days
-
----
-
-### Phase 2: Gmail OAuth Integration (Story 4.2)
-
-**Deliverables:**
-- `/auth/gmail/login` endpoint
-- `/auth/gmail/callback` endpoint
-- OAuth token encryption
-- Telegram notification on success
-
-**Acceptance Criteria:**
-- OAuth flow completes successfully
-- Tokens saved to database
-- Refresh token encrypted at rest
-- Integration tests passing (6 tests)
-
-**Estimated Time:** 1-2 days
-
----
-
-### Phase 3: Telegram Command Handlers (Story 4.3-4.4)
-
-**Deliverables:**
-- `/settings` command with inline keyboards
-- `/folders` command for category management
-- Callback query handlers for all buttons
-- Settings update logic
-
-**Acceptance Criteria:**
-- All commands respond <1 second
-- Settings persist correctly
-- Folder changes sync with Gmail labels
-- Integration tests passing (15 tests)
-
-**Estimated Time:** 2-3 days
-
----
-
-### Phase 4: Onboarding Wizard (Story 4.5)
-
-**Deliverables:**
-- OnboardingWizard service
-- 6-step wizard flow
-- Resumable state machine
-- Error recovery
-
-**Acceptance Criteria:**
-- Complete flow <10 minutes (NFR005)
-- Resumable from any step
-- All 6 steps tested
-- Integration test passing (8 tests)
-
-**Estimated Time:** 2-3 days
-
----
-
-### Phase 5: Status Commands (Story 4.6)
-
-**Deliverables:**
-- `/status` command with system health
-- `/help` command with tutorial
-- Statistics aggregation
-
-**Acceptance Criteria:**
-- Status shows Gmail, Telegram connection
-- Email processing statistics accurate
-- Help message comprehensive
-
-**Estimated Time:** 1 day
-
----
-
-### Phase 6: Testing & Polish (Story 4.7-4.8)
-
-**Deliverables:**
-- Usability testing with 3-5 users
-- Completion time measurement
-- Copy and messaging refinement
-- Final integration tests
-
-**Acceptance Criteria:**
-- 90%+ completion rate
-- <10 minutes average time (NFR005)
-- All tests passing (29 unit + 29 integration = 58 tests)
-
-**Estimated Time:** 2-3 days
-
----
-
-**Total Estimated Time:** 10-15 days (2-3 weeks)
-
----
-
-## Appendix A: Example Messages
-
-### Welcome Message
-```
-Welcome to Mail Agent! 👋
-
-I'm your intelligent email assistant. I'll help you:
-✅ Sort emails automatically using AI
-✅ Generate smart responses with conversation context
-✅ Save 60-75% of your email time
-
-**Setup takes about 5-10 minutes.**
-
-Let's get started! 🚀
-
-[▶️ Start Setup]  [❓ Learn More]
-```
-
-### Gmail Connection Message
-```
-**Step 1 of 4: Connect Gmail** 📧
-
-Mail Agent needs access to your Gmail to:
-• Read incoming emails
-• Send responses
-• Create labels for organization
-
-Click the button below to authorize access.
-You'll be redirected to Google's secure login page.
-
-⚠️ Make sure the URL starts with `http://localhost:8000`
-
-[🔗 Connect Gmail]  [❓ Why is this needed?]
-```
-
-### Folder Setup Message
-```
-**Step 3 of 4: Email Categories** 📁
-
-I've created these default categories for you:
-
-✅ **Important** - urgent, asap
-✅ **Government** - finanzamt, auslaenderbehoerde, tax
-✅ **Clients** - client, customer, partner
-✅ **Newsletters** - newsletter, unsubscribe
-
-Want to add more categories now, or use defaults?
-
-[✏️ Add Category]  [✅ Use Defaults]
-```
-
-### Completion Message
-```
-🎉 **Setup Complete!** 🎉
-
-You're all set! Mail Agent is now:
-✅ Monitoring your Gmail inbox
-✅ Classifying emails with AI
-✅ Ready to generate smart responses
-
-**What happens next?**
-1. I'll start processing your emails
-2. You'll receive sorting proposals here in Telegram
-3. Approve/reject with one tap
-
-**Indexing your email history...**
-This takes 5-10 minutes for RAG context.
-I'll notify you when complete! 📊
-
-Use /help to see available commands.
-
-[🚀 Start Using Mail Agent]  [📖 View Tutorial]
-```
-
----
-
-**Document Version:** 1.0
 **Last Updated:** 2025-11-11
-**Status:** Ready for Epic 4 Implementation
-**Next:** Create Service Inventory document
+
+| Story | Status | Completion Date | Notes |
+|-------|--------|-----------------|-------|
+| Story 4.1: Frontend Project Setup | ✅ Complete | 2025-11-11 | Next.js 16.0.1 + React 19.2.0 project with TypeScript strict mode, Tailwind CSS v4, shadcn/ui, Axios 1.7.9 API client with token refresh, comprehensive test suite (17/17 tests passing), 0 vulnerabilities |
+| Story 4.2: Gmail OAuth Connection | 📋 Pending | - | - |
+| Story 4.3: Telegram Bot Linking | 📋 Pending | - | - |
+| Story 4.4: Folder Configuration | 📋 Pending | - | - |
+| Story 4.5: Notification Settings | 📋 Pending | - | - |
+| Story 4.6: Onboarding Wizard | 📋 Pending | - | - |
+| Story 4.7: Dashboard Overview | 📋 Pending | - | - |
+| Story 4.8: Epic 4 Testing | 📋 Pending | - | - |
+
+## Technology Version Decisions
+
+**Version Variance from Original Specification:**
+
+During Story 4.1 implementation, the following technology versions were selected, which differ from the original technical specification:
+
+| Technology | Original Spec | Implemented | Rationale | Status |
+|-----------|---------------|-------------|-----------|--------|
+| **Next.js** | 15.5 | 16.0.1 | Latest stable version with improved App Router performance, React 19 support, and security patches. Next.js 16 is production-ready and backward compatible with 15.x patterns. | ✅ Approved |
+| **React** | 18.x | 19.2.0 | Latest stable with improved hooks, concurrent rendering, and compiler optimizations. Required for Next.js 16 compatibility. All shadcn/ui components tested and compatible. | ✅ Approved |
+| **Axios** | 1.7.0+ | 1.7.9 | Latest stable in 1.7.x branch with security patches and bug fixes. | ✅ Approved |
+
+**Impact Assessment:**
+- ✅ **Positive**: Access to latest security patches, performance improvements, and React 19 compiler optimizations
+- ✅ **Positive**: Better TypeScript support in React 19 with improved type inference
+- ⚠️ **Consideration**: React 19 has breaking changes from 18.x (primarily in Suspense behavior), but shadcn/ui components are fully compatible
+- ⚠️ **Consideration**: Third-party libraries may not yet support React 19 (monitored during testing - no issues found)
+
+**Testing Status**: All 17 tests passing (5 test files, 100% pass rate). No compatibility issues detected with Next.js 16 + React 19 combination.
+
+**Recommendation**: Continue with Next.js 16.0.1 and React 19.2.0 for Epic 4. Monitor third-party library compatibility in subsequent stories. Fallback plan: Downgrade to Next.js 15.5 + React 18.x if blocking issues arise.
+
+---
+
+## Overview
+
+Epic 4 implements the user-facing configuration web application for Mail Agent, delivering the final piece required for end-to-end system usability. This epic introduces a modern Next.js 15 frontend with TypeScript, shadcn/ui component library, and Tailwind CSS v4 for a professional dark-themed interface. The implementation focuses on guided onboarding (Gmail OAuth connection, Telegram bot linking, folder category configuration) and ongoing settings management (notification preferences, folder rules, connection status monitoring). By completing this epic, non-technical users can complete full system setup in under 10 minutes through a wizard-style interface, achieve 90%+ onboarding completion rate, and manage their email automation settings without technical knowledge—delivering on NFR005 usability goals and enabling the complete Mail Agent value proposition of "AI proposes, I approve in one tap" through seamless Telegram integration.
+
+## Objectives and Scope
+
+**In Scope:**
+- Next.js 15 project initialization with App Router, TypeScript, and Tailwind CSS v4
+- shadcn/ui component library integration with dark mode theming
+- Gmail OAuth 2.0 connection flow with clear permission explanations
+- Telegram bot linking page with 6-digit code display and connection verification
+- Folder categories configuration interface with drag-drop, keywords, and color customization
+- Notification preferences settings (batch timing, quiet hours, priority thresholds)
+- 4-step guided onboarding wizard with progress indicators and validation
+- Dashboard overview page showing connection status, processing statistics, and system health
+- Responsive design (mobile, tablet, desktop) with WCAG 2.1 Level AA accessibility
+- Integration testing across entire onboarding flow
+- Dark mode UI following UX specification (Sophisticated Dark theme)
+- API client layer for backend FastAPI integration
+- Error handling and user feedback (toasts, alerts, validation messages)
+
+**Out of Scope:**
+- Email browsing/search interface - deferred to post-MVP (users interact via Gmail directly)
+- Analytics dashboard with charts/graphs - deferred to post-MVP
+- Multi-user/team features - MVP targets single-user accounts
+- Mobile native apps (iOS/Android) - web UI is mobile-responsive for setup only
+- Advanced folder rule builder (complex if/then logic) - MVP uses simple keyword matching
+- Telegram bot configuration within web UI - bot commands handle settings
+- Real-time email preview in UI - not needed (Telegram is primary interface)
+- User profile management (avatar, bio, etc.) - minimal MVP user model
+- Dark/light mode toggle - dark mode only for MVP (evening-optimized per UX spec)
+- Localization/i18n - English only for MVP (multilingual emails handled by AI, not UI)
+
+## System Architecture Alignment
+
+This epic implements the frontend layer of the Mail Agent architecture as defined in `architecture.md`, completing the user-facing components that enable system configuration and monitoring. Key alignment points:
+
+**Next.js 15 Frontend Architecture:**
+- **Framework:** Next.js 15.5 with App Router (server-side rendering, React Server Components)
+- **Language:** TypeScript 5.x for type safety across all components
+- **Styling:** Tailwind CSS v4 with custom design tokens from UX specification
+- **Component Library:** shadcn/ui (Radix UI primitives) for WCAG 2.1 AA compliance
+- **State Management:** React hooks (useState, useContext) + SWR for API data caching
+- **API Layer:** Axios-based client with interceptors for auth/error handling
+- **Deployment:** Vercel (zero-cost for MVP, optimal Next.js hosting)
+
+**Backend Integration Points:**
+Epic 4 consumes the FastAPI backend (Epics 1-3) via RESTful JSON APIs:
+
+| Frontend Feature | Backend API Endpoint | Epic Dependency |
+|-----------------|----------------------|-----------------|
+| Gmail OAuth Flow | `POST /api/v1/auth/gmail/callback` | Epic 1 |
+| OAuth Connection Status | `GET /api/v1/auth/status` | Epic 1 |
+| Telegram Bot Linking | `POST /api/v1/telegram/link` | Epic 2 |
+| Telegram Link Verification | `GET /api/v1/telegram/verify/{code}` | Epic 2 |
+| Folder CRUD | `GET/POST/PUT/DELETE /api/v1/folders` | Epic 1 |
+| Notification Preferences | `GET/PUT /api/v1/settings/notifications` | Epic 2 |
+| Dashboard Statistics | `GET /api/v1/dashboard/stats` | Epics 1-3 |
+| User Profile | `GET/PUT /api/v1/users/me` | Epic 1 |
+
+**JWT Authentication Flow:**
+- Backend issues JWT access token after Gmail OAuth success (Epic 1)
+- Frontend stores JWT in httpOnly cookie (XSS protection)
+- All API requests include JWT in Authorization header
+- Token refresh handled automatically via axios interceptor
+- 7-day token expiration with sliding refresh window
+
+**Project Structure Alignment:**
+```
+frontend/                           # Next.js 15 App (Epic 4)
+├── src/
+│   ├── app/                        # App Router pages
+│   │   ├── layout.tsx              # Root layout with dark theme
+│   │   ├── page.tsx                # Landing page
+│   │   ├── onboarding/             # 4-step wizard (Story 4.6)
+│   │   │   ├── page.tsx            # Wizard container
+│   │   │   ├── gmail/page.tsx      # Step 1: Gmail OAuth (Story 4.2)
+│   │   │   ├── telegram/page.tsx   # Step 2: Telegram (Story 4.3)
+│   │   │   ├── folders/page.tsx    # Step 3: Folders (Story 4.4)
+│   │   │   └── complete/page.tsx   # Step 4: Complete
+│   │   ├── dashboard/page.tsx      # Dashboard (Story 4.7)
+│   │   └── settings/
+│   │       ├── folders/page.tsx    # Folder management (Story 4.4)
+│   │       └── notifications/page.tsx  # Notification prefs (Story 4.5)
+│   │
+│   ├── components/                 # React components
+│   │   ├── ui/                     # shadcn/ui components
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── toast.tsx
+│   │   │   └── ... (50+ components)
+│   │   │
+│   │   ├── onboarding/             # Onboarding-specific
+│   │   │   ├── WizardProgress.tsx
+│   │   │   ├── GmailConnect.tsx
+│   │   │   ├── TelegramLinking.tsx
+│   │   │   └── FolderSetup.tsx
+│   │   │
+│   │   ├── dashboard/              # Dashboard components
+│   │   │   ├── ConnectionStatus.tsx
+│   │   │   ├── StatsCard.tsx
+│   │   │   └── RecentActivity.tsx
+│   │   │
+│   │   └── shared/                 # Shared components
+│   │       ├── Navbar.tsx
+│   │       ├── Sidebar.tsx
+│   │       └── ErrorBoundary.tsx
+│   │
+│   ├── lib/                        # Utilities
+│   │   ├── api-client.ts           # Backend API wrapper
+│   │   ├── auth.ts                 # Auth helpers
+│   │   └── utils.ts                # General utilities
+│   │
+│   └── types/                      # TypeScript types
+│       ├── api.ts                  # API response types
+│       ├── folder.ts               # Folder models
+│       └── user.ts                 # User models
+│
+├── public/                         # Static assets
+│   ├── logo.svg
+│   └── favicon.ico
+│
+├── package.json                    # Dependencies
+├── tailwind.config.ts              # Tailwind + design tokens
+├── tsconfig.json                   # TypeScript config
+└── next.config.js                  # Next.js config
+```
+
+**Design System Integration:**
+- **Color Tokens:** Imported from UX spec (Sophisticated Dark theme)
+  - Primary: `#3b82f6` (Blue 500)
+  - Background: `#0f172a` (Slate 900)
+  - Success: `#34d399` (Green 400)
+  - Error: `#f87171` (Red 400)
+- **Typography:** System font stack for native feel
+- **Spacing:** 4px grid system (Tailwind spacing scale)
+- **Components:** shadcn/ui provides 50+ accessible components (button, card, dialog, toast, etc.)
+
+**Responsive Breakpoints:**
+- Mobile: < 640px (single column, touch-optimized)
+- Tablet: 640px - 1024px (2-column grids)
+- Desktop: 1024px+ (sidebar navigation, 3-column grids)
+
+**NFR Alignment:**
+- **NFR005 (Usability):** 10-minute onboarding wizard with 90%+ completion rate target
+- **NFR004 (Security):** httpOnly cookies for JWT, HTTPS-only, CSRF protection via SameSite cookies
+- **NFR002 (Reliability):** Error boundaries, offline detection, retry logic for failed API calls
+- **NFR001 (Performance):** SWR for API caching, React Server Components for reduced JavaScript, optimistic UI updates
+
+**Epic Dependencies:**
+Epic 4 is the final epic and depends on all previous epics for backend APIs:
+- **Epic 1:** Gmail OAuth endpoints, folder management API, user model
+- **Epic 2:** Telegram linking API, notification preferences API
+- **Epic 3:** Dashboard statistics API (email counts, response metrics)
+
+## Detailed Design
+
+### Services and Modules
+
+| Module/Component | Responsibility | Inputs | Outputs | Location |
+|-----------------|----------------|--------|---------|----------|
+| **ApiClient** | Backend API communication with auth, retries, error handling | API requests (method, endpoint, data) | Typed responses or errors | `src/lib/api-client.ts` |
+| **AuthService** | JWT management, OAuth flow coordination, session handling | User credentials, OAuth callbacks | Auth state, JWT tokens | `src/lib/auth.ts` |
+| **GmailConnectComponent** | Gmail OAuth initiation and callback handling | OAuth config from backend | Connection status, error messages | `src/components/onboarding/GmailConnect.tsx` |
+| **TelegramLinkingComponent** | Display linking code, poll verification status | Backend-generated 6-digit code | Link success/failure status | `src/components/onboarding/TelegramLinking.tsx` |
+| **FolderManagementComponent** | CRUD operations for folder categories with drag-drop | User folder configurations | Updated folder list | `src/components/onboarding/FolderSetup.tsx`, `src/app/settings/folders/page.tsx` |
+| **NotificationPrefsComponent** | Edit notification timing, quiet hours, batch settings | User preferences | Updated preferences | `src/app/settings/notifications/page.tsx` |
+| **OnboardingWizard** | Multi-step wizard orchestration with progress tracking | Step navigation events | Wizard completion state | `src/app/onboarding/page.tsx` |
+| **DashboardStats** | Display connection status, email counts, system health | Backend statistics API | Rendered stat cards | `src/app/dashboard/page.tsx` |
+| **ErrorBoundary** | Catch React errors, display fallback UI, log to backend | Component errors | Error UI with retry | `src/components/shared/ErrorBoundary.tsx` |
+| **ToastNotification** | User feedback for actions (success, error, info) | Toast messages | Rendered toasts (sonner) | Via shadcn/ui toast |
+
+### Data Models and Contracts
+
+#### TypeScript Type Definitions
+
+**User Model (`src/types/user.ts`):**
+
+```typescript
+export interface User {
+  id: number;
+  email: string;
+  gmail_connected: boolean;
+  telegram_connected: boolean;
+  telegram_id?: string;
+  onboarding_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  user: User | null;
+  token: string | null;
+  loading: boolean;
+}
+```
+
+**Folder Category Model (`src/types/folder.ts`):**
+
+```typescript
+export interface FolderCategory {
+  id: number;
+  user_id: number;
+  name: string;
+  gmail_label_id: string;
+  keywords: string[];
+  color: string;  // Hex color code
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateFolderRequest {
+  name: string;
+  keywords?: string[];
+  color?: string;
+}
+
+export interface UpdateFolderRequest {
+  name?: string;
+  keywords?: string[];
+  color?: string;
+  is_default?: boolean;
+}
+```
+
+**Notification Preferences Model (`src/types/settings.ts`):**
+
+```typescript
+export interface NotificationPreferences {
+  id: number;
+  user_id: number;
+  batch_enabled: boolean;
+  batch_time: string;  // HH:MM format (e.g., "18:00")
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string;  // HH:MM format
+  quiet_hours_end: string;    // HH:MM format
+  priority_immediate: boolean;
+  min_confidence_threshold: number;  // 0.0 - 1.0
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateNotificationPrefsRequest {
+  batch_enabled?: boolean;
+  batch_time?: string;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  priority_immediate?: boolean;
+  min_confidence_threshold?: number;
+}
+```
+
+**Dashboard Statistics Model (`src/types/dashboard.ts`):**
+
+```typescript
+export interface DashboardStats {
+  connections: {
+    gmail: ConnectionStatus;
+    telegram: ConnectionStatus;
+  };
+  email_stats: {
+    total_processed: number;
+    pending_approval: number;
+    auto_sorted: number;
+    responses_sent: number;
+  };
+  time_saved: {
+    today_minutes: number;
+    total_minutes: number;
+  };
+  recent_activity: ActivityItem[];
+}
+
+export interface ConnectionStatus {
+  connected: boolean;
+  last_sync?: string;
+  error?: string;
+}
+
+export interface ActivityItem {
+  id: number;
+  type: 'sorted' | 'response_sent' | 'rejected';
+  email_subject: string;
+  timestamp: string;
+  folder_name?: string;
+}
+```
+
+**API Response Wrappers (`src/types/api.ts`):**
+
+```typescript
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+  status: number;
+}
+
+export interface ApiError {
+  message: string;
+  details?: Record<string, string[]>;
+  status: number;
+  code?: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+```
+
+**OAuth Flow Models (`src/types/auth.ts`):**
+
+```typescript
+export interface GmailOAuthConfig {
+  auth_url: string;
+  client_id: string;
+  scopes: string[];
+}
+
+export interface OAuthCallbackParams {
+  code: string;
+  state: string;
+  scope: string;
+}
+
+export interface TelegramLinkingCode {
+  code: string;
+  expires_at: string;
+  verified: boolean;
+}
+
+export interface TelegramVerificationStatus {
+  verified: boolean;
+  telegram_id?: string;
+  telegram_username?: string;
+}
+```
+
+#### Frontend-Backend API Contract
+
+All API responses follow this structure:
+
+**Success Response:**
+```json
+{
+  "data": { /* resource data */ },
+  "message": "Optional success message",
+  "status": 200
+}
+```
+
+**Error Response:**
+```json
+{
+  "message": "Error description",
+  "details": {
+    "field_name": ["Validation error 1", "Validation error 2"]
+  },
+  "status": 400,
+  "code": "VALIDATION_ERROR"
+}
+```
+
+**Authentication:**
+- JWT token in `Authorization: Bearer <token>` header
+- Token stored in httpOnly cookie for security
+- 401 response triggers automatic token refresh
+- 403 response redirects to login
+
+### APIs and Interfaces
+
+#### Backend API Endpoints (Consumed by Epic 4 Frontend)
+
+**Authentication Endpoints:**
+
+```typescript
+// GET /api/v1/auth/gmail/config
+// Returns Gmail OAuth configuration
+Response: GmailOAuthConfig
+
+// POST /api/v1/auth/gmail/callback
+// Handle Gmail OAuth callback with authorization code
+Request: { code: string, state: string }
+Response: { user: User, token: string }
+
+// GET /api/v1/auth/status
+// Get current authentication status
+Response: { authenticated: boolean, user?: User }
+
+// POST /api/v1/auth/logout
+// Logout user and invalidate token
+Response: { message: string }
+```
+
+**Telegram Linking Endpoints:**
+
+```typescript
+// POST /api/v1/telegram/link
+// Generate new linking code
+Response: TelegramLinkingCode
+
+// GET /api/v1/telegram/verify/{code}
+// Check if linking code has been verified
+Response: TelegramVerificationStatus
+
+// DELETE /api/v1/telegram/unlink
+// Disconnect Telegram account
+Response: { message: string }
+```
+
+**Folder Management Endpoints:**
+
+```typescript
+// GET /api/v1/folders
+// List all folder categories for current user
+Response: FolderCategory[]
+
+// POST /api/v1/folders
+// Create new folder category
+Request: CreateFolderRequest
+Response: FolderCategory
+
+// PUT /api/v1/folders/{id}
+// Update existing folder category
+Request: UpdateFolderRequest
+Response: FolderCategory
+
+// DELETE /api/v1/folders/{id}
+// Delete folder category (also removes Gmail label)
+Response: { message: string }
+
+// POST /api/v1/folders/reorder
+// Update folder display order
+Request: { folder_ids: number[] }
+Response: { message: string }
+```
+
+**Notification Preferences Endpoints:**
+
+```typescript
+// GET /api/v1/settings/notifications
+// Get user notification preferences
+Response: NotificationPreferences
+
+// PUT /api/v1/settings/notifications
+// Update notification preferences
+Request: UpdateNotificationPrefsRequest
+Response: NotificationPreferences
+
+// POST /api/v1/settings/notifications/test
+// Send test notification to Telegram
+Response: { message: string, success: boolean }
+```
+
+**Dashboard Endpoints:**
+
+```typescript
+// GET /api/v1/dashboard/stats
+// Get dashboard statistics
+Response: DashboardStats
+
+// GET /api/v1/dashboard/activity?limit=10
+// Get recent activity items
+Query: { limit?: number }
+Response: ActivityItem[]
+```
+
+**User Profile Endpoints:**
+
+```typescript
+// GET /api/v1/users/me
+// Get current user profile
+Response: User
+
+// PUT /api/v1/users/me
+// Update user profile
+Request: { email?: string }
+Response: User
+```
+
+#### ApiClient Implementation (`src/lib/api-client.ts`)
+
+```typescript
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+
+class ApiClient {
+  private client: AxiosInstance;
+
+  constructor() {
+    this.client = axios.create({
+      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+      timeout: 30000,
+      withCredentials: true, // Send cookies
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Request interceptor: Add JWT token
+    this.client.interceptors.request.use(
+      (config) => {
+        const token = this.getToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Response interceptor: Handle errors, refresh token
+    this.client.interceptors.response.use(
+      (response) => response.data,
+      async (error) => {
+        if (error.response?.status === 401) {
+          // Token expired, attempt refresh
+          await this.refreshToken();
+          return this.client.request(error.config);
+        }
+        return Promise.reject(this.formatError(error));
+      }
+    );
+  }
+
+  // Auth methods
+  async gmailOAuthConfig() {
+    return this.client.get<GmailOAuthConfig>('/api/v1/auth/gmail/config');
+  }
+
+  async gmailCallback(code: string, state: string) {
+    return this.client.post('/api/v1/auth/gmail/callback', { code, state });
+  }
+
+  // Telegram methods
+  async generateTelegramLink() {
+    return this.client.post<TelegramLinkingCode>('/api/v1/telegram/link');
+  }
+
+  async verifyTelegramLink(code: string) {
+    return this.client.get<TelegramVerificationStatus>(`/api/v1/telegram/verify/${code}`);
+  }
+
+  // Folder methods
+  async getFolders() {
+    return this.client.get<FolderCategory[]>('/api/v1/folders');
+  }
+
+  async createFolder(data: CreateFolderRequest) {
+    return this.client.post<FolderCategory>('/api/v1/folders', data);
+  }
+
+  async updateFolder(id: number, data: UpdateFolderRequest) {
+    return this.client.put<FolderCategory>(`/api/v1/folders/${id}`, data);
+  }
+
+  async deleteFolder(id: number) {
+    return this.client.delete(`/api/v1/folders/${id}`);
+  }
+
+  // Settings methods
+  async getNotificationPrefs() {
+    return this.client.get<NotificationPreferences>('/api/v1/settings/notifications');
+  }
+
+  async updateNotificationPrefs(data: UpdateNotificationPrefsRequest) {
+    return this.client.put<NotificationPreferences>('/api/v1/settings/notifications', data);
+  }
+
+  // Dashboard methods
+  async getDashboardStats() {
+    return this.client.get<DashboardStats>('/api/v1/dashboard/stats');
+  }
+
+  // Helper methods
+  private getToken(): string | null {
+    return localStorage.getItem('auth_token');
+  }
+
+  private async refreshToken() {
+    // Token refresh implementation
+  }
+
+  private formatError(error: any): ApiError {
+    return {
+      message: error.response?.data?.message || 'An error occurred',
+      details: error.response?.data?.details,
+      status: error.response?.status || 500,
+      code: error.response?.data?.code,
+    };
+  }
+}
+
+export const apiClient = new ApiClient();
+```
+
+### Workflows and Sequencing
+
+#### Onboarding Wizard Flow (4 Steps)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Onboarding Wizard Sequence                       │
+└─────────────────────────────────────────────────────────────────────┘
+
+User visits /onboarding
+    │
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step 1: Welcome & Gmail Connection (Story 4.2)                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Show welcome message and OAuth explanation                │  │
+│  │ 2. Display "Connect Gmail" button                            │  │
+│  │ 3. On click: GET /api/v1/auth/gmail/config                   │  │
+│  │ 4. Redirect to Google OAuth consent screen                   │  │
+│  │ 5. User grants permissions                                   │  │
+│  │ 6. Google redirects to /onboarding/gmail?code=xxx            │  │
+│  │ 7. POST /api/v1/auth/gmail/callback { code, state }          │  │
+│  │ 8. Backend returns JWT token + user object                   │  │
+│  │ 9. Store token in localStorage                               │  │
+│  │ 10. Show success checkmark ✓                                 │  │
+│  │ 11. Enable "Continue" button                                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ User clicks "Continue"
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step 2: Telegram Bot Linking (Story 4.3)                           │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. POST /api/v1/telegram/link → Generate 6-digit code       │  │
+│  │ 2. Display code in large font (e.g., "A3F7B2")              │  │
+│  │ 3. Show instructions:                                         │  │
+│  │    - "Open Telegram and search for @MailAgentBot"           │  │
+│  │    - "Send /start command"                                   │  │
+│  │    - "Enter this code: A3F7B2"                               │  │
+│  │ 4. Start polling: GET /api/v1/telegram/verify/A3F7B2        │  │
+│  │    - Poll every 3 seconds                                    │  │
+│  │    - Max 10 minutes before code expires                      │  │
+│  │ 5. When verified=true returned:                              │  │
+│  │    - Show success checkmark ✓                                │  │
+│  │    - Display Telegram username                               │  │
+│  │    - Enable "Continue" button                                │  │
+│  │ 6. If code expires:                                           │  │
+│  │    - Show "Code expired" error                               │  │
+│  │    - Offer "Generate new code" button                        │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ User clicks "Continue"
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step 3: Folder Configuration (Story 4.4)                           │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Show default folder suggestions:                          │  │
+│  │    - "Government" (keywords: finanzamt, tax, visa)           │  │
+│  │    - "Clients" (keywords: meeting, project)                  │  │
+│  │    - "Newsletters" (keywords: unsubscribe, newsletter)       │  │
+│  │ 2. User can:                                                  │  │
+│  │    - Add new folder: Click "+ Add Folder"                    │  │
+│  │      → Dialog with name, keywords, color picker              │  │
+│  │      → POST /api/v1/folders { name, keywords, color }        │  │
+│  │    - Edit folder: Click pencil icon                          │  │
+│  │      → PUT /api/v1/folders/{id} { updated fields }           │  │
+│  │    - Delete folder: Click trash icon                         │  │
+│  │      → Confirmation dialog                                   │  │
+│  │      → DELETE /api/v1/folders/{id}                           │  │
+│  │    - Reorder folders: Drag and drop                          │  │
+│  │      → POST /api/v1/folders/reorder { folder_ids }           │  │
+│  │ 3. Validation:                                                │  │
+│  │    - At least 1 folder required                              │  │
+│  │    - Folder names must be unique                             │  │
+│  │    - Name length: 1-100 characters                           │  │
+│  │ 4. Enable "Continue" when ≥1 folder exists                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ User clicks "Continue"
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step 4: Notification Preferences & Complete (Story 4.5 + 4.6)      │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Show notification settings form:                          │  │
+│  │    - Batch notifications: Toggle (default: ON)               │  │
+│  │    - Batch time: Time picker (default: 18:00)                │  │
+│  │    - Quiet hours: Toggle (default: ON)                       │  │
+│  │    - Quiet hours: Start time (default: 22:00)                │  │
+│  │                   End time (default: 08:00)                   │  │
+│  │    - Priority immediate: Toggle (default: ON)                │  │
+│  │ 2. User adjusts settings                                      │  │
+│  │ 3. Click "Test Notification" (optional):                     │  │
+│  │    - POST /api/v1/settings/notifications/test                │  │
+│  │    - Backend sends test message to Telegram                  │  │
+│  │    - Show "Test sent! Check Telegram" toast                  │  │
+│  │ 4. Click "Complete Setup":                                    │  │
+│  │    - PUT /api/v1/settings/notifications { all prefs }        │  │
+│  │    - PUT /api/v1/users/me { onboarding_completed: true }     │  │
+│  │    - Show success animation                                  │  │
+│  │    - Display summary:                                         │  │
+│  │      ✓ Gmail connected                                        │  │
+│  │      ✓ Telegram linked                                        │  │
+│  │      ✓ 3 folders configured                                   │  │
+│  │      ✓ Notifications configured                               │  │
+│  │ 5. Redirect to /dashboard                                     │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    │ Onboarding complete
+    ↓
+Dashboard page
+```
+
+#### Dashboard Page Load Sequence (Story 4.7)
+
+```
+User visits /dashboard
+    │
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Dashboard Rendering Flow                         │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. Check authentication:                                      │  │
+│  │    - If no token → Redirect to /onboarding                   │  │
+│  │    - If token exists → Continue                              │  │
+│  │                                                                │  │
+│  │ 2. Show skeleton loading UI (shadcn/ui Skeleton components)  │  │
+│  │                                                                │  │
+│  │ 3. Parallel API calls:                                        │  │
+│  │    - GET /api/v1/dashboard/stats                             │  │
+│  │    - GET /api/v1/dashboard/activity?limit=10                 │  │
+│  │    - GET /api/v1/users/me                                    │  │
+│  │                                                                │  │
+│  │ 4. When data arrives, render:                                 │  │
+│  │                                                                │  │
+│  │    ┌─────────────────────────────────────────────────────┐  │  │
+│  │    │ Connection Status Cards                             │  │  │
+│  │    │  ┌──────────────┐  ┌──────────────┐                │  │  │
+│  │    │  │ Gmail        │  │ Telegram     │                │  │  │
+│  │    │  │ ✓ Connected  │  │ ✓ Connected  │                │  │  │
+│  │    │  │ Last: 2m ago │  │ @username    │                │  │  │
+│  │    │  └──────────────┘  └──────────────┘                │  │  │
+│  │    └─────────────────────────────────────────────────────┘  │  │
+│  │                                                                │  │
+│  │    ┌─────────────────────────────────────────────────────┐  │  │
+│  │    │ Email Processing Statistics                         │  │  │
+│  │    │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐  │  │  │
+│  │    │  │ Total   │ │ Pending │ │ Sorted  │ │Responses│  │  │  │
+│  │    │  │  127    │ │   3     │ │  104    │ │   20    │  │  │  │
+│  │    │  └─────────┘ └─────────┘ └─────────┘ └─────────┘  │  │  │
+│  │    └─────────────────────────────────────────────────────┘  │  │
+│  │                                                                │  │
+│  │    ┌─────────────────────────────────────────────────────┐  │  │
+│  │    │ Time Saved                                          │  │  │
+│  │    │  Today: 15 minutes                                  │  │  │
+│  │    │  Total: 420 minutes (7 hours)                       │  │  │
+│  │    └─────────────────────────────────────────────────────┘  │  │
+│  │                                                                │  │
+│  │    ┌─────────────────────────────────────────────────────┐  │  │
+│  │    │ Recent Activity (last 10 actions)                   │  │  │
+│  │    │  • Sorted to Government: "Tax documents" (2m ago)   │  │  │
+│  │    │  • Response sent: "Re: Meeting request" (15m ago)   │  │  │
+│  │    │  • Rejected: "Newsletter spam" (1h ago)             │  │  │
+│  │    └─────────────────────────────────────────────────────┘  │  │
+│  │                                                                │  │
+│  │ 5. Error handling:                                            │  │
+│  │    - If API call fails → Show error toast                    │  │
+│  │    - If connection status error → Show reconnect buttons     │  │
+│  │    - Network offline → Show offline banner                   │  │
+│  │                                                                │  │
+│  │ 6. Auto-refresh stats every 30 seconds (SWR polling)          │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Folder Management Flow (Story 4.4)
+
+```
+User navigates to /settings/folders
+    │
+    ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Folder Management Page                           │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ 1. GET /api/v1/folders → Load all folders                   │  │
+│  │                                                                │  │
+│  │ 2. Render folder list with drag-drop:                        │  │
+│  │    ┌────────────────────────────────────────────────┐        │  │
+│  │    │ ⋮⋮ Government [Edit] [Delete]                 │        │  │
+│  │    │    Keywords: finanzamt, tax, visa              │        │  │
+│  │    │    Color: 🔴                                   │        │  │
+│  │    └────────────────────────────────────────────────┘        │  │
+│  │    ┌────────────────────────────────────────────────┐        │  │
+│  │    │ ⋮⋮ Clients [Edit] [Delete]                    │        │  │
+│  │    │    Keywords: meeting, project, contract        │        │  │
+│  │    │    Color: 🔵                                   │        │  │
+│  │    └────────────────────────────────────────────────┘        │  │
+│  │                                                                │  │
+│  │ 3. User actions:                                              │  │
+│  │                                                                │  │
+│  │    A. Add Folder:                                             │  │
+│  │       - Click "+ Add Folder"                                  │  │
+│  │       - Dialog opens with form:                               │  │
+│  │         • Folder name (required, 1-100 chars)                │  │
+│  │         • Keywords (comma-separated, optional)                │  │
+│  │         • Color picker (default random)                       │  │
+│  │       - Submit → POST /api/v1/folders                        │  │
+│  │       - Success → Add to list + show toast                   │  │
+│  │       - Error → Show validation errors inline                │  │
+│  │                                                                │  │
+│  │    B. Edit Folder:                                            │  │
+│  │       - Click [Edit] button                                   │  │
+│  │       - Dialog opens pre-filled with current values          │  │
+│  │       - User modifies fields                                  │  │
+│  │       - Submit → PUT /api/v1/folders/{id}                    │  │
+│  │       - Success → Update list + show toast                   │  │
+│  │                                                                │  │
+│  │    C. Delete Folder:                                          │  │
+│  │       - Click [Delete] button                                 │  │
+│  │       - Confirmation dialog:                                  │  │
+│  │         "Delete 'Government' folder? This will also          │  │
+│  │          remove the Gmail label. This action cannot be       │  │
+│  │          undone."                                             │  │
+│  │       - Confirm → DELETE /api/v1/folders/{id}                │  │
+│  │       - Success → Remove from list + show toast              │  │
+│  │       - Error → Show error toast                              │  │
+│  │                                                                │  │
+│  │    D. Reorder Folders:                                        │  │
+│  │       - User drags folder up/down                             │  │
+│  │       - On drop → POST /api/v1/folders/reorder               │  │
+│  │       - Optimistic UI update (show new order immediately)    │  │
+│  │       - If API fails → Revert order + show error toast       │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Non-Functional Requirements
+
+### Performance
+
+**NFR001 Target: Onboarding completion in <10 minutes (NFR005 alignment)**
+
+**Performance Budget:**
+```
+Onboarding Wizard End-to-End:
+├── Step 1 (Gmail OAuth): ~2-3 minutes
+│   ├── OAuth redirect: <2s
+│   ├── Google consent screen: 30-60s (user action)
+│   ├── Callback processing: <3s
+│   └── Token storage: <500ms
+│
+├── Step 2 (Telegram linking): ~2-3 minutes
+│   ├── Generate code: <1s
+│   ├── User opens Telegram: 30s (user action)
+│   ├── User sends /start + code: 30s (user action)
+│   ├── Verification polling: 1-2 minutes (3s intervals)
+│   └── Display username: <500ms
+│
+├── Step 3 (Folder setup): ~2-3 minutes
+│   ├── Load default suggestions: <1s
+│   ├── User creates 3 folders: 2 minutes (user action)
+│   ├── Each folder creation API call: <1s
+│   └── Total API time for 3 folders: <3s
+│
+├── Step 4 (Notification prefs): ~1-2 minutes
+│   ├── Load default preferences: <1s
+│   ├── User adjusts settings: 1 minute (user action)
+│   ├── Save preferences: <1s
+│   └── Complete onboarding: <1s
+────────────────────────────────────────────────
+Total: 7-11 minutes (Target: <10 min average)
+```
+
+**Page Load Performance Targets:**
+- **Initial page load (First Contentful Paint):** <1.5s
+- **Time to Interactive:** <3s
+- **Dashboard data load:** <2s (parallel API calls)
+- **Folder list render:** <500ms for 50 folders
+- **Settings page load:** <1s
+
+**Optimization Strategies:**
+1. **Next.js Server Components:** Pre-render static content, reduce client-side JavaScript
+2. **SWR for data fetching:** Automatic caching, revalidation, optimistic updates
+3. **Image optimization:** Next.js Image component with WebP format
+4. **Code splitting:** Lazy load non-critical components (settings pages)
+5. **Parallel API calls:** Dashboard loads stats + activity + user concurrently
+
+**Performance Monitoring:**
+- Lighthouse CI integration in GitHub Actions (target score: 90+)
+- Web Vitals tracking (Core Web Vitals: LCP, FID, CLS)
+- Sentry performance monitoring for slow API calls (>3s threshold)
+
+### Security
+
+**NFR004 Alignment: Security & Privacy for user data and OAuth tokens**
+
+**Authentication Security:**
+- **JWT Storage:** httpOnly cookies (prevents XSS attacks)
+- **CSRF Protection:** SameSite=Strict cookie attribute
+- **Token Expiration:** 7-day access token, automatic refresh on 401
+- **Secure Transmission:** HTTPS-only (HTTP redirects to HTTPS)
+- **OAuth State Parameter:** CSRF protection during Gmail OAuth flow
+
+**API Security:**
+- **Authorization Header:** `Bearer <token>` for all authenticated requests
+- **CORS Configuration:** Whitelist backend API domain only
+- **Rate Limiting:** Client-side throttling (max 10 req/s per endpoint)
+- **Input Validation:** TypeScript types + runtime validation (Zod schemas)
+- **XSS Prevention:** React's built-in escaping + DOMPurify for user input
+
+**Data Privacy:**
+- **No Local Storage of Sensitive Data:** Only JWT token stored
+- **No Client-Side Email Content:** Email data only displayed from backend
+- **Secure Cookie Flags:** httpOnly, Secure, SameSite=Strict
+- **No Analytics Tracking:** Privacy-first (no Google Analytics, no third-party trackers)
+
+**Dependency Security:**
+- **npm audit:** Run on every build, fail on high/critical vulnerabilities
+- **Dependabot:** Automatic security updates for npm packages
+- **Minimal dependencies:** Reduce attack surface (shadcn/ui copies code, not installed as package)
+
+**Environment Variables:**
+- **Never commit secrets:** .env.local in .gitignore
+- **Vercel Environment Variables:** Secure storage for NEXT_PUBLIC_API_URL
+- **No API keys in frontend:** All sensitive operations via backend
+
+### Reliability/Availability
+
+**NFR002 Alignment: 99.5% uptime target during MVP**
+
+**Error Handling:**
+- **Error Boundaries:** Catch React errors, display fallback UI, prevent white screen
+- **API Error Recovery:** Automatic retry with exponential backoff (max 3 retries)
+- **Network Offline Detection:** Display offline banner, queue actions for retry
+- **Validation Errors:** Clear inline error messages with actionable guidance
+
+**Resilience Patterns:**
+```typescript
+// Example: Retry logic with exponential backoff
+async function apiCallWithRetry(fn: () => Promise<any>, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      await sleep(2 ** i * 1000); // 1s, 2s, 4s
+    }
+  }
+}
+```
+
+**State Management Reliability:**
+- **Optimistic UI Updates:** Show success immediately, rollback on API failure
+- **SWR Automatic Revalidation:** Refetch stale data on window focus
+- **Local State Persistence:** Save wizard progress to localStorage (resume on refresh)
+
+**Deployment Reliability:**
+- **Zero-Downtime Deployments:** Vercel preview deployments + atomic production deploys
+- **Rollback Capability:** Instant rollback to previous deployment via Vercel dashboard
+- **Health Checks:** /api/health endpoint monitored by Vercel
+- **Error Tracking:** Sentry for real-time error monitoring and alerting
+
+**Availability Targets:**
+- **Frontend Uptime:** 99.9% (Vercel SLA)
+- **Backend API Dependency:** 99.5% (Epic 1-3 target)
+- **Combined Availability:** 99.4% (dependent on backend)
+
+### Observability
+
+**Logging:**
+- **Client-Side Logging:** Sentry for errors, warnings, performance issues
+- **Structured Logs:** Include user_id, action, timestamp, error details
+- **Log Levels:** ERROR (unhandled errors), WARN (recoverable issues), INFO (user actions)
+- **Privacy:** Never log email content, only metadata (subject, sender obfuscated)
+
+**Metrics to Track:**
+- **User Journey Metrics:**
+  - Onboarding completion rate (target: 90%+)
+  - Time spent per onboarding step (identify bottlenecks)
+  - Step abandonment rate (where users drop off)
+  - Dashboard load time (target: <2s)
+
+- **Performance Metrics:**
+  - Core Web Vitals (LCP, FID, CLS)
+  - API response times (P50, P95, P99)
+  - Time to First Byte (TTFB)
+  - JavaScript bundle size (target: <200KB gzipped)
+
+- **User Engagement Metrics:**
+  - Daily active users (DAU)
+  - Feature usage (folder creation, notification prefs changes)
+  - Dashboard visits per day
+  - Settings page visits
+
+**Monitoring Tools:**
+- **Sentry:** Error tracking, performance monitoring, user feedback
+- **Vercel Analytics:** Web Vitals, page views, user sessions
+- **Custom Events:** Track key user actions (onboarding completed, folder created, etc.)
+
+**Alerting Thresholds:**
+- Error rate > 5% of requests → Immediate Sentry alert
+- API response time > 5s → Warning alert
+- Onboarding completion rate < 80% → Weekly report
+- JavaScript bundle size > 250KB → Build warning
+
+## Dependencies and Integrations
+
+### NPM Dependencies (`package.json`)
+
+**Core Framework:**
+```json
+{
+  "dependencies": {
+    "next": "^15.5.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "typescript": "^5.0.0"
+  }
+}
+```
+
+**UI & Styling:**
+```json
+{
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-toast": "^1.1.5",
+    "@radix-ui/react-switch": "^1.0.3",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.0",
+    "tailwindcss": "^4.0.0",
+    "tailwindcss-animate": "^1.0.7"
+  }
+}
+```
+*Note: shadcn/ui components are copied into src/components/ui/, not installed as npm package*
+
+**API & Data Fetching:**
+```json
+{
+  "dependencies": {
+    "axios": "^1.6.5",
+    "swr": "^2.2.4",
+    "zod": "^3.22.4"
+  }
+}
+```
+
+**Forms & Validation:**
+```json
+{
+  "dependencies": {
+    "react-hook-form": "^7.50.0",
+    "@hookform/resolvers": "^3.3.4"
+  }
+}
+```
+
+**Drag and Drop:**
+```json
+{
+  "dependencies": {
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/sortable": "^8.0.0"
+  }
+}
+```
+
+**Utilities:**
+```json
+{
+  "dependencies": {
+    "date-fns": "^3.0.0",
+    "lucide-react": "^0.320.0"
+  }
+}
+```
+
+**Development Dependencies:**
+```json
+{
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^15.5.0",
+    "prettier": "^3.2.0",
+    "@sentry/nextjs": "^7.100.0"
+  }
+}
+```
+
+**Monitoring & Analytics:**
+```json
+{
+  "dependencies": {
+    "@sentry/nextjs": "^7.100.0",
+    "@vercel/analytics": "^1.1.0"
+  }
+}
+```
+
+### Backend API Integration
+
+**Epic Dependencies:**
+
+| Backend Feature | Epic | Status | Required For |
+|----------------|------|--------|--------------|
+| Gmail OAuth endpoints | Epic 1 | ✅ Complete | Story 4.2 (Gmail connection) |
+| Folder CRUD APIs | Epic 1 | ✅ Complete | Story 4.4 (Folder management) |
+| User model & auth | Epic 1 | ✅ Complete | All stories (authentication) |
+| Telegram linking API | Epic 2 | ✅ Complete | Story 4.3 (Telegram linking) |
+| Notification preferences API | Epic 2 | ✅ Complete | Story 4.5 (Notification settings) |
+| Dashboard statistics API | Epics 1-3 | ✅ Complete | Story 4.7 (Dashboard) |
+
+**API Contract Assumptions:**
+- All endpoints return JSON with `{ data, message, status }` structure
+- Authentication via JWT in Authorization header
+- Standard HTTP status codes (200, 201, 400, 401, 403, 404, 500)
+- Error responses include `{ message, details, status, code }`
+
+**API Version:** v1 (all endpoints prefixed with `/api/v1/`)
+
+### External Services
+
+**Vercel (Deployment & Hosting):**
+- **Free Tier:** 100GB bandwidth, unlimited sites, automatic HTTPS
+- **Features Used:** Zero-downtime deployments, preview URLs, edge network CDN
+- **Environment Variables:** NEXT_PUBLIC_API_URL stored securely
+- **Custom Domain:** mail-agent.vercel.app (or custom domain if configured)
+
+**Sentry (Error Monitoring):**
+- **Free Tier:** 5K events/month, 1 project
+- **Features Used:** Error tracking, performance monitoring, source maps upload
+- **Integration:** @sentry/nextjs for automatic Next.js error capture
+- **Configuration:** Sentry DSN stored in environment variable
+
+**Backend Dependency (FastAPI):**
+- **Deployment:** Separate service (not managed by Epic 4)
+- **URL:** Configured via NEXT_PUBLIC_API_URL environment variable
+- **Fallback:** localhost:8000 for local development
+- **CORS:** Backend must whitelist frontend domain
+
+### Development Environment
+
+**Local Development Setup:**
+```bash
+# Prerequisites
+- Node.js 18+ (LTS)
+- npm 10+
+
+# Clone and setup
+git clone <repo-url> mail-agent-frontend
+cd mail-agent-frontend
+npm install
+
+# Environment configuration
+cp .env.example .env.local
+# Edit .env.local:
+# NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# Run development server
+npm run dev
+# Visit http://localhost:3000
+
+# Build for production
+npm run build
+npm run start
+```
+
+**shadcn/ui Setup:**
+```bash
+# Initialize shadcn/ui
+npx shadcn@latest init
+
+# Add required components
+npx shadcn@latest add button
+npx shadcn@latest add card
+npx shadcn@latest add input
+npx shadcn@latest add dialog
+npx shadcn@latest add toast
+npx shadcn@latest add form
+npx shadcn@latest add switch
+npx shadcn@latest add select
+npx shadcn@latest add skeleton
+npx shadcn@latest add alert
+```
+
+### CI/CD Pipeline
+
+**GitHub Actions Workflow (`.github/workflows/frontend.yml`):**
+```yaml
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm run build
+
+  lighthouse:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: https://preview-url.vercel.app
+          budgetPath: ./lighthouse-budget.json
+          uploadArtifacts: true
+
+  deploy:
+    needs: [test, lighthouse]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: vercel/action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+```
+
+**Quality Gates:**
+- ESLint: No errors allowed (warnings ok)
+- TypeScript: Strict mode, no `any` types
+- Lighthouse: Score >90 for Performance, Accessibility, Best Practices
+- Bundle size: <250KB gzipped
+
+### Integration Testing Strategy
+
+**End-to-End Testing (Story 4.8):**
+- **Tool:** Playwright (already used in Epic 3)
+- **Test Scenarios:**
+  1. Complete onboarding flow (Gmail → Telegram → Folders → Prefs)
+  2. Dashboard data loading and display
+  3. Folder CRUD operations
+  4. Notification preferences update
+  5. Error handling (API failures, network offline)
+
+**Component Testing:**
+- **Tool:** React Testing Library + Vitest
+- **Scope:** Unit tests for isolated components
+- **Coverage Target:** 70%+ for UI components
+
+**API Integration Testing:**
+- **Mock Backend:** MSW (Mock Service Worker) for API mocking
+- **Test Data:** Predefined test fixtures for all API responses
+- **Scenarios:** Success, validation errors, network errors, timeout
+
+## Acceptance Criteria (Authoritative)
+
+These acceptance criteria define the completion requirements for Epic 4. All criteria must be met before marking the epic as complete.
+
+### AC-4.1: Next.js Project Setup
+- [x] Next.js 15 project initialized with App Router
+- [x] TypeScript configured with strict mode
+- [x] Tailwind CSS v4 installed and configured
+- [x] shadcn/ui initialized with dark theme
+- [x] Project structure follows architecture specification
+- [x] ESLint and Prettier configured
+- [x] Development server runs without errors
+
+### AC-4.2: Gmail OAuth Connection
+- [ ] User can click "Connect Gmail" button and be redirected to Google OAuth consent screen
+- [ ] OAuth callback successfully processes authorization code and returns JWT token
+- [ ] Success state displays green checkmark and enables "Continue" button
+- [ ] Error states display actionable error messages (e.g., "Permission denied", "Network error")
+- [ ] OAuth state parameter prevents CSRF attacks
+- [ ] Connection status persists across page refreshes
+
+### AC-4.3: Telegram Bot Linking
+- [ ] System generates 6-digit alphanumeric linking code
+- [ ] Code displayed in large, copyable format with clear instructions
+- [ ] Frontend polls verification endpoint every 3 seconds
+- [ ] Success state displays Telegram username and enables "Continue" button
+- [ ] Code expires after 10 minutes with option to generate new code
+- [ ] Linking status persists across page refreshes
+
+### AC-4.4: Folder Configuration
+- [ ] User can create new folder with name, keywords (optional), and color (optional)
+- [ ] User can edit existing folder (name, keywords, color)
+- [ ] User can delete folder with confirmation dialog warning about Gmail label removal
+- [ ] User can reorder folders via drag-and-drop
+- [ ] Validation prevents duplicate folder names (case-insensitive)
+- [ ] Validation requires at least 1 folder before proceeding
+- [ ] Optimistic UI updates with rollback on API failure
+- [ ] Default folder suggestions displayed (Government, Clients, Newsletters)
+
+### AC-4.5: Notification Preferences
+- [ ] User can toggle batch notifications on/off
+- [ ] User can set batch time (time picker, default 18:00)
+- [ ] User can toggle quiet hours on/off
+- [ ] User can set quiet hours start/end times (default 22:00-08:00)
+- [ ] User can toggle priority immediate notifications on/off
+- [ ] "Test Notification" button sends test message to Telegram
+- [ ] Preferences saved successfully with confirmation toast
+- [ ] Form validation prevents invalid time ranges
+
+### AC-4.6: Onboarding Wizard Flow
+- [ ] Wizard displays progress indicator (Step 1 of 4, 2 of 4, etc.)
+- [ ] Each step can only proceed when required actions are completed
+- [ ] User can navigate back to previous steps
+- [ ] Wizard progress persists in localStorage (resume on refresh)
+- [ ] Final step displays success summary with all checkmarks
+- [ ] Completion redirects to /dashboard and marks user.onboarding_completed = true
+- [ ] Average onboarding time <10 minutes (measured via analytics)
+- [ ] Onboarding completion rate ≥90% (measured via analytics)
+
+### AC-4.7: Dashboard Page
+- [ ] Dashboard displays Gmail connection status (connected/disconnected, last sync time)
+- [ ] Dashboard displays Telegram connection status (connected/disconnected, username)
+- [ ] Dashboard displays email processing statistics (total, pending, sorted, responses)
+- [ ] Dashboard displays time saved today and total
+- [ ] Dashboard displays recent activity list (last 10 actions)
+- [ ] Statistics auto-refresh every 30 seconds via SWR
+- [ ] Skeleton loading states display while data loads
+- [ ] Error states display with retry option for failed API calls
+- [ ] Reconnect buttons available if connections are broken
+
+### AC-4.8: End-to-End Integration Testing
+- [ ] Playwright test covers complete onboarding flow (all 4 steps)
+- [ ] Playwright test covers dashboard page load and data display
+- [ ] Playwright test covers folder CRUD operations
+- [ ] Playwright test covers notification preferences update
+- [ ] Playwright test covers error scenarios (API failure, network offline)
+- [ ] All E2E tests pass consistently (≥95% pass rate over 10 runs)
+- [ ] Test execution time <5 minutes for full suite
+
+### AC-4.9: Responsive Design
+- [ ] All pages render correctly on mobile (< 640px)
+- [ ] All pages render correctly on tablet (640px - 1024px)
+- [ ] All pages render correctly on desktop (1024px+)
+- [ ] Touch targets are ≥44x44px on mobile
+- [ ] No horizontal scrolling on any screen size
+- [ ] Navigation adapts appropriately (hamburger menu on mobile, sidebar on desktop)
+
+### AC-4.10: Accessibility (WCAG 2.1 Level AA)
+- [ ] Lighthouse accessibility score ≥95
+- [ ] All interactive elements keyboard-accessible (Tab navigation)
+- [ ] Visible focus indicators on all interactive elements
+- [ ] ARIA labels present on all icon-only buttons
+- [ ] Form labels properly associated with inputs
+- [ ] Error messages announced to screen readers (aria-live)
+- [ ] Color contrast ratios meet AA standards (4.5:1 for body text)
+- [ ] Manual screen reader testing passes (VoiceOver spot-check)
+
+### AC-4.11: Performance
+- [ ] Lighthouse performance score ≥90
+- [ ] First Contentful Paint (FCP) <1.5s
+- [ ] Time to Interactive (TTI) <3s
+- [ ] Largest Contentful Paint (LCP) <2.5s
+- [ ] Cumulative Layout Shift (CLS) <0.1
+- [ ] JavaScript bundle size <250KB gzipped
+- [ ] Dashboard loads within 2 seconds (P95)
+
+### AC-4.12: Security
+- [ ] JWT token stored in httpOnly cookie
+- [ ] CSRF protection via SameSite=Strict cookie
+- [ ] All API requests use HTTPS
+- [ ] No secrets committed to repository (.env.local in .gitignore)
+- [ ] npm audit shows zero high/critical vulnerabilities
+- [ ] Input validation prevents XSS attacks
+- [ ] OAuth state parameter validated on callback
+
+### AC-4.13: Production Deployment
+- [ ] Frontend deployed to Vercel with automatic HTTPS
+- [ ] Environment variables configured in Vercel
+- [ ] Sentry error tracking active and receiving events
+- [ ] Vercel Analytics tracking page views
+- [ ] GitHub Actions CI/CD pipeline passing
+- [ ] Zero-downtime deployment verified
+- [ ] Rollback procedure tested and documented
+
+## Traceability Mapping
+
+| Acceptance Criteria | PRD Requirements | Tech Spec Sections | Components/APIs | Test Coverage |
+|---------------------|------------------|---------------------|----------------|---------------|
+| AC-4.1: Project Setup | NFR005 (Usability), FR022 (Web UI) | System Architecture Alignment, Dependencies | Project structure, package.json | Story 4.1 setup validation |
+| AC-4.2: Gmail OAuth | FR001 (Gmail OAuth), FR023 (OAuth connection) | APIs: `/api/v1/auth/gmail/*`, Workflows: Gmail OAuth flow | GmailConnectComponent, ApiClient | Story 4.2: OAuth flow test, E2E: Onboarding |
+| AC-4.3: Telegram Linking | FR007 (Telegram linking), FR024 (Telegram setup) | APIs: `/api/v1/telegram/*`, Workflows: Telegram linking flow | TelegramLinkingComponent, polling logic | Story 4.3: Linking test, E2E: Onboarding |
+| AC-4.4: Folder Config | FR025 (Folder creation), FR026 (Sorting rules), FR003 (Gmail labels) | APIs: `/api/v1/folders/*`, Workflows: Folder management, Data Models: FolderCategory | FolderManagementComponent, drag-drop | Story 4.4: CRUD tests, E2E: Folder ops |
+| AC-4.5: Notification Prefs | FR012 (Batch notifications), Notification timing | APIs: `/api/v1/settings/notifications`, Data Models: NotificationPreferences | NotificationPrefsComponent | Story 4.5: Prefs update test, E2E: Settings |
+| AC-4.6: Onboarding Wizard | NFR005 (10-min onboarding, 90% completion), FR027 (Testing) | Workflows: 4-step wizard, NFR Performance: Onboarding budget | OnboardingWizard, wizard navigation | Story 4.6: Wizard flow test, E2E: Full onboarding |
+| AC-4.7: Dashboard | Dashboard overview, connection status | APIs: `/api/v1/dashboard/*`, Data Models: DashboardStats | DashboardStats, ConnectionStatus cards | Story 4.7: Dashboard test, E2E: Dashboard load |
+| AC-4.8: E2E Testing | Quality assurance | Integration Testing Strategy | All components | Story 4.8: Playwright suite |
+| AC-4.9: Responsive | NFR005 (Mobile-responsive) | Responsive Design section, UX breakpoints | All pages | Story 4.8: Responsive tests |
+| AC-4.10: Accessibility | NFR005 (WCAG 2.1 AA) | Accessibility Strategy, shadcn/ui compliance | All interactive elements | Story 4.8: Accessibility audit |
+| AC-4.11: Performance | NFR001 (Performance), NFR005 (<10 min onboarding) | NFR Performance section, optimization strategies | SWR, Next.js optimization | Story 4.8: Lighthouse CI |
+| AC-4.12: Security | NFR004 (Security & Privacy) | NFR Security section, JWT auth | ApiClient, cookie handling | Story 4.8: Security audit |
+| AC-4.13: Deployment | NFR002 (Reliability, 99.5% uptime) | CI/CD Pipeline, Vercel deployment | GitHub Actions, Vercel config | Story 4.8: Deployment test |
+
+**PRD to Epic 4 Mapping:**
+
+| PRD Functional Requirement | Epic 4 Implementation | Test Verification |
+|----------------------------|----------------------|-------------------|
+| FR022: Web-based configuration interface | Next.js 15 frontend with shadcn/ui | AC-4.1, AC-4.6, AC-4.7 |
+| FR023: Gmail OAuth connection with explanations | GmailConnectComponent with clear permission UI | AC-4.2 |
+| FR024: Telegram bot connection with instructions | TelegramLinkingComponent with step-by-step guide | AC-4.3 |
+| FR025: Folder creation and naming | FolderManagementComponent with CRUD operations | AC-4.4 |
+| FR026: Sorting rules via keywords | Folder keywords field in creation/edit | AC-4.4 |
+| FR027: Connection testing functionality | "Test Notification" button in notification prefs | AC-4.5 |
+
+**NFR to Epic 4 Mapping:**
+
+| Non-Functional Requirement | Epic 4 Implementation | Measurement |
+|---------------------------|----------------------|-------------|
+| NFR001: <2 min email processing | Dashboard shows real-time stats | AC-4.7: Stats auto-refresh |
+| NFR002: 99.5% uptime | Vercel 99.9% SLA, error boundaries | AC-4.13: Deployment reliability |
+| NFR004: Security (JWT, TLS) | httpOnly cookies, HTTPS-only, CSRF protection | AC-4.12: Security audit |
+| NFR005: <10 min onboarding, 90% completion | 4-step wizard optimized, analytics tracking | AC-4.6: Onboarding metrics |
+
+## Risks, Assumptions, Open Questions
+
+### Risks
+
+**Risk 1: Backend API Availability**
+- **Description:** Epic 4 frontend depends entirely on Epic 1-3 backend APIs. If backend is unstable or incomplete, frontend development blocked.
+- **Probability:** Medium
+- **Impact:** High (blocks all stories)
+- **Mitigation:**
+  - Use MSW (Mock Service Worker) to mock all backend APIs during development
+  - Contract testing to verify API compatibility
+  - Early integration testing in Story 4.1 to identify issues
+  - Fallback: Build frontend with mocks, integrate later
+- **Owner:** Backend team (Epics 1-3), Frontend developer (Story 4.1)
+
+**Risk 2: OAuth Redirect URI Configuration**
+- **Description:** Gmail OAuth requires exact redirect URI match. Misconfiguration causes "redirect_uri_mismatch" error and blocks onboarding.
+- **Probability:** Medium
+- **Impact:** High (blocks Story 4.2, core onboarding)
+- **Mitigation:**
+  - Document exact redirect URI format in Story 4.2
+  - Test with multiple environments (localhost, Vercel preview, production)
+  - Clear error messages guide user to check OAuth configuration
+  - Provide troubleshooting guide in docs
+- **Owner:** Story 4.2 developer
+
+**Risk 3: Vercel Free Tier Limits**
+- **Description:** Vercel free tier has 100GB bandwidth/month. If exceeded, site becomes unavailable or incurs costs.
+- **Probability:** Low (MVP with few users)
+- **Impact:** Medium (temporary unavailability)
+- **Mitigation:**
+  - Monitor bandwidth usage via Vercel dashboard
+  - Optimize images and assets (WebP, lazy loading)
+  - Implement CDN caching headers
+  - Upgrade plan if traffic increases
+- **Owner:** DevOps, Product Manager
+
+**Risk 4: Browser Compatibility Issues**
+- **Description:** Advanced features (async/await, CSS Grid) may not work in older browsers, breaking UI.
+- **Probability:** Low (target modern browsers)
+- **Impact:** Medium (degraded UX for some users)
+- **Mitigation:**
+  - Next.js automatically polyfills for target browsers
+  - Define browser support policy: Chrome/Firefox/Safari/Edge last 2 versions
+  - Test in BrowserStack or similar cross-browser testing tool
+  - Display "Update browser" banner for unsupported browsers
+- **Owner:** Story 4.8 testing
+
+**Risk 5: Third-Party Dependency Vulnerabilities**
+- **Description:** NPM packages (React, Next.js, shadcn/ui dependencies) may have security vulnerabilities.
+- **Probability:** Medium (common in JavaScript ecosystem)
+- **Impact:** Medium (security exposure)
+- **Mitigation:**
+  - Run `npm audit` on every build (GitHub Actions)
+  - Enable Dependabot for automatic security updates
+  - Review and update dependencies monthly
+  - Fail build on high/critical vulnerabilities
+- **Owner:** DevOps, Story 4.1 setup
+
+### Assumptions
+
+**Assumption 1: Backend API Contract Stability**
+- **Description:** Assume Epic 1-3 backend APIs will not change significantly during Epic 4 development.
+- **Validation:** Confirm with backend team, use API versioning (v1)
+- **Impact if False:** Requires frontend code changes, API client updates, regression testing
+
+**Assumption 2: Vercel Deployment Access**
+- **Description:** Assume team has access to Vercel account with appropriate permissions for deployment.
+- **Validation:** Verify Vercel account setup in Story 4.1
+- **Impact if False:** Cannot deploy, must find alternative hosting (Netlify, Railway, etc.)
+
+**Assumption 3: User Has Gmail and Telegram**
+- **Description:** Assume all users have Gmail accounts and Telegram installed before starting onboarding.
+- **Validation:** Display prerequisites on landing page before onboarding
+- **Impact if False:** Cannot complete onboarding, must provide clear instructions
+
+**Assumption 4: Users Access from Desktop/Tablet**
+- **Description:** Assume primary onboarding happens on desktop or tablet (not mobile phone), as OAuth and Telegram setup easier on larger screens.
+- **Validation:** Analytics tracking of device types during onboarding
+- **Impact if False:** Mobile onboarding may have lower completion rate, need mobile-optimized wizard
+
+**Assumption 5: English-Only UI for MVP**
+- **Description:** Assume all users comfortable with English interface (multilingual email handling is separate from UI language).
+- **Validation:** Confirmed in PRD (Out of Scope: Localization/i18n)
+- **Impact if False:** Need to add i18n library (next-i18next), translate all UI strings
+
+### Open Questions
+
+**Q1: Should onboarding wizard allow skipping steps?**
+- **Context:** Some users may want to set up Gmail first, then Telegram later.
+- **Options:**
+  - A) Require all steps in order (current design)
+  - B) Allow skipping Telegram, mark as "Incomplete" on dashboard
+  - C) Allow full flexibility, but require completion before email processing starts
+- **Decision Needed By:** Story 4.6 implementation
+- **Assigned To:** Product Manager (John)
+
+**Q2: What happens if user closes browser mid-onboarding?**
+- **Context:** localStorage can save progress, but partial onboarding may leave system in inconsistent state.
+- **Options:**
+  - A) Resume from last completed step (save progress in localStorage)
+  - B) Start over from Step 1 (simpler, but worse UX)
+  - C) Save progress to backend, resume from any device
+- **Decision:** Option A (localStorage resume) for MVP
+- **Implementation:** Story 4.6
+
+**Q3: Should dashboard be accessible before onboarding completes?**
+- **Context:** User may complete Gmail OAuth (Step 1) then navigate to dashboard without finishing other steps.
+- **Options:**
+  - A) Block dashboard access until onboarding complete (redirect to /onboarding)
+  - B) Show partial dashboard with "Complete setup" banner
+  - C) Allow access, but show warnings for incomplete steps
+- **Decision Needed By:** Story 4.7 implementation
+- **Assigned To:** UX Designer (Amelia)
+
+**Q4: How to handle backend API downtime during onboarding?**
+- **Context:** If backend is down, frontend cannot complete onboarding, but user already granted Gmail OAuth.
+- **Options:**
+  - A) Display "Service temporarily unavailable, try again later" error
+  - B) Implement retry queue with exponential backoff (auto-retry)
+  - C) Save state, send email notification when service restored
+- **Decision:** Option A for MVP, B for post-MVP enhancement
+- **Implementation:** Story 4.2-4.6 error handling
+
+**Q5: Should folder colors be user-selectable or auto-generated?**
+- **Context:** UX spec shows color picker, but may add complexity.
+- **Options:**
+  - A) User selects color from palette (current UX spec)
+  - B) Auto-generate colors from predefined palette (simpler)
+  - C) No colors (text-only folder names)
+- **Decision:** Option A (color picker) per UX spec
+- **Implementation:** Story 4.4
+
+## Test Strategy Summary
+
+### Testing Pyramid
+
+```
+        /\
+       /E2E\          ← Story 4.8: 5 Playwright tests (Onboarding, Dashboard, Folders, Prefs, Errors)
+      /------\
+     /Integra-\       ← Each Story: API integration tests with MSW mocks
+    /tion Tests\
+   /------------\
+  /  Component  \     ← Each Story: React Testing Library unit tests (70%+ coverage)
+ /     Tests      \
+/------------------\
+```
+
+### Test Levels
+
+**1. Unit Tests (Component Level)**
+- **Tool:** Vitest + React Testing Library
+- **Scope:** Isolated component behavior
+- **Coverage Target:** 70%+ for UI components
+- **Examples:**
+  - GmailConnectComponent renders button and handles click
+  - TelegramLinkingComponent displays code and polls correctly
+  - FolderManagementComponent validates form inputs
+  - ErrorBoundary catches errors and displays fallback UI
+
+**2. Integration Tests (API Integration)**
+- **Tool:** MSW (Mock Service Worker) + Vitest
+- **Scope:** Component + API interaction
+- **Coverage:** All API calls mocked with realistic responses
+- **Examples:**
+  - Gmail OAuth flow: callback processes code, stores token, updates UI
+  - Telegram linking: generates code, polls verification, updates on success
+  - Folder creation: POST request succeeds, folder added to list
+  - Dashboard load: parallel API calls fetch stats, activity, user data
+
+**3. End-to-End Tests (User Journeys)**
+- **Tool:** Playwright (already used in Epic 3)
+- **Scope:** Complete user flows across multiple pages
+- **Test Count:** 5 critical scenarios
+- **Execution:** GitHub Actions on every PR + pre-deployment
+- **Test Scenarios:**
+  1. **Complete Onboarding Flow** (Story 4.8)
+     - Navigate through all 4 wizard steps
+     - Verify success checkmarks at each step
+     - Confirm redirect to dashboard
+     - Validate user.onboarding_completed = true
+
+  2. **Dashboard Data Display** (Story 4.8)
+     - Load dashboard with authenticated user
+     - Verify connection status cards render
+     - Verify email statistics display
+     - Verify recent activity list populates
+
+  3. **Folder CRUD Operations** (Story 4.8)
+     - Create new folder with name, keywords, color
+     - Edit folder name
+     - Reorder folders via drag-drop
+     - Delete folder with confirmation
+
+  4. **Notification Preferences Update** (Story 4.8)
+     - Toggle batch notifications
+     - Change batch time
+     - Enable quiet hours
+     - Save preferences and verify toast
+
+  5. **Error Handling** (Story 4.8)
+     - Simulate API failure (500 error)
+     - Verify error toast displays
+     - Verify retry button works
+     - Simulate network offline
+     - Verify offline banner displays
+
+### Test Data Strategy
+
+**Mocked Backend Responses (MSW):**
+```typescript
+// Example: Mock successful Gmail OAuth callback
+const handlers = [
+  rest.post('/api/v1/auth/gmail/callback', (req, res, ctx) => {
+    return res(
+      ctx.status(200),
+      ctx.json({
+        data: {
+          user: { id: 1, email: 'test@example.com', gmail_connected: true },
+          token: 'mock-jwt-token'
+        }
+      })
+    );
+  }),
+
+  rest.get('/api/v1/dashboard/stats', (req, res, ctx) => {
+    return res(
+      ctx.status(200),
+      ctx.json({
+        data: {
+          connections: { gmail: { connected: true }, telegram: { connected: true } },
+          email_stats: { total_processed: 127, pending_approval: 3 },
+          time_saved: { today_minutes: 15, total_minutes: 420 }
+        }
+      })
+    );
+  })
+];
+```
+
+### Quality Gates
+
+**Automated Checks (GitHub Actions):**
+1. **Linting:** ESLint must pass (zero errors)
+2. **Type Checking:** TypeScript strict mode (no `any` types)
+3. **Unit Tests:** All tests pass, coverage ≥70%
+4. **Build:** Next.js build succeeds without errors
+5. **Lighthouse CI:** Performance ≥90, Accessibility ≥95
+6. **Bundle Size:** JavaScript <250KB gzipped
+7. **E2E Tests:** All Playwright tests pass (≥95% pass rate)
+
+**Manual Testing Checklist (Story 4.8):**
+- [ ] Test onboarding on Chrome, Firefox, Safari
+- [ ] Test responsive design on mobile, tablet, desktop
+- [ ] Test keyboard navigation (Tab, Enter, Escape)
+- [ ] Test screen reader (VoiceOver spot-check)
+- [ ] Test error scenarios (API down, network offline)
+- [ ] Test OAuth with real Google account
+- [ ] Test Telegram linking with real bot
+- [ ] Verify Sentry captures errors
+- [ ] Verify Vercel Analytics tracks page views
+
+### Performance Testing
+
+**Lighthouse CI Configuration:**
+```json
+{
+  "ci": {
+    "collect": {
+      "url": ["https://preview-url.vercel.app/onboarding", "https://preview-url.vercel.app/dashboard"],
+      "numberOfRuns": 3
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.9 }],
+        "categories:accessibility": ["error", { "minScore": 0.95 }],
+        "resource-summary:script:size": ["error", { "maxNumericValue": 250000 }]
+      }
+    }
+  }
+}
+```
+
+**Load Testing (Optional, Post-MVP):**
+- Tool: k6 or Artillery
+- Simulate 100 concurrent users completing onboarding
+- Verify API response times <2s under load
+- Verify no memory leaks in long-running sessions
+
+### Test Execution Timeline
+
+| Phase | Tests | When | Owner |
+|-------|-------|------|-------|
+| **Development** | Unit + Integration tests | Every code commit | Developer |
+| **PR Review** | All automated checks + E2E | Every pull request | GitHub Actions |
+| **Pre-Deployment** | Full E2E suite + manual checklist | Before production deploy | QA / Developer |
+| **Post-Deployment** | Smoke tests (login, dashboard load) | After production deploy | Automated (Playwright) |
+| **Regression** | Full test suite | Weekly | Automated (GitHub Actions) |
+
+### Test Maintenance
+
+- **Update Frequency:** Tests updated alongside feature changes
+- **Flaky Test Policy:** Flaky tests (failing <95% of time) must be fixed or disabled within 48 hours
+- **Test Documentation:** Each E2E test includes comment explaining user journey
+- **Mock Data Updates:** Update MSW mocks when backend API contract changes
