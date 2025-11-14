@@ -43,7 +43,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
             <Mail className="h-12 w-12 text-primary" />
           </div>
         </div>
-        <h1 className="mb-2 text-3xl font-bold">Welcome to Mail Agent</h1>
+        <h1 className="mb-2 text-3xl font-bold leading-tight">Welcome to Mail Agent</h1>
         <p className="text-lg text-muted-foreground">
           Never miss an important email again
         </p>
@@ -66,8 +66,8 @@ export default function WelcomeStep({ onNext }: StepProps) {
               <Bot className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold">AI Email Sorting</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="font-semibold leading-tight">AI Email Sorting</h3>
+              <p className="text-sm text-muted-foreground leading-normal">
                 AI reads every email and suggests the right folder—so you don&apos;t have to
               </p>
             </div>
@@ -84,8 +84,8 @@ export default function WelcomeStep({ onNext }: StepProps) {
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold">One-Tap Telegram Approval</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="font-semibold leading-tight">One-Tap Telegram Approval</h3>
+              <p className="text-sm text-muted-foreground leading-normal">
                 Approve with one tap on Telegram—no need to open your inbox
               </p>
             </div>
@@ -96,8 +96,8 @@ export default function WelcomeStep({ onNext }: StepProps) {
               <FolderKanban className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold">Smart Folder Management</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="font-semibold leading-tight">Smart Folder Management</h3>
+              <p className="text-sm text-muted-foreground leading-normal">
                 Set up folders that match how you work—perfect for freelancers and busy professionals
               </p>
             </div>
@@ -111,7 +111,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
           <CardTitle>5-Minute Setup</CardTitle>
           <CardDescription>We&apos;ll walk you through everything—it&apos;s easier than you think</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           <div className="flex items-center gap-3 text-sm">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
               1
@@ -149,12 +149,14 @@ export default function WelcomeStep({ onNext }: StepProps) {
           Get Started
         </Button>
 
-        <button
+        <Button
           onClick={handleSkip}
-          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
         >
           Skip setup—I&apos;ll configure this later
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -63,7 +63,7 @@ export default function CompletionStep({ currentState }: StepProps) {
             <PartyPopper className="h-16 w-16 text-green-600 dark:text-green-400" />
           </div>
         </div>
-        <h1 className="mb-2 text-3xl font-bold">You&apos;re All Set! 🎉</h1>
+        <h1 className="mb-2 text-3xl font-bold leading-tight">You&apos;re All Set! 🎉</h1>
         <p className="text-lg text-muted-foreground">
           Your inbox is now on autopilot. Here&apos;s what we set up:
         </p>
@@ -137,8 +137,8 @@ export default function CompletionStep({ currentState }: StepProps) {
       {/* What happens next */}
       <Card>
         <CardContent className="space-y-3 py-6">
-          <h3 className="font-semibold">What happens next?</h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
+          <h3 className="font-semibold leading-tight">What happens next?</h3>
+          <ul className="space-y-3 text-sm text-muted-foreground leading-normal">
             <li className="flex items-start gap-2">
               <span className="text-primary">•</span>
               <span>We&apos;ll watch your inbox for new emails</span>
