@@ -380,6 +380,33 @@ GMAIL_SCOPES = [
 oauth_states = {}
 
 
+@router.get("/gmail/config")
+async def get_gmail_oauth_config(request: Request):
+    """Get Gmail OAuth 2.0 configuration.
+
+    Returns the OAuth configuration needed by the frontend to initiate
+    the Gmail authorization flow.
+
+    Args:
+        request: The FastAPI request object for rate limiting.
+
+    Returns:
+        dict: OAuth configuration including client_id, auth_url, and scopes
+
+    Example:
+        {
+            "auth_url": "https://accounts.google.com/o/oauth2/auth",
+            "client_id": "your-client-id.apps.googleusercontent.com",
+            "scopes": ["https://www.googleapis.com/auth/gmail.readonly", ...]
+        }
+    """
+    return {
+        "auth_url": "https://accounts.google.com/o/oauth2/auth",
+        "client_id": settings.GMAIL_CLIENT_ID,
+        "scopes": GMAIL_SCOPES,
+    }
+
+
 @router.post("/gmail/login")
 async def gmail_login(request: Request):
     """Initiate Gmail OAuth 2.0 flow.
