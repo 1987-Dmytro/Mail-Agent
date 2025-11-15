@@ -109,6 +109,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    env:
+      DATABASE_URL: postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent
+      SECRET_KEY: test-secret-key-for-ci
+      ENVIRONMENT: test
+
     services:
       postgres:
         image: postgres:16
@@ -143,18 +148,12 @@ jobs:
       - name: Run database migrations
         working-directory: backend
         run: uv run alembic upgrade head
-        env:
-          DATABASE_URL: postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent
 
       - name: Start backend server
         working-directory: backend
         run: |
           uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
           echo $! > backend.pid
-        env:
-          DATABASE_URL: postgresql+psycopg://mailagent:mailagent_dev_password_2024@localhost:5432/mailagent
-          SECRET_KEY: test-secret-key-for-ci
-          ENVIRONMENT: test
 
       - name: Wait for backend to be ready
         run: |
