@@ -50,6 +50,7 @@ class TelegramStatusResponse(BaseModel):
     data: TelegramStatusData
 
 
+@router.post("/link", response_model=LinkingCodeResponse, status_code=201)
 @router.post("/generate-code", response_model=LinkingCodeResponse, status_code=201)
 async def generate_telegram_linking_code(
     current_user: User = Depends(get_current_user),

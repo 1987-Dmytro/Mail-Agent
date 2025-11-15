@@ -646,3 +646,36 @@ async def gmail_status(user: User = Depends(get_current_user)):
     except Exception as e:
         logger.error("gmail_status_check_failed", user_id=user.id, error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to check Gmail status: {str(e)}")
+
+
+@router.get("/protected")
+async def protected_endpoint(
+    current_user: User = Depends(get_current_user),
+):
+    """Protected test endpoint for authentication verification.
+    
+    This endpoint is used by integration tests to verify that authentication
+    is working correctly. Returns 401 if not authenticated, 200 if authenticated.
+    
+    Args:
+        current_user: Authenticated user from JWT token
+        
+    Returns:
+        dict: Success response with user info
+        
+    Example:
+        GET /api/v1/protected
+        Authorization: Bearer <jwt_token>
+        
+        Response:
+        {
+            "success": true,
+            "message": "Access granted",
+            "user_id": 1
+        }
+    """
+    return {
+        "success": True,
+        "message": "Access granted",
+        "user_id": current_user.id,
+    }
