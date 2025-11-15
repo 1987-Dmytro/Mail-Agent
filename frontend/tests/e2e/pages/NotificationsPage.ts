@@ -64,7 +64,8 @@ export class NotificationsPage {
    * Toggle batch notifications
    */
   async toggleBatchNotifications(enabled: boolean) {
-    const batchToggle = this.page.getByLabel(/batch notifications/i);
+    // Use specific switch role with exact label to avoid strict mode violations
+    const batchToggle = this.page.getByRole('switch', { name: 'Enable batch notifications' });
     await expect(batchToggle).toBeVisible();
 
     if (enabled) {
@@ -75,19 +76,26 @@ export class NotificationsPage {
   }
 
   /**
-   * Set batch time
+   * Set batch time (uses Select component, not input)
    */
   async setBatchTime(time: string) {
-    const timeInput = this.page.locator('input[name="batch_time"]');
-    await expect(timeInput).toBeVisible();
-    await timeInput.fill(time);
+    // Click the Select trigger to open dropdown
+    const selectTrigger = this.page.locator('#batch_time');
+    await expect(selectTrigger).toBeVisible();
+    await selectTrigger.click();
+
+    // Wait for dropdown to appear and click the option
+    const option = this.page.getByRole('option', { name: new RegExp(time) });
+    await expect(option).toBeVisible();
+    await option.click();
   }
 
   /**
    * Toggle quiet hours
    */
   async toggleQuietHours(enabled: boolean) {
-    const quietHoursToggle = this.page.getByLabel(/quiet hours/i);
+    // Use specific switch role with exact label to avoid strict mode violations
+    const quietHoursToggle = this.page.getByRole('switch', { name: 'Enable quiet hours' });
     await expect(quietHoursToggle).toBeVisible();
 
     if (enabled) {
@@ -115,7 +123,8 @@ export class NotificationsPage {
    * Toggle priority immediate
    */
   async togglePriorityImmediate(enabled: boolean) {
-    const priorityToggle = this.page.getByLabel(/priority.*immediate/i);
+    // Use specific switch role with exact label to avoid strict mode violations
+    const priorityToggle = this.page.getByRole('switch', { name: 'Immediate priority notifications' });
     await expect(priorityToggle).toBeVisible();
 
     if (enabled) {
@@ -192,24 +201,24 @@ export class NotificationsPage {
     quietHoursEnd?: string;
     priorityImmediate: boolean;
   }) {
-    // Verify batch notifications
-    const batchToggle = this.page.getByLabel(/batch notifications/i);
+    // Verify batch notifications - use specific switch role to avoid strict mode violations
+    const batchToggle = this.page.getByRole('switch', { name: 'Enable batch notifications' });
     if (preferences.batchEnabled) {
       await expect(batchToggle).toBeChecked();
     } else {
       await expect(batchToggle).not.toBeChecked();
     }
 
-    // Verify quiet hours
-    const quietHoursToggle = this.page.getByLabel(/quiet hours/i);
+    // Verify quiet hours - use specific switch role to avoid strict mode violations
+    const quietHoursToggle = this.page.getByRole('switch', { name: 'Enable quiet hours' });
     if (preferences.quietHoursEnabled) {
       await expect(quietHoursToggle).toBeChecked();
     } else {
       await expect(quietHoursToggle).not.toBeChecked();
     }
 
-    // Verify priority immediate
-    const priorityToggle = this.page.getByLabel(/priority.*immediate/i);
+    // Verify priority immediate - use specific switch role to avoid strict mode violations
+    const priorityToggle = this.page.getByRole('switch', { name: 'Immediate priority notifications' });
     if (preferences.priorityImmediate) {
       await expect(priorityToggle).toBeChecked();
     } else {

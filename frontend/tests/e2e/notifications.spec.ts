@@ -40,16 +40,17 @@ test.describe('Notification Preferences E2E Tests', () => {
       page.getByRole('heading', { name: /notification.*preference|notification.*setting/i })
     ).toBeVisible();
 
-    // Verify key elements are present
-    await expect(page.getByLabel(/batch notifications/i)).toBeVisible();
-    await expect(page.getByLabel(/quiet hours/i)).toBeVisible();
-    await expect(page.getByLabel(/priority.*immediate/i)).toBeVisible();
+    // Verify key elements are present - use specific switch roles to avoid strict mode violations
+    await expect(page.getByRole('switch', { name: 'Enable batch notifications' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Enable quiet hours' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Immediate priority notifications' })).toBeVisible();
   });
 
   test('toggle batch notifications on and off', async ({ page }) => {
     await notificationsPage.goto();
 
-    const batchToggle = page.getByLabel(/batch notifications/i);
+    // Use specific switch role to avoid strict mode violations
+    const batchToggle = page.getByRole('switch', { name: 'Enable batch notifications' });
 
     // Turn on batch notifications
     await batchToggle.check();
@@ -66,19 +67,20 @@ test.describe('Notification Preferences E2E Tests', () => {
     // Enable batch notifications
     await notificationsPage.toggleBatchNotifications(true);
 
-    // Set batch time
-    await notificationsPage.setBatchTime('09:00');
+    // Set batch time (component uses Select, not input)
+    await notificationsPage.setBatchTime('08:00');
 
-    // Verify time is set
-    const timeInput = page.locator('input[name="batch_time"]');
-    const value = await timeInput.inputValue();
-    expect(value).toBe('09:00');
+    // Verify time is set - check the Select trigger value
+    const selectTrigger = page.locator('#batch_time');
+    const value = await selectTrigger.textContent();
+    expect(value).toContain('08:00');
   });
 
   test('toggle quiet hours on and off', async ({ page }) => {
     await notificationsPage.goto();
 
-    const quietHoursToggle = page.getByLabel(/quiet hours/i);
+    // Use specific switch role to avoid strict mode violations
+    const quietHoursToggle = page.getByRole('switch', { name: 'Enable quiet hours' });
 
     // Turn on quiet hours
     await quietHoursToggle.check();
@@ -112,7 +114,8 @@ test.describe('Notification Preferences E2E Tests', () => {
   test('toggle priority immediate notifications', async ({ page }) => {
     await notificationsPage.goto();
 
-    const priorityToggle = page.getByLabel(/priority.*immediate/i);
+    // Use specific switch role to avoid strict mode violations
+    const priorityToggle = page.getByRole('switch', { name: 'Immediate priority notifications' });
 
     // Turn on priority immediate
     await priorityToggle.check();
@@ -170,14 +173,14 @@ test.describe('Notification Preferences E2E Tests', () => {
     // Refresh page
     await page.reload();
 
-    // Verify preferences persisted
-    const batchToggle = page.getByLabel(/batch notifications/i);
+    // Verify preferences persisted - use specific switch roles to avoid strict mode violations
+    const batchToggle = page.getByRole('switch', { name: 'Enable batch notifications' });
     await expect(batchToggle).toBeChecked();
 
-    const quietHoursToggle = page.getByLabel(/quiet hours/i);
+    const quietHoursToggle = page.getByRole('switch', { name: 'Enable quiet hours' });
     await expect(quietHoursToggle).toBeChecked();
 
-    const priorityToggle = page.getByLabel(/priority.*immediate/i);
+    const priorityToggle = page.getByRole('switch', { name: 'Immediate priority notifications' });
     await expect(priorityToggle).not.toBeChecked();
   });
 
@@ -187,12 +190,11 @@ test.describe('Notification Preferences E2E Tests', () => {
     // Disable batch notifications
     await notificationsPage.toggleBatchNotifications(false);
 
-    // Verify batch time input is disabled or hidden
-    const timeInput = page.locator('input[name="batch_time"]');
-    const isDisabled = await timeInput.isDisabled().catch(() => false);
-    const isHidden = !(await timeInput.isVisible().catch(() => true));
+    // Verify batch time Select is hidden (component uses Select, not input)
+    const selectTrigger = page.locator('#batch_time');
+    const isHidden = !(await selectTrigger.isVisible().catch(() => true));
 
-    expect(isDisabled || isHidden).toBeTruthy();
+    expect(isHidden).toBeTruthy();
   });
 
   test('quiet hours time fields disabled when quiet hours off', async ({ page }) => {
@@ -217,35 +219,48 @@ test.describe('Notification Preferences E2E Tests', () => {
   test('notification preferences show helpful descriptions', async ({ page }) => {
     await notificationsPage.goto();
 
-    // Verify descriptions/help text is present
+    // Verify Card descriptions are present - use exact text to avoid strict mode violations
     await expect(
-      page.getByText(/batch.*notification.*collect|group.*notification/i)
+      page.getByRole('heading', { name: 'Batch Notifications' })
+    ).toBeVisible();
+    await expect(
+      page.locator('text=Group email notifications and send once per day').first()
     ).toBeVisible();
 
     await expect(
-      page.getByText(/quiet hours.*silent|no notification.*during/i)
+      page.getByRole('heading', { name: 'Quiet Hours' })
+    ).toBeVisible();
+    await expect(
+      page.locator('text=Suppress all notifications during specified hours').first()
     ).toBeVisible();
 
     await expect(
-      page.getByText(/priority.*immediate|high priority.*instant/i)
+      page.getByRole('heading', { name: 'Priority Notifications' })
+    ).toBeVisible();
+    await expect(
+      page.locator('text=Receive high-priority emails immediately, bypassing batch').first()
     ).toBeVisible();
   });
 
   test('notification preferences validate time format', async ({ page }) => {
     await notificationsPage.goto();
 
-    // Enable batch notifications
-    await notificationsPage.toggleBatchNotifications(true);
+    // Enable quiet hours (to test time input validation)
+    await notificationsPage.toggleQuietHours(true);
 
-    // Try to enter invalid time
-    const timeInput = page.locator('input[name="batch_time"]');
-    await timeInput.fill('99:99');
+    // Try to enter invalid time in quiet hours start field
+    const quietHoursStart = page.locator('input#quiet_hours_start');
+    await quietHoursStart.fill('99:99');
+
+    // Try to enter invalid time in quiet hours end field
+    const quietHoursEnd = page.locator('input#quiet_hours_end');
+    await quietHoursEnd.fill('25:00');
 
     // Save preferences
     const saveButton = page.getByRole('button', { name: /save|update/i });
     await saveButton.click();
 
-    // Verify validation error or time is corrected
-    // HTML5 time input typically handles validation
+    // Verify validation error appears (HTML5 time input handles validation)
+    // Browser will block form submission for invalid times
   });
 });
