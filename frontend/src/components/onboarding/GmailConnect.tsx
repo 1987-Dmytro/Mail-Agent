@@ -82,9 +82,15 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
     if (isAuthenticated && authUser?.gmail_connected) {
       setUserEmail(authUser.email);
       setState('success');
+
+      // CRITICAL FIX: Call onSuccess to update wizard state and allow step advancement
+      if (onSuccess) {
+        onSuccess();
+      }
+
       return;
     }
-  }, [isAuthenticated, authLoading, authUser]);
+  }, [isAuthenticated, authLoading, authUser, onSuccess]);
 
   /**
    * Check for OAuth callback params on component mount

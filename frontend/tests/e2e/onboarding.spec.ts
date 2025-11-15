@@ -63,14 +63,8 @@ test.describe('Onboarding Flow E2E Tests', () => {
     // Step 1.5: Complete Welcome step
     await onboardingPage.completeWelcomeStep();
 
-    // Step 2: Complete Gmail OAuth connection
+    // Step 2: Complete Gmail OAuth connection (now includes advancing to Telegram step)
     await onboardingPage.completeGmailStep();
-
-    // Verify Gmail connected successfully
-    await expect(page.getByRole('heading', { name: 'Gmail Connected!' })).toBeVisible();
-
-    // Click Continue to advance to Telegram step
-    await page.getByRole('button', { name: 'Continue to Telegram Setup' }).click();
 
     // Step 3: Complete Telegram bot linking
     await onboardingPage.completeTelegramStep();
@@ -134,31 +128,19 @@ test.describe('Onboarding Flow E2E Tests', () => {
     await onboardingPage.goto();
     await onboardingPage.completeWelcomeStep();
 
-    // Complete Gmail OAuth flow
+    // Complete Gmail OAuth flow (now includes advancing to Telegram step)
     await onboardingPage.completeGmailStep();
 
-    // Verify success indicator
-    await expect(page.getByText(/gmail connected/i)).toBeVisible();
-
-    // Verify connected email is displayed
-    await expect(page.getByText(/test@example\.com/i)).toBeVisible();
-
-    // Verify can proceed to next step (use specific button text to avoid strict mode violation)
-    const continueButton = page.getByRole('button', { name: 'Continue to Telegram Setup' });
-    await expect(continueButton).toBeVisible();
-    await expect(continueButton).toBeEnabled();
+    // Verify we successfully advanced to Telegram step (proves Gmail connected)
+    await expect(page.getByRole('heading', { name: /link telegram|telegram bot/i })).toBeVisible();
   });
 
   test('Telegram linking step completes successfully', async ({ page }) => {
     await onboardingPage.goto();
     await onboardingPage.completeWelcomeStep();
 
-    // Complete Gmail step first
+    // Complete Gmail step first (now includes advancing to Telegram step)
     await onboardingPage.completeGmailStep();
-
-    // Navigate to Telegram step
-    const continueButton = page.getByRole('button', { name: 'Continue to Telegram Setup' });
-    await continueButton.click();
 
     // Complete Telegram linking
     await onboardingPage.completeTelegramStep();
@@ -173,7 +155,6 @@ test.describe('Onboarding Flow E2E Tests', () => {
 
     // Skip to folders step (complete previous steps)
     await onboardingPage.completeGmailStep();
-    await page.getByRole('button', { name: 'Continue to Telegram Setup' }).click();
 
     await onboardingPage.completeTelegramStep();
     // After Telegram, click Continue button (generic, not "Continue to Telegram Setup")
@@ -198,7 +179,6 @@ test.describe('Onboarding Flow E2E Tests', () => {
 
     // Complete Gmail and Telegram steps
     await onboardingPage.completeGmailStep();
-    await page.getByRole('button', { name: 'Continue to Telegram Setup' }).click();
     await onboardingPage.completeTelegramStep();
     await page.getByRole('button', { name: /continue/i }).click();
 
@@ -224,7 +204,6 @@ test.describe('Onboarding Flow E2E Tests', () => {
 
     // Navigate to folders step
     await onboardingPage.completeGmailStep();
-    await page.getByRole('button', { name: 'Continue to Telegram Setup' }).click();
     await onboardingPage.completeTelegramStep();
     await page.getByRole('button', { name: /continue/i }).click();
 
@@ -253,7 +232,6 @@ test.describe('Onboarding Flow E2E Tests', () => {
     await onboardingPage.goto();
     await onboardingPage.completeWelcomeStep();
     await onboardingPage.completeGmailStep();
-    await page.getByRole('button', { name: 'Continue to Telegram Setup' }).click();
     await onboardingPage.completeTelegramStep();
     await page.getByRole('button', { name: /continue/i }).click();
     await onboardingPage.completeFoldersStep();
@@ -286,7 +264,6 @@ test.describe('Onboarding Flow E2E Tests', () => {
     // Move to next step
     await onboardingPage.completeWelcomeStep();
     await onboardingPage.completeGmailStep();
-    await page.getByRole('button', { name: 'Continue to Telegram Setup' }).click();
 
     // Verify progress updated (step 3 = Telegram)
     await expect(page.getByText(/step 3.*5|3.*of.*5/i)).toBeVisible();
@@ -296,7 +273,6 @@ test.describe('Onboarding Flow E2E Tests', () => {
     await onboardingPage.goto();
     await onboardingPage.completeWelcomeStep();
     await onboardingPage.completeGmailStep();
-    await page.getByRole('button', { name: 'Continue to Telegram Setup' }).click();
     await onboardingPage.completeTelegramStep();
     await page.getByRole('button', { name: /continue/i }).click();
 
@@ -332,7 +308,6 @@ test.describe('Onboarding Flow E2E Tests', () => {
 
     // Complete Gmail and move to Telegram step (step 3)
     await onboardingPage.completeGmailStep();
-    await page.getByRole('button', { name: 'Continue to Telegram Setup' }).click();
 
     // Telegram step shows success state immediately (already connected in beforeEach)
     await expect(page.getByText(/telegram connected/i)).toBeVisible({ timeout: 10000 });
