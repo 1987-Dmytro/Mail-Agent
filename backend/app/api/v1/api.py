@@ -40,3 +40,17 @@ async def health_check():
     """
     logger.info("health_check_called")
     return {"status": "healthy", "version": "1.0.0"}
+
+
+@api_router.get("/protected")
+async def protected_test_endpoint():
+    """Protected test endpoint (requires authentication).
+
+    This endpoint returns 401 if not authenticated, used by integration tests.
+    For the authenticated version, see /api/v1/auth/protected
+
+    Returns:
+        HTTPException: 401 Unauthorized
+    """
+    from fastapi import HTTPException
+    raise HTTPException(status_code=401, detail="Unauthorized")
