@@ -49,6 +49,7 @@ class ApiClient {
         'Content-Type': 'application/json',
       },
       // In test environment, explicitly use XHR adapter for MSW compatibility
+      // Vitest automatically sets NODE_ENV to 'test'
       ...(process.env.NODE_ENV === 'test' && {
         adapter: 'xhr',
       }),

@@ -12,11 +12,6 @@ export default defineConfig({
     // Use threads instead of forks to prevent hanging processes
     // Threads are lighter and properly cleaned up after tests
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: true, // Required for MSW to work properly
-      },
-    },
     // Add reasonable timeouts
     testTimeout: 10000,
     hookTimeout: 10000,

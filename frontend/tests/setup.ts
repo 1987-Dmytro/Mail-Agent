@@ -1,5 +1,5 @@
 // CRITICAL: Set environment variables BEFORE any imports that might use them
-process.env.NODE_ENV = 'test';
+// NOTE: NODE_ENV is automatically set to 'test' by Vitest
 if (!process.env.NEXT_PUBLIC_API_URL) {
   process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000';
 }
