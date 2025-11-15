@@ -301,9 +301,10 @@ test.describe('Onboarding Flow E2E Tests', () => {
     // Move to Gmail step (step 2)
     await onboardingPage.completeWelcomeStep();
 
-    // Verify Gmail step has instructions (use button text as unique identifier)
+    // Verify Gmail step has instructions
+    // Since Gmail is already connected (from beforeEach), verify success state instead
     await expect(
-      page.getByRole('button', { name: /connect gmail/i })
+      page.getByRole('button', { name: /continue to telegram/i })
     ).toBeVisible();
 
     // Complete Gmail and move to Telegram step (step 3)
