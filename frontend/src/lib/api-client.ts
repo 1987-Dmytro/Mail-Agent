@@ -48,6 +48,10 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      // In test environment, explicitly use XHR adapter for MSW compatibility
+      ...(process.env.NODE_ENV === 'test' && {
+        adapter: 'xhr',
+      }),
     });
 
     // Request interceptor: Add JWT token to requests
