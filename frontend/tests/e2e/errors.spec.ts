@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { OnboardingPage } from './pages/OnboardingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { FoldersPage } from './pages/FoldersPage';
-import { NotificationsPage } from './pages/NotificationsPage';
 import { setupAuthenticatedSession, mockAuthEndpoints } from './fixtures/auth';
 import { mockAllApiEndpoints } from './fixtures/data';
 
@@ -109,8 +107,6 @@ test.describe('Error Scenario E2E Tests', () => {
   });
 
   test('network recovery restores functionality', async ({ page }) => {
-    const dashboardPage = new DashboardPage(page);
-
     // Start offline
     await page.context().setOffline(true);
 
@@ -134,8 +130,6 @@ test.describe('Error Scenario E2E Tests', () => {
   });
 
   test('API timeout shows timeout error message', async ({ page }) => {
-    const dashboardPage = new DashboardPage(page);
-
     // Mock slow API that times out
     await page.route('**/api/v1/dashboard/stats', async (route) => {
       // Wait longer than timeout (simulate hanging request)
@@ -288,8 +282,6 @@ test.describe('Error Scenario E2E Tests', () => {
   });
 
   test('malformed API response shows generic error', async ({ page }) => {
-    const dashboardPage = new DashboardPage(page);
-
     // Mock malformed JSON response
     await page.route('**/api/v1/dashboard/stats', (route) => {
       route.fulfill({

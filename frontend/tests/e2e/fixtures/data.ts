@@ -56,28 +56,34 @@ export interface DashboardStats {
 
 export const mockFolderCategories: FolderCategory[] = [
   {
-    id: 'folder-1',
+    id: 1,
     name: 'Government',
-    keywords: ['finanzamt', 'tax', 'bürgeramt'],
+    keywords: 'finanzamt, tax, bürgeramt',
     color: '#3b82f6',
     order: 1,
+    is_default: false,
     created_at: '2025-01-10T10:00:00Z',
+    updated_at: '2025-01-10T10:00:00Z',
   },
   {
-    id: 'folder-2',
+    id: 2,
     name: 'Banking',
-    keywords: ['bank', 'sparkasse', 'n26'],
+    keywords: 'bank, sparkasse, n26',
     color: '#10b981',
     order: 2,
+    is_default: false,
     created_at: '2025-01-10T10:01:00Z',
+    updated_at: '2025-01-10T10:01:00Z',
   },
   {
-    id: 'folder-3',
+    id: 3,
     name: 'Work',
-    keywords: ['project', 'meeting', 'deadline'],
+    keywords: 'project, meeting, deadline',
     color: '#f59e0b',
     order: 3,
+    is_default: false,
     created_at: '2025-01-10T10:02:00Z',
+    updated_at: '2025-01-10T10:02:00Z',
   },
 ];
 
@@ -136,12 +142,14 @@ export const mockDashboardStats: DashboardStats = {
  */
 export function createMockFolder(overrides?: Partial<FolderCategory>): FolderCategory {
   return {
-    id: `folder-${Date.now()}`,
+    id: Date.now(),
     name: 'Test Folder',
-    keywords: ['test', 'example'],
+    keywords: 'test, example',
     color: '#8b5cf6',
     order: 99,
+    is_default: false,
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
     ...overrides,
   };
 }

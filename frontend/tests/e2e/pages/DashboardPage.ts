@@ -1,6 +1,5 @@
 import { Page, expect } from '@playwright/test';
 import { mockDashboardStats } from '../fixtures/data';
-import { setupAuthenticatedSession, mockAuthEndpoints } from '../fixtures/auth';
 
 /**
  * Page Object for Dashboard Page
@@ -73,8 +72,10 @@ export class DashboardPage {
 
     // Verify at least one activity item is displayed
     const firstActivity = mockDashboardStats.recent_activity[0];
-    await expect(this.page.getByText(firstActivity.email_subject)).toBeVisible();
-    await expect(this.page.getByText(firstActivity.action)).toBeVisible();
+    if (firstActivity) {
+      await expect(this.page.getByText(firstActivity.email_subject)).toBeVisible();
+      await expect(this.page.getByText(firstActivity.action)).toBeVisible();
+    }
   }
 
   /**

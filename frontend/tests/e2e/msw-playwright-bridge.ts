@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { RequestHandler, http, HttpResponse } from 'msw';
+import { RequestHandler } from 'msw';
 
 /**
  * MSW-Playwright Bridge
@@ -60,15 +60,18 @@ export async function setupMSWForPlaywright(page: Page, handlers: RequestHandler
   for (const handler of handlers) {
     try {
       // Access MSW handler internal structure
-      // @ts-expect-error - Accessing MSW internals (stable API)
-      const handlerInfo = handler.info;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handlerInfo = (handler as any).info;
 
       if (!handlerInfo) {
         console.warn('⚠️ MSW Bridge: Handler missing info, skipping');
         continue;
       }
 
-      const { method, path } = handlerInfo;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const method = (handlerInfo as any).method;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const path = (handlerInfo as any).path;
       const playwrightPattern = convertPathToPlaywrightPattern(path);
 
       // Install Playwright route that delegates to MSW handler
@@ -84,16 +87,8 @@ export async function setupMSWForPlaywright(page: Page, handlers: RequestHandler
         // Extract path parameters
         const params = extractPathParams(path, request.url());
 
-        // Parse request body
-        let requestBody: any = undefined;
+        // Get request body
         const postData = request.postData();
-        if (postData) {
-          try {
-            requestBody = JSON.parse(postData);
-          } catch (e) {
-            requestBody = postData;
-          }
-        }
 
         // Create MSW-compatible request object
         const mswRequest = new Request(request.url(), {
@@ -104,8 +99,10 @@ export async function setupMSWForPlaywright(page: Page, handlers: RequestHandler
 
         try {
           // Call MSW resolver
-          // @ts-expect-error - MSW internal API
-          const response = await handler.resolver({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const resolverFn = (handler as any).resolver;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const response: any = await resolverFn({
             request: mswRequest,
             params,
             cookies: {},

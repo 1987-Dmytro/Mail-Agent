@@ -12,15 +12,6 @@ export default defineConfig({
     // Use threads instead of forks to prevent hanging processes
     // Threads are lighter and properly cleaned up after tests
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        // Limit concurrent threads to reduce CPU load
-        minThreads: 1,
-        maxThreads: 4,
-        // Ensure threads terminate after tests
-        isolate: false,
-      },
-    },
     // Add reasonable timeouts
     testTimeout: 10000,
     hookTimeout: 10000,

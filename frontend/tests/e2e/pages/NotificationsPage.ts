@@ -1,6 +1,5 @@
 import { Page, expect } from '@playwright/test';
 import { mockNotificationPreferences } from '../fixtures/data';
-import { setupAuthenticatedSession, mockAuthEndpoints } from '../fixtures/auth';
 
 /**
  * Page Object for Notification Preferences Page

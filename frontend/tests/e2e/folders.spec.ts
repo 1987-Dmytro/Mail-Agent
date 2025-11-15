@@ -200,7 +200,7 @@ test.describe('Folder Management E2E Tests', () => {
 
     // Get initial order
     const folders = page.locator('[data-folder-name]');
-    const initialFirst = await folders.first().getAttribute('data-folder-name');
+    await folders.first().getAttribute('data-folder-name');
 
     // Note: Drag-drop testing in Playwright can be complex
     // This test verifies the reorder functionality exists
@@ -210,7 +210,7 @@ test.describe('Folder Management E2E Tests', () => {
     const reorderHandle = page.locator('[data-drag-handle]').first();
     if (await reorderHandle.isVisible()) {
       // Drag-drop logic would go here
-      // await foldersPage.reorderFolder(initialFirst!, 2);
+      // Future: implement drag-drop reordering test
     }
   });
 });

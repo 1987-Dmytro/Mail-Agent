@@ -1,5 +1,5 @@
 import { Page, expect } from '@playwright/test';
-import { mockGmailOAuthFlow, mockTelegramLinkingFlow } from '../fixtures/auth';
+import { mockTelegramLinkingFlow } from '../fixtures/auth';
 
 /**
  * Page Object for Onboarding Wizard
@@ -105,7 +105,7 @@ export class OnboardingPage {
    * SIMPLIFIED: Use suggested folders (bulk add)
    * Folders param kept for backward compatibility but not used
    */
-  async completeFoldersStep(folders?: Array<{ name: string; keywords: string; color?: string }>) {
+  async completeFoldersStep(_folders?: Array<{ name: string; keywords: string; color?: string }>) {
     // Wait for step 4 to be visible
     await expect(this.page.getByRole('heading', { name: /setup.*folders/i }).first()).toBeVisible();
 

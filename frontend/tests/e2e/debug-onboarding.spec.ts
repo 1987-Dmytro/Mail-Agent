@@ -66,7 +66,6 @@ test.describe('Onboarding Debug Tests', () => {
 
     // Log current step state via JavaScript
     const stepBefore = await page.evaluate(() => {
-      const stepElement = document.querySelector('[class*="step"]');
       return {
         html: document.body.innerHTML.substring(0, 500),
         localStorage: localStorage.getItem('onboarding_progress'),
@@ -99,7 +98,7 @@ test.describe('Onboarding Debug Tests', () => {
     try {
       await expect(page.getByRole('button', { name: /connect gmail/i })).toBeVisible({ timeout: 10000 });
       console.log('✓ Gmail button appeared!');
-    } catch (error) {
+    } catch {
       console.log('✗ Gmail button DID NOT appear after 10 seconds');
 
       // Dump final state

@@ -1,6 +1,5 @@
 import { Page, expect } from '@playwright/test';
 import { mockFolderCategories, createMockFolder, FolderCategory } from '../fixtures/data';
-import { setupAuthenticatedSession, mockAuthEndpoints } from '../fixtures/auth';
 
 /**
  * Page Object for Folder Management Page
@@ -61,7 +60,8 @@ export class FoldersPage {
 
     // PATCH /api/v1/folders/:id - Update folder
     await this.page.route('**/api/v1/folders/*', (route) => {
-      const id = route.request().url().split('/').pop();
+      const idString = route.request().url().split('/').pop();
+      const id = idString ? parseInt(idString, 10) : 0;
 
       if (route.request().method() === 'PATCH') {
         const updates = route.request().postDataJSON();
@@ -97,7 +97,7 @@ export class FoldersPage {
   /**
    * Create a new folder
    */
-  async createFolder(name: string, keywords: string, color: string = '#3b82f6') {
+  async createFolder(name: string, keywords: string, _color: string = '#3b82f6') {
     // Click "Add Folder" or "Create Folder" button
     const addButton = this.page.getByRole('button', { name: /add folder|create folder/i });
     await expect(addButton).toBeVisible();
