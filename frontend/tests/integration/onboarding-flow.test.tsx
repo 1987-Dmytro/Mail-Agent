@@ -339,8 +339,8 @@ describe('OnboardingWizard Integration Tests', () => {
       expect(screen.getByText(/Step 5 of 5/i)).toBeInTheDocument();
     });
 
-    // Click "Go to Dashboard" button
-    const dashboardButton = screen.getByRole('button', { name: /Go to Dashboard/i });
+    // Click "Take Me to My Dashboard" button
+    const dashboardButton = screen.getByRole('button', { name: /Take Me to My Dashboard/i });
     fireEvent.click(dashboardButton);
 
     // Verify apiClient.updateUser was called with correct payload
