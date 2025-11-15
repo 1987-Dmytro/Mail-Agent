@@ -205,8 +205,8 @@ test.describe('Dashboard Page E2E Tests', () => {
     if (await lastSyncText.isVisible()) {
       await expect(lastSyncText).toBeVisible();
 
-      // Verify sync time includes time information
-      await expect(page.getByText(/ago|minute|hour|second/i)).toBeVisible();
+      // Verify sync time includes time information (use .first() to avoid strict mode)
+      await expect(page.getByText(/ago|minute|hour|second/i).first()).toBeVisible();
     }
   });
 

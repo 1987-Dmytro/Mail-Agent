@@ -29,28 +29,34 @@ export interface NotificationPreferences {
   priority_immediate: boolean;
 }
 
+// CRITICAL: This must match the actual DashboardStats type from src/types/dashboard.ts
 export interface DashboardStats {
   connections: {
-    gmail_connected: boolean;
-    telegram_connected: boolean;
-    last_sync: string;
+    gmail: {
+      connected: boolean;
+      last_sync?: string;
+    };
+    telegram: {
+      connected: boolean;
+      last_sync?: string;
+    };
   };
   email_stats: {
     total_processed: number;
-    today: number;
-    this_week: number;
-    needs_approval: number;
+    pending_approval: number;
+    auto_sorted: number;
+    responses_sent: number;
   };
   time_saved: {
-    hours: number;
-    minutes: number;
+    today_minutes: number;
+    total_minutes: number;
   };
   recent_activity: Array<{
-    id: string;
+    id: number;
+    type: 'sorted' | 'response_sent' | 'rejected';
     email_subject: string;
-    action: string;
     timestamp: string;
-    category?: string;
+    folder_name?: string;
   }>;
 }
 
@@ -98,41 +104,46 @@ export const mockNotificationPreferences: NotificationPreferences = {
 
 export const mockDashboardStats: DashboardStats = {
   connections: {
-    gmail_connected: true,
-    telegram_connected: true,
-    last_sync: new Date().toISOString(),
+    gmail: {
+      connected: true,
+      last_sync: new Date().toISOString(),
+    },
+    telegram: {
+      connected: true,
+      last_sync: new Date().toISOString(),
+    },
   },
   email_stats: {
     total_processed: 127,
-    today: 8,
-    this_week: 34,
-    needs_approval: 3,
+    pending_approval: 3,
+    auto_sorted: 100,
+    responses_sent: 24,
   },
   time_saved: {
-    hours: 2,
-    minutes: 15,
+    today_minutes: 45,
+    total_minutes: 2340,
   },
   recent_activity: [
     {
-      id: 'activity-1',
+      id: 1,
+      type: 'sorted' as const,
       email_subject: 'Tax Return Documents',
-      action: 'Sorted to Government',
       timestamp: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      category: 'Government',
+      folder_name: 'Government',
     },
     {
-      id: 'activity-2',
+      id: 2,
+      type: 'sorted' as const,
       email_subject: 'Bank Statement',
-      action: 'Sorted to Banking',
       timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-      category: 'Banking',
+      folder_name: 'Banking',
     },
     {
-      id: 'activity-3',
+      id: 3,
+      type: 'sorted' as const,
       email_subject: 'Project Update Meeting',
-      action: 'Sorted to Work',
       timestamp: new Date(Date.now() - 10800000).toISOString(), // 3 hours ago
-      category: 'Work',
+      folder_name: 'Work',
     },
   ],
 };
@@ -180,46 +191,14 @@ export function createMockNotificationPrefs(
  */
 export async function mockAllApiEndpoints(page: Page): Promise<void> {
   // Mock Dashboard Stats Endpoint
+  // CRITICAL: Must match mockDashboardStats structure that tests expect
   await page.route('**/api/v1/dashboard/stats', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        connections: {
-          gmail: {
-            connected: true,
-            last_sync: new Date().toISOString(),
-          },
-          telegram: {
-            connected: true,
-            last_sync: new Date().toISOString(),
-          },
-        },
-        email_stats: {
-          total_processed: 127,
-          pending_approval: 3,
-          auto_sorted: 100,
-          responses_sent: 24,
-        },
-        time_saved: {
-          today_minutes: 45,
-          total_minutes: 2340,
-        },
-        recent_activity: [
-          {
-            id: 1,
-            type: 'sorted' as const,
-            email_subject: 'Tax Return Documents',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            folder_name: 'Government',
-          },
-          {
-            id: 2,
-            type: 'response_sent' as const,
-            email_subject: 'Bank Statement Query',
-            timestamp: new Date(Date.now() - 7200000).toISOString(),
-          },
-        ],
+        data: mockDashboardStats,
+        status: 200,
       }),
     });
   });
@@ -230,38 +209,41 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 1,
-            name: 'Government',
-            keywords: 'finanzamt, tax, bürgeramt',
-            color: '#3b82f6',
-            order: 1,
-            is_default: false,
-            created_at: '2025-01-10T10:00:00Z',
-            updated_at: '2025-01-10T10:00:00Z',
-          },
-          {
-            id: 2,
-            name: 'Banking',
-            keywords: 'bank, sparkasse, n26',
-            color: '#10b981',
-            order: 2,
-            is_default: false,
-            created_at: '2025-01-10T10:01:00Z',
-            updated_at: '2025-01-10T10:01:00Z',
-          },
-          {
-            id: 3,
-            name: 'Work',
-            keywords: 'project, meeting, deadline',
-            color: '#f59e0b',
-            order: 3,
-            is_default: false,
-            created_at: '2025-01-10T10:02:00Z',
-            updated_at: '2025-01-10T10:02:00Z',
-          },
-        ]),
+        body: JSON.stringify({
+          data: [
+            {
+              id: 1,
+              name: 'Government',
+              keywords: 'finanzamt, tax, bürgeramt',
+              color: '#3b82f6',
+              order: 1,
+              is_default: false,
+              created_at: '2025-01-10T10:00:00Z',
+              updated_at: '2025-01-10T10:00:00Z',
+            },
+            {
+              id: 2,
+              name: 'Banking',
+              keywords: 'bank, sparkasse, n26',
+              color: '#10b981',
+              order: 2,
+              is_default: false,
+              created_at: '2025-01-10T10:01:00Z',
+              updated_at: '2025-01-10T10:01:00Z',
+            },
+            {
+              id: 3,
+              name: 'Work',
+              keywords: 'project, meeting, deadline',
+              color: '#f59e0b',
+              order: 3,
+              is_default: false,
+              created_at: '2025-01-10T10:02:00Z',
+              updated_at: '2025-01-10T10:02:00Z',
+            },
+          ],
+          status: 200,
+        }),
       });
     } else if (route.request().method() === 'POST') {
       // Create new folder
@@ -270,11 +252,14 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
         status: 201,
         contentType: 'application/json',
         body: JSON.stringify({
-          id: Date.now(),
-          ...postData,
-          is_default: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          data: {
+            id: Date.now(),
+            ...postData,
+            is_default: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          status: 201,
         }),
       });
     } else {
@@ -291,16 +276,22 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          id: parseInt(folderId || '1'),
-          ...putData,
-          updated_at: new Date().toISOString(),
+          data: {
+            id: parseInt(folderId || '1'),
+            ...putData,
+            updated_at: new Date().toISOString(),
+          },
+          status: 200,
         }),
       });
     } else if (route.request().method() === 'DELETE') {
       await route.fulfill({
         status: 204,
         contentType: 'application/json',
-        body: '',
+        body: JSON.stringify({
+          data: null,
+          status: 204,
+        }),
       });
     } else {
       await route.continue();
@@ -359,7 +350,10 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ message: 'Test notification sent successfully' }),
+      body: JSON.stringify({
+        data: { message: 'Test notification sent successfully', success: true },
+        status: 200,
+      }),
     });
   });
 
@@ -369,8 +363,11 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        success: true,
-        onboarding_completed: true,
+        data: {
+          success: true,
+          onboarding_completed: true,
+        },
+        status: 200,
       }),
     });
   });

@@ -102,8 +102,11 @@ export async function mockAuthEndpoints(page: Page, user: MockUser = mockAuthent
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        authenticated: true,
-        user,
+        data: {
+          authenticated: true,
+          user,
+        },
+        status: 200,
       }),
     });
   });
@@ -113,7 +116,10 @@ export async function mockAuthEndpoints(page: Page, user: MockUser = mockAuthent
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(user),
+      body: JSON.stringify({
+        data: user,
+        status: 200,
+      }),
     });
   });
 
@@ -122,7 +128,10 @@ export async function mockAuthEndpoints(page: Page, user: MockUser = mockAuthent
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ message: 'Logged out successfully' }),
+      body: JSON.stringify({
+        data: { message: 'Logged out successfully' },
+        status: 200,
+      }),
     });
   });
 }

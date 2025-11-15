@@ -38,8 +38,8 @@ export class DashboardPage {
     const telegramCard = this.page.getByText(/telegram/i).first();
     await expect(telegramCard).toBeVisible();
 
-    // Verify connected status indicators
-    await expect(this.page.getByText(/connected/i)).toBeVisible();
+    // Verify connected status indicators (use .first() to avoid strict mode)
+    await expect(this.page.getByText(/connected/i).first()).toBeVisible();
   }
 
   /**
@@ -48,19 +48,19 @@ export class DashboardPage {
   async verifyEmailStatistics() {
     // Total processed stat
     const totalProcessed = mockDashboardStats.email_stats.total_processed;
-    await expect(this.page.getByText(totalProcessed.toString())).toBeVisible();
+    await expect(this.page.getByText(totalProcessed.toString()).first()).toBeVisible();
 
-    // Today stat
-    const today = mockDashboardStats.email_stats.today;
-    await expect(this.page.getByText(today.toString())).toBeVisible();
+    // Pending approval stat
+    const pendingApproval = mockDashboardStats.email_stats.pending_approval;
+    await expect(this.page.getByText(pendingApproval.toString()).first()).toBeVisible();
 
-    // This week stat
-    const thisWeek = mockDashboardStats.email_stats.this_week;
-    await expect(this.page.getByText(thisWeek.toString())).toBeVisible();
+    // Auto sorted stat
+    const autoSorted = mockDashboardStats.email_stats.auto_sorted;
+    await expect(this.page.getByText(autoSorted.toString()).first()).toBeVisible();
 
-    // Needs approval stat
-    const needsApproval = mockDashboardStats.email_stats.needs_approval;
-    await expect(this.page.getByText(needsApproval.toString())).toBeVisible();
+    // Responses sent stat
+    const responsesSent = mockDashboardStats.email_stats.responses_sent;
+    await expect(this.page.getByText(responsesSent.toString()).first()).toBeVisible();
   }
 
   /**
@@ -68,13 +68,16 @@ export class DashboardPage {
    */
   async verifyRecentActivityFeed() {
     // Check for recent activity section
-    await expect(this.page.getByText(/recent activity/i)).toBeVisible();
+    await expect(this.page.getByText(/recent activity/i).first()).toBeVisible();
 
-    // Verify at least one activity item is displayed
+    // Verify at least one activity item is displayed (email subject)
     const firstActivity = mockDashboardStats.recent_activity[0];
     if (firstActivity) {
-      await expect(this.page.getByText(firstActivity.email_subject)).toBeVisible();
-      await expect(this.page.getByText(firstActivity.action)).toBeVisible();
+      await expect(this.page.getByText(firstActivity.email_subject).first()).toBeVisible();
+      // Verify folder name if present (type field is not displayed as text)
+      if (firstActivity.folder_name) {
+        await expect(this.page.getByText(firstActivity.folder_name).first()).toBeVisible();
+      }
     }
   }
 
@@ -82,15 +85,16 @@ export class DashboardPage {
    * Verify time saved widget
    */
   async verifyTimeSavedWidget() {
-    const hours = mockDashboardStats.time_saved.hours;
-    const minutes = mockDashboardStats.time_saved.minutes;
+    const todayMinutes = mockDashboardStats.time_saved.today_minutes;
+    const totalMinutes = mockDashboardStats.time_saved.total_minutes;
 
     // Look for time saved display
-    await expect(this.page.getByText(/time saved/i)).toBeVisible();
+    await expect(this.page.getByText(/time saved/i).first()).toBeVisible();
 
-    // Verify hours and minutes are displayed
+    // Verify time values are displayed (either today_minutes or total hours calculated from total_minutes)
+    const totalHours = Math.floor(totalMinutes / 60);
     await expect(
-      this.page.getByText(new RegExp(`${hours}.*hour|${minutes}.*min`, 'i'))
+      this.page.getByText(new RegExp(`${todayMinutes}|${totalHours}`, 'i')).first()
     ).toBeVisible();
   }
 
