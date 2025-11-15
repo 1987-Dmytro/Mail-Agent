@@ -20,22 +20,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema - Add classification fields to EmailProcessingQueue."""
-    # Add classification type column
-    op.add_column('email_processing_queue', sa.Column('classification', sa.String(50), nullable=True))
+    # NOTE: classification, proposed_folder_id, and priority_score already exist from febde6303216 migration
+    # Only add NEW columns that don't exist yet
 
-    # Add proposed_folder_id column (MUST exist before FK constraint)
-    op.add_column('email_processing_queue', sa.Column('proposed_folder_id', sa.Integer(), nullable=True))
-
-    # Add classification_reasoning column
+    # Add classification_reasoning column (NEW)
     op.add_column('email_processing_queue', sa.Column('classification_reasoning', sa.Text(), nullable=True))
 
-    # Add priority_score column
-    op.add_column('email_processing_queue', sa.Column('priority_score', sa.Integer(), nullable=False, server_default='0'))
-
-    # Add is_priority column
+    # Add is_priority column (NEW)
     op.add_column('email_processing_queue', sa.Column('is_priority', sa.Boolean(), nullable=False, server_default='false'))
 
-    # Add foreign key constraint to proposed_folder_id
+    # Add foreign key constraint to proposed_folder_id (which already exists)
     op.create_foreign_key(
         'fk_email_processing_queue_proposed_folder_id',
         'email_processing_queue',
@@ -51,9 +45,6 @@ def downgrade() -> None:
     # Drop foreign key constraint first
     op.drop_constraint('fk_email_processing_queue_proposed_folder_id', 'email_processing_queue', type_='foreignkey')
 
-    # Drop columns (reverse order of creation)
+    # Drop only the columns that THIS migration added
     op.drop_column('email_processing_queue', 'is_priority')
-    op.drop_column('email_processing_queue', 'priority_score')
     op.drop_column('email_processing_queue', 'classification_reasoning')
-    op.drop_column('email_processing_queue', 'proposed_folder_id')
-    op.drop_column('email_processing_queue', 'classification')
