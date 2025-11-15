@@ -115,7 +115,7 @@ export class DashboardPage {
           ...mockDashboardStats,
           email_stats: {
             ...mockDashboardStats.email_stats,
-            today: mockDashboardStats.email_stats.today + requestCount,
+            total_processed: mockDashboardStats.email_stats.total_processed + requestCount,
           },
         }),
       });
