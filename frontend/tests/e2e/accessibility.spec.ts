@@ -53,20 +53,16 @@ test.describe('Accessibility Tests - WCAG 2.1 Level AA', () => {
     await page.goto('/dashboard');
     await page.waitForLoadState('domcontentloaded');
 
-    // Wait for redirect to complete (may redirect to login)
-    await page.waitForTimeout(2000);
+    // Wait for dashboard heading to be visible (ensures page loaded)
+    const heading = page.getByRole('heading', { name: /dashboard/i, level: 1 });
+    await expect(heading).toBeVisible({ timeout: 10000 });
 
-    // If on dashboard, verify accessibility
-    const url = page.url();
-    if (url.includes('/dashboard')) {
-      const snapshot = await page.accessibility.snapshot();
-      expect(snapshot).toBeTruthy();
+    // Take accessibility snapshot
+    const snapshot = await page.accessibility.snapshot();
+    expect(snapshot).toBeTruthy();
 
-      // Verify main heading exists
-      const heading = page.getByRole('heading', { level: 1 }).first();
-      const headingCount = await heading.count();
-      expect(headingCount).toBeGreaterThan(0);
-    }
+    // Verify main heading exists and is accessible
+    await expect(heading).toBeVisible();
   });
 
   test('all interactive elements are keyboard accessible', async ({ page }) => {

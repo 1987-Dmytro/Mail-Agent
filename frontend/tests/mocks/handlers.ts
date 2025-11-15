@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw';
+import { mockDashboardStats } from '../e2e/fixtures/data';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -145,26 +146,11 @@ export const handlers = [
   // ============================================
 
   // Mock dashboard stats
+  // FIXED: Use correct data structure from mockDashboardStats
   http.get(`${API_URL}/api/v1/dashboard/stats`, ({ request }) => {
     console.log(`🔵 MSW: Intercepted GET ${request.url}`);
     return HttpResponse.json({
-      data: {
-        connections: {
-          gmail: { connected: true, email: 'test@example.com' },
-          telegram: { connected: true, username: 'testuser' },
-        },
-        email_stats: {
-          total_processed: 127,
-          sorted_today: 23,
-          pending_approval: 5,
-          auto_sorted: 18,
-        },
-        time_saved: 45,
-        recent_activity: [
-          { id: 1, type: 'sort', email: 'Invoice from Sparkasse', folder: 'Banking', timestamp: new Date().toISOString() },
-          { id: 2, type: 'sort', email: 'Tax reminder', folder: 'Government', timestamp: new Date().toISOString() },
-        ],
-      },
+      data: mockDashboardStats,
       status: 200,
     });
   }),
