@@ -19,17 +19,20 @@ export default defineConfig({
   // Test directory
   testDir: './tests/e2e',
 
+  // Ignore debug tests on CI
+  testIgnore: process.env.CI ? '**/debug-*.spec.ts' : undefined,
+
   // Run tests in files in parallel
   fullyParallel: true,
 
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
-  // Retry on CI only
-  retries: process.env.CI ? 2 : 0,
+  // Retry on CI only - reduced to 1 for faster feedback
+  retries: process.env.CI ? 1 : 0,
 
-  // Opt out of parallel tests on CI for stability
-  workers: process.env.CI ? 1 : undefined,
+  // Use 2 workers on CI for faster execution while maintaining stability
+  workers: process.env.CI ? 2 : undefined,
 
   // Reporter to use
   reporter: [
@@ -49,11 +52,11 @@ export default defineConfig({
     // Screenshot on failure
     screenshot: 'only-on-failure',
 
-    // Video on failure
-    video: 'retain-on-failure',
+    // Video on failure - disabled on CI to save time
+    video: process.env.CI ? 'off' : 'retain-on-failure',
 
-    // Maximum time each action can take (30s)
-    actionTimeout: 30000,
+    // Maximum time each action can take - reduced for CI speed
+    actionTimeout: process.env.CI ? 15000 : 30000, // 15s on CI, 30s locally
   },
 
   // Configure projects for major browsers
@@ -103,11 +106,11 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000, // 2 minutes to start dev server
+    timeout: 60000, // 1 minute to start dev server (optimized for CI)
   },
 
-  // Global timeout for each test (2 minutes)
-  timeout: 120000,
+  // Global timeout for each test - reduced for CI speed
+  timeout: process.env.CI ? 60000 : 120000, // 1 minute on CI, 2 minutes locally
 
   // Expect timeout for assertions (10 seconds)
   expect: {
