@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import type { ActivityItem } from '@/types/dashboard';
 
 /**
  * Dashboard Overview Page
@@ -367,7 +368,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="space-y-3 max-h-[280px] overflow-y-auto">
                 {stats?.recent_activity && stats.recent_activity.length > 0 ? (
-                  stats.recent_activity.slice(0, 10).map((activity) => {
+                  stats.recent_activity.slice(0, 10).map((activity: ActivityItem) => {
                     const icon =
                       activity.type === 'sorted' ? (
                         <FolderOpen className="h-4 w-4 text-blue-500" />
