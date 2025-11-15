@@ -307,27 +307,47 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
     }
   });
 
-  // Mock Notification Preferences (GET /api/v1/notifications/preferences)
-  await page.route('**/api/v1/notifications/preferences', async (route) => {
+  // Mock Notification Preferences (GET /api/v1/settings/notifications)
+  // Use page context to persist state across requests within the same test
+  let notificationPrefsState = {
+    id: 1,
+    user_id: 1,
+    batch_enabled: true,
+    batch_time: '09:00',
+    quiet_hours_enabled: true,
+    quiet_hours_start: '22:00',
+    quiet_hours_end: '08:00',
+    priority_immediate: true,
+    min_confidence_threshold: 0.7,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  await page.route('**/api/v1/settings/notifications', async (route) => {
     if (route.request().method() === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          batch_enabled: true,
-          batch_time: '09:00',
-          quiet_hours_enabled: true,
-          quiet_hours_start: '22:00',
-          quiet_hours_end: '08:00',
-          priority_immediate: true,
+          data: notificationPrefsState,
+          status: 200,
         }),
       });
     } else if (route.request().method() === 'PUT') {
       const putData = route.request().postDataJSON();
+      // Update state with new values (preserve timestamps)
+      notificationPrefsState = {
+        ...notificationPrefsState,
+        ...putData,
+        updated_at: new Date().toISOString(),
+      };
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(putData),
+        body: JSON.stringify({
+          data: notificationPrefsState,
+          status: 200,
+        }),
       });
     } else {
       await route.continue();
@@ -335,7 +355,7 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
   });
 
   // Mock Test Notification Endpoint
-  await page.route('**/api/v1/notifications/test', async (route) => {
+  await page.route('**/api/v1/settings/notifications/test', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

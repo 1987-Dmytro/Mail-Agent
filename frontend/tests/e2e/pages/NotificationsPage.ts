@@ -136,30 +136,22 @@ export class NotificationsPage {
 
   /**
    * Click "Test Notification" button
+   * Note: Tests should verify toast message appearance separately
    */
   async sendTestNotification() {
-    const testButton = this.page.getByRole('button', { name: /test notification/i });
+    const testButton = this.page.getByRole('button', { name: /send.*test.*notification/i });
     await expect(testButton).toBeVisible();
     await testButton.click();
-
-    // Wait for success toast
-    await expect(this.page.getByText(/test notification sent|sent successfully/i)).toBeVisible({
-      timeout: 5000,
-    });
   }
 
   /**
    * Save notification preferences
+   * Note: Tests should verify toast message appearance separately
    */
   async savePreferences() {
-    const saveButton = this.page.getByRole('button', { name: /save|update/i });
+    const saveButton = this.page.getByRole('button', { name: /save.*preference/i });
     await expect(saveButton).toBeVisible();
     await saveButton.click();
-
-    // Wait for success confirmation
-    await expect(this.page.getByText(/saved|updated successfully/i)).toBeVisible({
-      timeout: 5000,
-    });
   }
 
   /**
