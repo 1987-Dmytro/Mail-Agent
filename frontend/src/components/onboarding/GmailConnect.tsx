@@ -77,9 +77,27 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
    * If authenticated, skip OAuth flow and show success state immediately (AC: 6)
    */
   useEffect(() => {
+    // CRITICAL FIX: Check token directly from localStorage FIRST
+    const token = localStorage.getItem('auth_token');
+    if (token && state === 'initial') {
+      console.log('Token found in localStorage, showing success state');
+      setState('success');
+
+      // Try to get email from API or fallback to localStorage
+      if (isAuthenticated && authUser?.gmail_connected) {
+        setUserEmail(authUser.email);
+      }
+
+      // Call onSuccess to update wizard state
+      if (onSuccess) {
+        onSuccess();
+      }
+      return;
+    }
+
     if (authLoading) return;
 
-    if (isAuthenticated && authUser?.gmail_connected) {
+    if (isAuthenticated && authUser?.gmail_connected && state === 'initial') {
       setUserEmail(authUser.email);
       setState('success');
 
@@ -90,7 +108,7 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
 
       return;
     }
-  }, [isAuthenticated, authLoading, authUser, onSuccess]);
+  }, [isAuthenticated, authLoading, authUser, state]);
 
   /**
    * Check for OAuth callback params on component mount
@@ -152,19 +170,23 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
     }
 
     try {
-      // Generate CSRF state token using crypto API
-      const stateToken = crypto.randomUUID();
+      // Backend already includes state parameter in auth_url
+      // Extract state from URL and store in sessionStorage for validation on callback
+      const url = new URL(authUrl);
+      const stateToken = url.searchParams.get('state');
+
+      if (!stateToken) {
+        handleError('unknown', 'Invalid OAuth configuration (missing state). Please refresh the page.');
+        return;
+      }
 
       // Store state token in sessionStorage for validation on callback
       sessionStorage.setItem('oauth_state', stateToken);
 
-      // Construct OAuth redirect URL with state parameter
-      const redirectUrl = `${authUrl}&state=${encodeURIComponent(stateToken)}`;
-
       setState('loading');
 
-      // Redirect to Google OAuth consent screen
-      window.location.href = redirectUrl;
+      // Redirect to Google OAuth consent screen (authUrl already contains state)
+      window.location.href = authUrl;
     } catch (error) {
       console.error('Failed to start OAuth flow:', error);
       handleError('unknown', 'Failed to start OAuth flow. Please try again.');

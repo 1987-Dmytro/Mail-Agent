@@ -14,6 +14,7 @@ from fastapi import (
     HTTPException,
     Request,
 )
+from fastapi.responses import RedirectResponse
 from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
@@ -78,8 +79,9 @@ async def get_current_user(
         HTTPException: If the token is invalid or missing.
     """
     try:
-        # Sanitize token
-        token = sanitize_string(credentials.credentials)
+        # JWT tokens are already safe (base64-encoded) and should NOT be sanitized
+        # sanitize_string() would corrupt the token with html.escape()
+        token = credentials.credentials
 
         user_id = verify_token(token)
         if user_id is None:
@@ -395,15 +397,43 @@ async def get_gmail_oauth_config(request: Request):
 
     Example:
         {
-            "auth_url": "https://accounts.google.com/o/oauth2/auth",
+            "auth_url": "https://accounts.google.com/o/oauth2/auth?client_id=...&redirect_uri=...&...",
             "client_id": "your-client-id.apps.googleusercontent.com",
             "scopes": ["https://www.googleapis.com/auth/gmail.readonly", ...]
         }
     """
-    return {
-        "auth_url": "https://accounts.google.com/o/oauth2/auth",
+    # Build complete OAuth authorization URL with all required parameters
+    # Generate state token for CSRF protection (same as /gmail/login)
+    import secrets
+    from urllib.parse import urlencode
+
+    # Generate cryptographically secure state token
+    state = secrets.token_urlsafe(32)
+
+    # Store state for callback validation (MVP: in-memory, Production: Redis)
+    oauth_states[state] = True
+
+    params = {
         "client_id": settings.GMAIL_CLIENT_ID,
-        "scopes": GMAIL_SCOPES,
+        "redirect_uri": settings.GMAIL_REDIRECT_URI,
+        "response_type": "code",
+        "scope": " ".join(GMAIL_SCOPES),
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": state,  # Include state in URL
+    }
+
+    auth_url_with_params = f"https://accounts.google.com/o/oauth2/auth?{urlencode(params)}"
+
+    logger.info("gmail_oauth_config_generated", state=state[:10] + "...", client_id=settings.GMAIL_CLIENT_ID[:20] + "...")
+
+    return {
+        "data": {
+            "auth_url": auth_url_with_params,
+            "client_id": settings.GMAIL_CLIENT_ID,
+            "scopes": GMAIL_SCOPES,
+            "state": state,  # Return state to frontend for validation (optional - frontend can extract from URL)
+        }
     }
 
 
@@ -466,8 +496,9 @@ async def gmail_login(request: Request):
 
 @router.get("/gmail/callback")
 async def gmail_callback(
-    code: str,
     state: str,
+    code: str | None = None,
+    error: str | None = None,
     db_service: DatabaseService = Depends(get_db_service),
 ):
     """Handle Gmail OAuth 2.0 callback.
@@ -476,8 +507,9 @@ async def gmail_callback(
     encrypts and stores tokens in the database.
 
     Args:
-        code: Authorization code from Google OAuth
         state: State parameter for CSRF protection
+        code: Authorization code from Google OAuth (present on success)
+        error: Error code from Google OAuth (present on failure)
         db_service: Database service injected via dependency injection
 
     Returns:
@@ -487,6 +519,27 @@ async def gmail_callback(
         HTTPException: If state validation fails, code is invalid, or token exchange fails
     """
     try:
+        # Check if OAuth provider returned an error
+        if error:
+            logger.warning("oauth_callback_error", error=error, state=state[:10] + "..." if state else "unknown")
+
+            # Map common OAuth errors to user-friendly messages
+            error_messages = {
+                "access_denied": "You declined to grant Gmail permissions. Please try again and approve the requested permissions.",
+                "invalid_scope": "Invalid permissions requested. Please contact support.",
+                "server_error": "Google's authorization server encountered an error. Please try again.",
+                "temporarily_unavailable": "Google's authorization service is temporarily unavailable. Please try again later.",
+            }
+
+            user_message = error_messages.get(error, f"Authorization failed: {error}")
+            raise HTTPException(status_code=403, detail=user_message)
+
+        # If no error, code must be present
+        if not code:
+            logger.error("oauth_callback_missing_code", state=state[:10] + "..." if state else "unknown")
+            raise HTTPException(status_code=400, detail="Missing authorization code")
+
+        # Continue with normal OAuth flow
         # Sanitize input parameters to prevent injection attacks
         from app.utils.sanitization import sanitize_oauth_parameter
         try:
@@ -559,13 +612,99 @@ async def gmail_callback(
             )
             logger.info("gmail_oauth_user_created", user_id=user.id, email=email)
 
-        return {"success": True, "data": {"user_id": user.id, "email": email}}
+        # Create JWT token for the user
+        token = create_access_token(str(user.id))
+
+        # Redirect to frontend with token as query parameter
+        # Frontend will extract token and store it
+        # IMPORTANT: URL-encode parameters to prevent token corruption from special characters
+        from urllib.parse import quote
+        frontend_callback_url = f"{settings.FRONTEND_URL}/onboarding?token={quote(token.access_token, safe='')}&email={quote(email, safe='')}"
+        logger.info("gmail_oauth_success_redirect", user_id=user.id, email=email, redirect_url=settings.FRONTEND_URL)
+
+        return RedirectResponse(url=frontend_callback_url, status_code=302)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error("gmail_oauth_callback_failed", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"OAuth callback failed: {str(e)}")
+
+
+@router.get("/status")
+async def auth_status(
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
+    db_service: DatabaseService = Depends(get_db_service),
+):
+    """Get authentication status and user info.
+
+    Checks if the user is authenticated and returns user information
+    including Gmail and Telegram connection status.
+
+    This endpoint does NOT require authentication - it checks if a token is provided
+    and returns the user status if valid, or authenticated=false if not.
+
+    Args:
+        credentials: Optional HTTP authorization credentials containing JWT token
+        db_service: Database service for user lookups
+
+    Returns:
+        dict: Authentication status and user information
+
+    Example (authenticated):
+        {
+            "authenticated": true,
+            "user": {
+                "id": 1,
+                "email": "user@gmail.com",
+                "gmail_connected": true,
+                "telegram_connected": false
+            }
+        }
+
+    Example (not authenticated):
+        {
+            "authenticated": false
+        }
+    """
+    # If no credentials provided, return not authenticated
+    if not credentials:
+        return {"authenticated": False}
+
+    try:
+        # Sanitize and verify token
+        token = sanitize_string(credentials.credentials)
+        user_id = verify_token(token)
+
+        if user_id is None:
+            return {"authenticated": False}
+
+        # Get user from database
+        user_id_int = int(user_id)
+        user = await db_service.get_user(user_id_int)
+
+        if user is None:
+            return {"authenticated": False}
+
+        # Check if user has Gmail tokens
+        gmail_connected = bool(user.gmail_oauth_token and user.gmail_refresh_token)
+
+        # Check if user has Telegram linked
+        telegram_connected = False  # TODO: Check telegram_user_id or similar field
+
+        return {
+            "authenticated": True,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "gmail_connected": gmail_connected,
+                "telegram_connected": telegram_connected,
+            },
+        }
+    except Exception as e:
+        logger.error("auth_status_check_failed", error=str(e), exc_info=True)
+        # Don't fail - just return not authenticated
+        return {"authenticated": False}
 
 
 @router.get("/gmail/status")

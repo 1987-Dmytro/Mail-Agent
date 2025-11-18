@@ -160,8 +160,8 @@ def sanitize_oauth_parameter(value: str, param_name: str = "parameter", max_leng
         raise ValueError(f"{param_name} cannot be empty")
 
     # OAuth parameters should only contain alphanumeric, hyphens, underscores, and URL-safe characters
-    # Allow: a-z, A-Z, 0-9, -, _, ., ~, %
-    if not re.match(r"^[a-zA-Z0-9\-_.~%]+$", value):
+    # Allow: a-z, A-Z, 0-9, -, _, ., ~, %, / (Google OAuth codes often start with "4/")
+    if not re.match(r"^[a-zA-Z0-9\-_.~%/]+$", value):
         raise ValueError(f"{param_name} contains invalid characters")
 
     return value

@@ -3,7 +3,7 @@
  * Manages JWT token storage and authentication state
  */
 
-const TOKEN_KEY = 'mail_agent_token';
+const TOKEN_KEY = 'auth_token';
 
 /**
  * Retrieve JWT token from storage
