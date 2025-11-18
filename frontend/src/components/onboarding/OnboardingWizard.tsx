@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import type { FolderCategory } from '@/types/folder';
 import WizardProgress from './WizardProgress';
 import WelcomeStep from './WelcomeStep';
@@ -59,8 +60,22 @@ export interface OnboardingState {
  * - Presentation (step components): UI rendering, user interaction
  */
 export default function OnboardingWizard() {
-  // Future: Can add router navigation if needed
-  // const router = useRouter(); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const router = useRouter();
+
+  // ============================================
+  // CRITICAL: Extract token from URL SYNCHRONOUSLY before any rendering
+  // This must happen BEFORE any API calls to prevent 403 errors
+  // ============================================
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (token) {
+      // Store token IMMEDIATELY in localStorage
+      localStorage.setItem('auth_token', token);
+      console.log('OAuth token extracted from URL and stored synchronously');
+    }
+  }
 
   // ============================================
   // State Management
@@ -217,6 +232,16 @@ export default function OnboardingWizard() {
     if (data.telegramUsername !== undefined) setTelegramUsername(data.telegramUsername);
   };
 
+  /**
+   * Handle skip onboarding
+   * Allow users to skip setup and go directly to dashboard
+   * Provides escape path when users are blocked
+   */
+  const handleSkip = () => {
+    console.log('Skip onboarding clicked - navigating to /dashboard');
+    router.push('/dashboard');
+  };
+
   // ============================================
   // localStorage Persistence (AC9)
   // ============================================
@@ -254,8 +279,52 @@ export default function OnboardingWizard() {
   }, [currentStep, gmailConnected, telegramConnected, folders, gmailEmail, telegramUsername]);
 
   /**
+   * Handle OAuth callback with token from URL
+   * Backend redirects here after successful OAuth with token parameter
+   */
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const email = urlParams.get('email');
+
+    if (token) {
+      // Store token in localStorage
+      localStorage.setItem('auth_token', token);
+      console.log('OAuth token received and stored');
+
+      // Mark Gmail as connected
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- OAuth callback handling
+      setGmailConnected(true);
+
+      if (email) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- OAuth callback handling
+        setGmailEmail(email);
+      }
+
+      // CRITICAL FIX: Immediately save state to localStorage after OAuth
+      const oauthState: OnboardingState = {
+        currentStep: 2,
+        gmailConnected: true,
+        telegramConnected: false,
+        folders: [],
+        gmailEmail: email || undefined,
+        telegramUsername: undefined,
+        lastUpdated: new Date().toISOString(),
+      };
+      localStorage.setItem('onboarding_progress', JSON.stringify(oauthState));
+      console.log('OAuth state saved to localStorage');
+
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  /**
    * Load wizard state from localStorage on mount
    * Enables users to resume onboarding from where they left off
+   *
+   * CRITICAL: Also validates authentication token
+   * If user is on Step 3+ but has no valid token, force back to Step 2 (Gmail)
    */
   useEffect(() => {
     try {
@@ -270,6 +339,19 @@ export default function OnboardingWizard() {
         if (daysSinceUpdate > 7) {
           console.warn('Onboarding progress is stale (>7 days old). Starting fresh.');
           // TODO: Show warning toast to user
+          return;
+        }
+
+        // CRITICAL: Validate token before restoring state
+        const token = localStorage.getItem('auth_token');
+
+        // If on Step 3+ but no token exists, force back to Step 2 (Gmail)
+        if (state.currentStep >= 3 && !token) {
+          console.warn('No auth token found - forcing back to Gmail connection (Step 2)');
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- Security validation requires state reset
+          setCurrentStep(2);
+          setGmailConnected(false);
+          setTelegramConnected(false);
           return;
         }
 
@@ -383,6 +465,18 @@ export default function OnboardingWizard() {
         {!canProceedToNextStep() && (
           <div className="mt-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             {getValidationErrorMessage()}
+          </div>
+        )}
+
+        {/* Skip setup link - available on all steps except completion */}
+        {currentStep < totalSteps && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleSkip}
+              className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+            >
+              Skip setup—I&apos;ll configure this later
+            </button>
           </div>
         )}
       </div>

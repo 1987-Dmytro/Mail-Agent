@@ -117,13 +117,13 @@ class ApiClient {
               throw new Error('No token received from refresh endpoint');
             }
           } catch (refreshError) {
-            // Refresh failed - clear token and redirect to login
+            // Refresh failed - clear token and redirect to onboarding (if not already there)
             removeToken();
             this.failedQueue.forEach((req) => req.reject(refreshError));
             this.failedQueue = [];
 
-            if (typeof window !== 'undefined') {
-              window.location.href = '/login';
+            if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/onboarding')) {
+              window.location.href = '/onboarding';
             }
 
             return Promise.reject(new ApiError('Session expired', 401, 'TOKEN_EXPIRED'));
@@ -132,13 +132,25 @@ class ApiClient {
           }
         }
 
-        // Handle 403 Forbidden (insufficient permissions)
+        // Handle 403 Forbidden (insufficient permissions or invalid token)
         if (error.response?.status === 403) {
+          // Clear invalid token from localStorage
+          removeToken();
+
           if (typeof window !== 'undefined') {
-            window.location.href = '/login';
+            // If on onboarding page, clear onboarding progress and force re-authentication
+            if (window.location.pathname.startsWith('/onboarding')) {
+              localStorage.removeItem('onboarding_progress');
+              // Reload page to restart onboarding from Step 1 with fresh state
+              window.location.reload();
+            } else {
+              // Redirect to onboarding from other pages
+              window.location.href = '/onboarding';
+            }
           }
+
           return Promise.reject(
-            new ApiError('Access forbidden', 403, 'FORBIDDEN', error.response?.data)
+            new ApiError('Access forbidden - please reconnect your account', 403, 'FORBIDDEN', error.response?.data)
           );
         }
 
@@ -272,7 +284,8 @@ class ApiClient {
    * @param state - CSRF state token for validation
    */
   async gmailCallback(code: string, state: string) {
-    return this.post<{
+    // Backend expects GET request with query params (standard OAuth callback)
+    return this.get<{
       user: {
         id: number;
         email: string;
@@ -280,7 +293,7 @@ class ApiClient {
         telegram_connected: boolean;
       };
       token: string;
-    }>('/api/v1/auth/gmail/callback', { code, state });
+    }>(`/api/v1/auth/gmail/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
   }
 
   /**
