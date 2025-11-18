@@ -96,9 +96,14 @@ export function TelegramLink({ onSuccess, onError, onNavigate }: TelegramLinkPro
     if (statusLoading) return;
 
     // If already linked, show success state immediately
-    if (isLinked && linkedUsername) {
-      setTelegramUsername(linkedUsername);
+    if (isLinked) {
+      setTelegramUsername(linkedUsername || 'your Telegram account');
       setState('success');
+
+      // Call onSuccess to update wizard state
+      if (onSuccess) {
+        onSuccess();
+      }
       return;
     }
 

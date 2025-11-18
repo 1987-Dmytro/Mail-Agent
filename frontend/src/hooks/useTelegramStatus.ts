@@ -35,8 +35,8 @@ export function useTelegramStatus() {
       const response = await apiClient.telegramStatus();
 
       if (response.data) {
-        const { connected, telegram_username, telegram_id } = response.data;
-        setIsLinked(connected);
+        const { linked, telegram_username, telegram_id } = response.data;
+        setIsLinked(linked);
         setTelegramUsername(telegram_username || null);
         setTelegramId(telegram_id || null);
       } else {

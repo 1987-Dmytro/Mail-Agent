@@ -349,9 +349,10 @@ class ApiClient {
    */
   async telegramStatus() {
     return this.get<{
-      connected: boolean;
+      linked: boolean;
       telegram_id?: string;
       telegram_username?: string;
+      linked_at?: string;
     }>('/api/v1/telegram/status');
   }
 
