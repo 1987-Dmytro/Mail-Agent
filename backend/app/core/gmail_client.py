@@ -137,6 +137,47 @@ class GmailClient:
             self.logger.warning("base64_decode_error", error=str(e))
             return ""
 
+    def _calculate_text_color(self, bg_color: str) -> str:
+        """Calculate appropriate text color based on background color brightness.
+
+        Uses relative luminance formula to determine if background is light or dark,
+        then returns white text for dark backgrounds and black text for light backgrounds.
+
+        Args:
+            bg_color: Background color in hex format (e.g., "#FF5733")
+
+        Returns:
+            Text color in hex format ("#FFFFFF" or "#000000")
+        """
+        # Remove # if present
+        hex_color = bg_color.lstrip('#')
+
+        # Convert hex to RGB
+        try:
+            r = int(hex_color[0:2], 16) / 255.0
+            g = int(hex_color[2:4], 16) / 255.0
+            b = int(hex_color[4:6], 16) / 255.0
+        except (ValueError, IndexError):
+            # Default to white text if color parsing fails
+            return "#FFFFFF"
+
+        # Calculate relative luminance (https://www.w3.org/TR/WCAG20/#relativeluminancedef)
+        def calc_luminance_component(c):
+            if c <= 0.03928:
+                return c / 12.92
+            else:
+                return ((c + 0.055) / 1.055) ** 2.4
+
+        r_linear = calc_luminance_component(r)
+        g_linear = calc_luminance_component(g)
+        b_linear = calc_luminance_component(b)
+
+        luminance = 0.2126 * r_linear + 0.7152 * g_linear + 0.0722 * b_linear
+
+        # If luminance > 0.5, background is light, use black text
+        # Otherwise, background is dark, use white text
+        return "#000000" if luminance > 0.5 else "#FFFFFF"
+
     def _strip_html(self, html: str) -> str:
         """Remove HTML tags and return plain text.
 
@@ -536,16 +577,23 @@ class GmailClient:
         """
         service = await self._get_gmail_service()
 
+        # Add MailAgent prefix to avoid conflicts with Gmail system labels (IMPORTANT, INBOX, etc.)
+        # This ensures our custom labels are clearly distinguished from Gmail's built-in labels
+        prefixed_name = f"MailAgent/{name}"
+
         # Construct label object
         label_object = {
-            "name": name,
+            "name": prefixed_name,
             "labelListVisibility": visibility,
             "messageListVisibility": "show",
         }
 
-        # Add color if provided
-        if color:
-            label_object["color"] = {"backgroundColor": color}
+        # Note: Gmail API has a limited predefined color palette
+        # Custom hex colors are not supported - Gmail will assign colors automatically
+        # We skip color customization for now to avoid API errors
+        # TODO: Implement color mapping to Gmail's predefined palette in future
+        # if color:
+        #     label_object["color"] = {"backgroundColor": color, "textColor": "#000000"}
 
         def _create_label():
             return service.users().labels().create(userId="me", body=label_object).execute()
@@ -573,10 +621,10 @@ class GmailClient:
                     label_name=name,
                 )
 
-                # Fetch existing label by name
+                # Fetch existing label by name (with prefix)
                 labels = await self.list_labels()
                 for label in labels:
-                    if label["name"] == name:
+                    if label["name"] == prefixed_name:
                         self.logger.info(
                             "gmail_label_found",
                             user_id=self.user_id,

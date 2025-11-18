@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -58,6 +58,75 @@ export default function FolderSetupStep({ onStepComplete, currentState }: StepPr
   const [customName, setCustomName] = useState<string>('');
   const [customKeywords, setCustomKeywords] = useState<string>('');
   const [isCreatingCustom, setIsCreatingCustom] = useState<boolean>(false);
+  const [isLoadingFolders, setIsLoadingFolders] = useState<boolean>(false);
+
+  /**
+   * Fetch existing folders from API on component mount
+   * This ensures that if user created folders earlier and refreshed the page,
+   * the folders will be loaded from the database and displayed
+   */
+  useEffect(() => {
+    console.log('FolderSetupStep: useEffect running, fetching folders...');
+    const loadExistingFolders = async () => {
+      try {
+        setIsLoadingFolders(true);
+        console.log('FolderSetupStep: Calling apiClient.getFolders()');
+        const response = await apiClient.getFolders();
+        console.log('FolderSetupStep: Got response:', response);
+
+        // The response IS the array directly, not wrapped in {data: ...}
+        const foldersData = (response as unknown) as any[];
+        console.log('FolderSetupStep: foldersData:', foldersData);
+        console.log('FolderSetupStep: Is array?', Array.isArray(foldersData));
+        console.log('FolderSetupStep: Length:', foldersData?.length);
+
+        if (foldersData && Array.isArray(foldersData) && foldersData.length > 0) {
+          console.log('FolderSetupStep: Mapping folders...');
+          // Map API response to FolderCategory type
+          const folders: FolderCategory[] = foldersData.map((folder) => {
+            console.log('FolderSetupStep: Mapping folder:', folder);
+            return {
+              id: folder.id,
+              user_id: folder.user_id,
+              name: folder.name,
+              gmail_label_id: folder.gmail_label_id,
+              keywords: folder.keywords || [],
+              color: folder.color || '#6B7280',
+              is_default: folder.is_default,
+              created_at: folder.created_at,
+              updated_at: folder.updated_at,
+            };
+          });
+
+          console.log('FolderSetupStep: Mapped folders:', folders);
+
+          // Update local state
+          console.log('FolderSetupStep: Calling setCreatedFolders...');
+          setCreatedFolders(folders);
+
+          // Update wizard state so validation passes and localStorage is updated
+          console.log('FolderSetupStep: Calling onStepComplete...');
+          onStepComplete({
+            ...currentState,
+            folders,
+          });
+
+          console.log(`Loaded ${folders.length} existing folders from API`);
+        } else {
+          console.log('FolderSetupStep: No folders found or invalid response');
+        }
+      } catch (error) {
+        console.error('FolderSetupStep: Failed to load existing folders:', error);
+        console.error('FolderSetupStep: Error stack:', (error as Error).stack);
+        // Don't show error toast - just log it. User can still create new folders.
+      } finally {
+        console.log('FolderSetupStep: Finally block - setting isLoadingFolders to false');
+        setIsLoadingFolders(false);
+      }
+    };
+
+    loadExistingFolders();
+  }, []); // Run once on mount
 
   /**
    * Handle "Add These Defaults" button click
@@ -74,7 +143,7 @@ export default function FolderSetupStep({ onStepComplete, currentState }: StepPr
         const response = await apiClient.createFolder({
           name: folder.name,
           keywords: folder.keywords,
-          color: folder.color,
+          color: folder.color || '#6B7280',
         });
 
         newFolders.push(response.data as FolderCategory);
@@ -191,7 +260,7 @@ export default function FolderSetupStep({ onStepComplete, currentState }: StepPr
               <div key={folder.name} className="flex items-start gap-3 rounded-lg border p-3">
                 <div
                   className="mt-1 h-4 w-4 flex-shrink-0 rounded-full"
-                  style={{ backgroundColor: folder.color }}
+                  style={{ backgroundColor: folder.color || '#6B7280' }}
                 />
                 <div className="flex-1">
                   <h4 className="font-semibold">{folder.name}</h4>
@@ -320,7 +389,7 @@ export default function FolderSetupStep({ onStepComplete, currentState }: StepPr
                 >
                   <div
                     className="h-4 w-4 flex-shrink-0 rounded-full"
-                    style={{ backgroundColor: folder.color }}
+                    style={{ backgroundColor: folder.color || '#6B7280' }}
                   />
                   <div className="flex-1">
                     <span className="font-medium">{folder.name}</span>
