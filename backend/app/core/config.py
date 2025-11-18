@@ -163,6 +163,7 @@ class Settings:
         self.GMAIL_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID", "")
         self.GMAIL_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET", "")
         self.GMAIL_REDIRECT_URI = os.getenv("GMAIL_REDIRECT_URI", "http://localhost:8000/api/v1/auth/gmail/callback")
+        self.FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
         self.ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
 
         # Telegram Bot Configuration
