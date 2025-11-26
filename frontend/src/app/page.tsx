@@ -15,7 +15,7 @@ export default function Home() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="container flex flex-col items-center justify-center gap-8 py-24 md:py-32">
+        <section className="container flex flex-col items-center justify-center gap-8 pt-32 pb-24 md:pt-40 md:pb-32">
           <div className="flex flex-col items-center gap-4 text-center">
             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
               AI-Powered Email
@@ -30,7 +30,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-4 min-[400px]:flex-row">
+          <div className="flex flex-col gap-4 min-[400px]:flex-row mb-16 md:mb-20">
             <Button size="lg" asChild>
               <Link href="/onboarding">Get Started</Link>
             </Button>
@@ -44,14 +44,14 @@ export default function Home() {
         <section className="container py-12 md:py-24">
           <div className="grid gap-6 md:grid-cols-3">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-col items-center text-center">
                 <MailIcon className="size-10 mb-2 text-primary" />
                 <CardTitle>Gmail Integration</CardTitle>
                 <CardDescription>
                   Seamlessly connect your Gmail account and let AI analyze your emails
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-center">
                 <p className="text-sm text-muted-foreground">
                   OAuth 2.0 secure connection with read and send permissions
                 </p>
@@ -59,14 +59,14 @@ export default function Home() {
             </Card>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-col items-center text-center">
                 <BrainCircuitIcon className="size-10 mb-2 text-primary" />
                 <CardTitle>AI Classification</CardTitle>
                 <CardDescription>
                   Intelligent email sorting powered by Google Gemini
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-center">
                 <p className="text-sm text-muted-foreground">
                   Automatic categorization and priority detection
                 </p>
@@ -74,14 +74,14 @@ export default function Home() {
             </Card>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-col items-center text-center">
                 <MessageSquareIcon className="size-10 mb-2 text-primary" />
                 <CardTitle>Telegram Approval</CardTitle>
                 <CardDescription>
                   Review and approve email actions via Telegram bot
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-center">
                 <p className="text-sm text-muted-foreground">
                   Get instant notifications and respond with one tap
                 </p>

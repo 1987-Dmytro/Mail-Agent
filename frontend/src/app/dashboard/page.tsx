@@ -44,10 +44,10 @@ export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, user } = useAuthStatus();
 
-  // Redirect to login if not authenticated
+  // Redirect to onboarding if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/login');
+      router.push('/onboarding');
     }
   }, [authLoading, isAuthenticated, router]);
 

@@ -690,7 +690,7 @@ async def auth_status(
         gmail_connected = bool(user.gmail_oauth_token and user.gmail_refresh_token)
 
         # Check if user has Telegram linked
-        telegram_connected = False  # TODO: Check telegram_user_id or similar field
+        telegram_connected = bool(user.telegram_id)
 
         return {
             "authenticated": True,
@@ -699,6 +699,7 @@ async def auth_status(
                 "email": user.email,
                 "gmail_connected": gmail_connected,
                 "telegram_connected": telegram_connected,
+                "onboarding_completed": user.onboarding_completed,
             },
         }
     except Exception as e:

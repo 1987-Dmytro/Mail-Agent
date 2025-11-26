@@ -27,3 +27,13 @@ export interface ApiError {
   status: number;
   code?: string;
 }
+
+/**
+ * OAuth configuration response
+ * Used for Gmail OAuth flow
+ */
+export interface OAuthConfig {
+  auth_url: string;
+  client_id: string;
+  scopes: string[];
+}

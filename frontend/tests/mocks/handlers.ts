@@ -42,6 +42,18 @@ export const handlers = [
     });
   }),
 
+  // Mock complete onboarding endpoint
+  http.post(`${API_URL}/api/v1/users/complete-onboarding`, ({ request }) => {
+    console.log(`🔵 MSW: Intercepted POST ${request.url}`);
+    return HttpResponse.json({
+      data: {
+        success: true,
+        message: 'Onboarding completed successfully',
+      },
+      status: 200,
+    });
+  }),
+
   // ============================================
   // Gmail OAuth Endpoints
   // ============================================
@@ -65,11 +77,18 @@ export const handlers = [
   }),
 
   // Mock Gmail OAuth callback
-  http.post(`${API_URL}/api/v1/auth/gmail/callback`, async ({ request }) => {
-    const body = await request.json() as { code: string; state: string };
+  // FIXED: Changed from POST to GET to match actual API client implementation
+  // API client sends GET request with query params: ?code=...&state=...
+  http.get(`${API_URL}/api/v1/auth/gmail/callback`, ({ request }) => {
+    console.log(`🔵 MSW: Intercepted GET ${request.url}`);
+
+    // Extract code and state from query parameters
+    const url = new URL(request.url);
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
 
     // Simulate state validation failure
-    if (body.state === 'invalid-state') {
+    if (state === 'invalid-state') {
       return HttpResponse.json(
         {
           message: 'Invalid state parameter',
@@ -81,6 +100,7 @@ export const handlers = [
     }
 
     // Simulate successful OAuth callback
+    console.log(`🔵 MSW→PW: GET /api/v1/auth/gmail/callback → 200`);
     return HttpResponse.json({
       data: {
         user: {

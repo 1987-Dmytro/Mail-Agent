@@ -66,9 +66,13 @@ export function useAuthStatus(): UseAuthStatusReturn {
 
       const response = await apiClient.authStatus();
 
-      if (response.data) {
-        setIsAuthenticated(response.data.authenticated);
-        setUser(response.data.user || null);
+      // Handle both wrapped { data: {...} } and unwrapped { authenticated: ... } responses
+      // Backend returns unwrapped format: { authenticated: boolean, user?: {...} }
+      const authData = 'data' in response && response.data ? response.data : response;
+
+      if (authData && 'authenticated' in authData) {
+        setIsAuthenticated(authData.authenticated);
+        setUser(authData.user || null);
       } else {
         setIsAuthenticated(false);
         setUser(null);

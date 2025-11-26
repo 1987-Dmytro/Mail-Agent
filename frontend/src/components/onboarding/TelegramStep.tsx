@@ -38,7 +38,7 @@ export default function TelegramStep({ onStepComplete, onNext }: StepProps) {
   };
 
   return (
-    <div>
+    <div className="flex flex-col items-center text-center space-y-6">
       {/* Reuse existing TelegramLink component from Story 4.3 */}
       {/* Pass onNext as onNavigate to integrate with wizard navigation */}
       <TelegramLink onSuccess={handleSuccess} onError={handleError} onNavigate={onNext} />

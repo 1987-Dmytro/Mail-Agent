@@ -1785,3 +1785,34 @@ const handlers = [
 - **Flaky Test Policy:** Flaky tests (failing <95% of time) must be fixed or disabled within 48 hours
 - **Test Documentation:** Each E2E test includes comment explaining user journey
 - **Mock Data Updates:** Update MSW mocks when backend API contract changes
+
+---
+
+## Post-Review Follow-ups
+
+This section tracks technical debt and improvements identified during code reviews for Epic 4 stories.
+
+### Story 4.9: Fix OAuth Configuration Error
+
+**Date:** 2025-11-18
+**Reviewer:** Dimcheg (Senior Developer Review - AI)
+
+**Follow-up Items:**
+
+1. **[Medium] Update OAuth Test State Handling**
+   - **File:** `tests/components/gmail-connect.test.tsx:143-182`
+   - **Issue:** Test `test_oauth_initiation_constructs_url` expects frontend to generate state via `crypto.randomUUID()` but implementation correctly extracts state from backend-provided auth_url (GmailConnect.tsx:240-249)
+   - **Action:** Update test to match current OAuth flow - backend provides state in auth_url, frontend extracts it
+   - **Story Reference:** Story 4-9
+
+2. **[Medium] Update AC 4 Documentation**
+   - **File:** `docs/stories/story-4-9-fix-oauth-error.md:66`
+   - **Issue:** AC text says "Check response.data.client_id" but implementation correctly checks "auth_url" per root cause analysis
+   - **Action:** Update AC 4 text from "client_id" to "auth_url" to match implementation and root cause analysis
+   - **Story Reference:** Story 4-9
+
+3. **[Low] Update Package Version Documentation**
+   - **File:** `docs/stories/story-4-9-fix-oauth-error.md:312`
+   - **Issue:** Story says "react-error-boundary@^4.1.2" but actual installed version is "6.0.0"
+   - **Action:** Update story Dev Agent Record to reflect actual version installed
+   - **Story Reference:** Story 4-9

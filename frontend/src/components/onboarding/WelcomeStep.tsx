@@ -35,46 +35,46 @@ export default function WelcomeStep({ onNext }: StepProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col items-center text-center space-y-8 max-w-2xl mx-auto">
       {/* Welcome header */}
-      <div className="text-center">
-        <div className="mb-4 flex justify-center">
-          <div className="rounded-full bg-primary/10 p-4">
-            <Mail className="h-12 w-12 text-primary" />
+      <div className="w-full space-y-4">
+        <div className="mb-6 flex justify-center">
+          <div className="rounded-full bg-gradient-to-br from-primary/20 to-primary/10 p-5 shadow-lg shadow-primary/10">
+            <Mail className="h-14 w-14 text-primary" />
           </div>
         </div>
-        <h1 className="mb-2 text-3xl font-bold leading-tight">Welcome to Mail Agent</h1>
-        <p className="text-lg text-muted-foreground">
+        <h1 className="text-4xl font-bold leading-tight tracking-tight">Welcome to Mail Agent</h1>
+        <p className="text-xl text-muted-foreground max-w-md mx-auto">
           Never miss an important email again
         </p>
       </div>
 
       {/* Core benefits */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+      <Card className="w-full shadow-md border-border/50">
+        <CardHeader className="space-y-3 pb-6">
+          <CardTitle className="flex items-center justify-center gap-2 text-2xl">
+            <Sparkles className="h-6 w-6 text-primary" />
             Here&apos;s how it works
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-base">
             Intelligent email management with AI and Telegram
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-3">
-            <div className="flex-shrink-0">
+        <CardContent className="space-y-6">
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 p-3">
               <Bot className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <h3 className="font-semibold leading-tight">AI Email Sorting</h3>
-              <p className="text-sm text-muted-foreground leading-normal">
+            <div className="max-w-sm mx-auto">
+              <h3 className="font-semibold text-base mb-1.5">AI Email Sorting</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 AI reads every email and suggests the right folder—so you don&apos;t have to
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <div className="flex-shrink-0">
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 p-3">
               <svg
                 className="h-6 w-6 text-primary"
                 fill="currentColor"
@@ -83,21 +83,21 @@ export default function WelcomeStep({ onNext }: StepProps) {
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
               </svg>
             </div>
-            <div>
-              <h3 className="font-semibold leading-tight">One-Tap Telegram Approval</h3>
-              <p className="text-sm text-muted-foreground leading-normal">
+            <div className="max-w-sm mx-auto">
+              <h3 className="font-semibold text-base mb-1.5">One-Tap Telegram Approval</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Approve with one tap on Telegram—no need to open your inbox
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <div className="flex-shrink-0">
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 p-3">
               <FolderKanban className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <h3 className="font-semibold leading-tight">Smart Folder Management</h3>
-              <p className="text-sm text-muted-foreground leading-normal">
+            <div className="max-w-sm mx-auto">
+              <h3 className="font-semibold text-base mb-1.5">Smart Folder Management</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Set up folders that match how you work—perfect for freelancers and busy professionals
               </p>
             </div>
@@ -106,45 +106,45 @@ export default function WelcomeStep({ onNext }: StepProps) {
       </Card>
 
       {/* Setup steps preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>5-Minute Setup</CardTitle>
-          <CardDescription>We&apos;ll walk you through everything—it&apos;s easier than you think</CardDescription>
+      <Card className="w-full shadow-md border-border/50">
+        <CardHeader className="space-y-3 pb-6">
+          <CardTitle className="text-2xl">5-Minute Setup</CardTitle>
+          <CardDescription className="text-base">We&apos;ll walk you through everything—it&apos;s easier than you think</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-sm font-bold text-primary-foreground shadow-sm">
               1
             </div>
-            <span>Connect Gmail <span className="text-muted-foreground">(30 seconds)</span></span>
+            <span className="text-base">Connect Gmail <span className="text-muted-foreground text-sm">(30 seconds)</span></span>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-sm font-bold text-primary-foreground shadow-sm">
               2
             </div>
-            <span>Link Telegram <span className="text-muted-foreground">(1 minute)</span></span>
+            <span className="text-base">Link Telegram <span className="text-muted-foreground text-sm">(1 minute)</span></span>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-sm font-bold text-primary-foreground shadow-sm">
               3
             </div>
-            <span>Create your folders <span className="text-muted-foreground">(2 minutes)</span></span>
+            <span className="text-base">Create your folders <span className="text-muted-foreground text-sm">(2 minutes)</span></span>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-              4
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 text-sm font-bold text-white shadow-sm">
+              ✓
             </div>
-            <span>You&apos;re ready to go!</span>
+            <span className="text-base font-medium">You&apos;re ready to go!</span>
           </div>
         </CardContent>
       </Card>
 
       {/* Action buttons */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4 w-full pt-2">
         <Button
           onClick={handleGetStarted}
           size="lg"
-          className="w-full"
+          className="w-full h-12 text-base font-semibold shadow-md hover:shadow-lg transition-all"
         >
           Get Started
         </Button>
@@ -153,7 +153,7 @@ export default function WelcomeStep({ onNext }: StepProps) {
           onClick={handleSkip}
           variant="ghost"
           size="sm"
-          className="text-muted-foreground"
+          className="text-muted-foreground hover:text-foreground"
         >
           Skip setup—I&apos;ll configure this later
         </Button>

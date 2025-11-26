@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ErrorBoundary } from 'react-error-boundary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -41,6 +42,62 @@ interface GmailConnectProps {
    * Used by onboarding wizard to advance to next step
    */
   onNavigate?: () => void;
+  /**
+   * Callback for skipping this step
+   * Used by onboarding wizard to advance without connecting
+   */
+  onSkip?: () => void;
+}
+
+/**
+ * Error Fallback UI for ErrorBoundary
+ * AC: 3 - Error boundary prevents crashes
+ */
+function ErrorFallback({
+  error,
+  resetErrorBoundary,
+  onSkip,
+}: {
+  error: Error;
+  resetErrorBoundary: () => void;
+  onSkip?: () => void;
+}) {
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardContent className="pt-6 space-y-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Connection Error</strong>
+            <p className="mt-2">
+              We couldn&apos;t connect to Gmail. You can try again or skip this step for now.
+            </p>
+          </AlertDescription>
+        </Alert>
+
+        <div className="flex flex-col gap-2">
+          <Button
+            onClick={resetErrorBoundary}
+            variant="outline"
+            className="w-full py-3.5 sm:py-3"
+            style={{ minHeight: '44px' }}
+          >
+            Try Again
+          </Button>
+          {onSkip && (
+            <Button
+              onClick={onSkip}
+              variant="ghost"
+              className="w-full py-3.5 sm:py-3"
+              style={{ minHeight: '44px' }}
+            >
+              Skip for now
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 /**
@@ -58,8 +115,13 @@ interface GmailConnectProps {
  * - State token stored in sessionStorage (temporary)
  * - JWT token stored in localStorage (persistent)
  * - Input validation on callback params
+ *
+ * Error handling:
+ * - ErrorBoundary catches rendering errors (AC: 3)
+ * - User-friendly error messages (AC: 2)
+ * - Skip functionality for escape path
  */
-export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectProps) {
+function GmailConnectContent({ onSuccess, onError, onNavigate, onSkip }: GmailConnectProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -148,15 +210,28 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
       setState('loading');
       const response = await apiClient.gmailOAuthConfig();
 
-      if (response.data) {
+      // FIXED: apiClient.get() returns axios response.data which contains backend's {data: {...}} wrapper
+      // Backend returns {"data": {auth_url, client_id, scopes}}
+      // So we access response.data.auth_url
+      if (response.data && response.data.auth_url) {
         setAuthUrl(response.data.auth_url);
         setState('initial');
       } else {
-        throw new Error('Invalid OAuth config response');
+        throw new Error('Invalid OAuth configuration received');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch OAuth config:', error);
-      handleError('config_fetch_failed', 'Cannot load OAuth configuration. Please try again.');
+
+      // User-friendly error messages based on error type (AC: 2)
+      if (error.response?.status === 404) {
+        handleError('config_fetch_failed', 'OAuth configuration not found. Please contact support.');
+      } else if (error.response?.status === 500) {
+        handleError('config_fetch_failed', 'Server error. Please try again in a few moments.');
+      } else if (error.code === 'NETWORK_ERROR' || !navigator.onLine) {
+        handleError('network_error', 'No internet connection. Please check your network.');
+      } else {
+        handleError('config_fetch_failed', 'Could not connect to Gmail. Please try again or skip this step.');
+      }
     }
   }
 
@@ -272,6 +347,19 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
   }
 
   /**
+   * Handle skip - move to next step without connecting
+   * AC: 7 - Skip functionality
+   */
+  function handleSkip() {
+    console.log('[Onboarding] User skipped Gmail connection');
+    if (onSkip) {
+      onSkip();
+    } else if (onNavigate) {
+      onNavigate();
+    }
+  }
+
+  /**
    * Render initial state: Connect Gmail button
    */
   if (state === 'initial') {
@@ -300,12 +388,25 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
 
           <Button
             onClick={startOAuthFlow}
-            className="w-full"
+            className="w-full py-3.5 sm:py-3"
             size="lg"
+            style={{ minHeight: '44px' }}
           >
             <Mail className="w-4 h-4 mr-2" />
             Connect Gmail
           </Button>
+
+          {onSkip && (
+            <Button
+              onClick={handleSkip}
+              variant="ghost"
+              className="w-full py-3.5 sm:py-3"
+              size="lg"
+              style={{ minHeight: '44px' }}
+            >
+              Skip setup—I&apos;ll configure this later
+            </Button>
+          )}
 
           <p className="text-sm text-muted-foreground text-center">
             You&apos;ll be redirected to Google to grant permissions
@@ -355,8 +456,9 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
                 router.push('/onboarding/telegram');
               }
             }}
-            className="w-full"
+            className="w-full py-3.5 sm:py-3"
             size="lg"
+            style={{ minHeight: '44px' }}
           >
             Continue to Telegram Setup
           </Button>
@@ -367,37 +469,79 @@ export function GmailConnect({ onSuccess, onError, onNavigate }: GmailConnectPro
 
   /**
    * Render error state: Show error message with retry
+   * Story 4-12: Compact mobile error layout
    */
   if (state === 'error') {
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardContent className="pt-6 space-y-4">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Error:</strong> {errorMessage}
-            </AlertDescription>
-          </Alert>
+          {/* Compact error message */}
+          <div className="p-4 rounded-lg bg-red-50 border border-red-200" role="alert">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="mobile-error-text text-red-800 text-left">
+                {errorMessage}
+              </p>
+            </div>
+          </div>
 
-          <div className="flex flex-col gap-2">
+          {/* Action buttons - stacked compactly on mobile */}
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={retryOAuthFlow}
-              variant="outline"
-              className="w-full"
+              className="flex-1 py-3.5 sm:py-3"
+              style={{ minHeight: '44px' }}
             >
               Try Again
             </Button>
 
-            {errorType === 'user_denied' && (
-              <p className="text-sm text-muted-foreground text-center">
-                Mail Agent requires Gmail access to function. Please grant the requested permissions.
-              </p>
+            {onSkip && (
+              <Button
+                onClick={handleSkip}
+                variant="ghost"
+                className="flex-1 py-3.5 sm:py-3"
+                style={{ minHeight: '44px' }}
+              >
+                Skip for now
+              </Button>
             )}
           </div>
+
+          {/* Help text */}
+          {errorType === 'user_denied' && (
+            <p className="text-sm text-muted-foreground text-center">
+              Mail Agent requires Gmail access to function. Please grant the requested permissions.
+            </p>
+          )}
+          {errorType !== 'user_denied' && (
+            <p className="text-sm text-muted-foreground text-center">
+              Having trouble? You can configure this later in settings.
+            </p>
+          )}
         </CardContent>
       </Card>
     );
   }
 
   return null;
+}
+
+/**
+ * GmailConnect with ErrorBoundary wrapper
+ * AC: 3 - Error boundary prevents crashes
+ */
+export function GmailConnect(props: GmailConnectProps) {
+  return (
+    <ErrorBoundary
+      FallbackComponent={(fallbackProps) => (
+        <ErrorFallback {...fallbackProps} onSkip={props.onSkip} />
+      )}
+      onReset={() => {
+        // Reset error state and retry
+        window.location.reload();
+      }}
+    >
+      <GmailConnectContent {...props} />
+    </ErrorBoundary>
+  );
 }

@@ -1,0 +1,295 @@
+
+Running 11 tests using 4 workers
+
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓   4 [chromium] › tests/e2e/folders.spec.ts:39:7 › Folder Management E2E Tests › folders page loads and displays folder list (4.5s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓   1 [chromium] › tests/e2e/folders.spec.ts:49:7 › Folder Management E2E Tests › create new folder successfully (5.5s)
+  ✓   5 [chromium] › tests/e2e/folders.spec.ts:92:7 › Folder Management E2E Tests › folder deletion shows confirmation dialog (1.4s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓   7 [chromium] › tests/e2e/folders.spec.ts:144:7 › Folder Management E2E Tests › folder list shows color indicators (1.1s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓   6 [chromium] › tests/e2e/folders.spec.ts:117:7 › Folder Management E2E Tests › folder form validation works (2.4s)
+  -   9 [chromium] › tests/e2e/folders.spec.ts:171:8 › Folder Management E2E Tests › folders persist after page refresh
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓   8 [chromium] › tests/e2e/folders.spec.ts:156:7 › Folder Management E2E Tests › folder keywords are displayed (1.2s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  10 [chromium] › tests/e2e/folders.spec.ts:187:7 › Folder Management E2E Tests › folder edit dialog prefills existing data (1.1s)
+  ✓  11 [chromium] › tests/e2e/folders.spec.ts:210:7 › Folder Management E2E Tests › folder order can be changed (1.1s)
+  ✘   2 [chromium] › tests/e2e/folders.spec.ts:61:7 › Folder Management E2E Tests › edit existing folder successfully (14.7s)
+  ✘   3 [chromium] › tests/e2e/folders.spec.ts:76:7 › Folder Management E2E Tests › delete folder with confirmation (15.6s)
+
+
+  1) [chromium] › tests/e2e/folders.spec.ts:61:7 › Folder Management E2E Tests › edit existing folder successfully 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('[data-folder-name="Government"]').or(getByText('Government').locator('xpath=ancestor::tr|ancestor::div[contains(@class, "folder")]')).getByRole('button', { name: /edit/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('[data-folder-name="Government"]').or(getByText('Government').locator('xpath=ancestor::tr|ancestor::div[contains(@class, "folder")]')).getByRole('button', { name: /edit/i })[22m
+
+
+       at pages/FoldersPage.ts:134
+
+      132 |
+      133 |     const editButton = folderRow.getByRole('button', { name: /edit/i });
+    > 134 |     await expect(editButton).toBeVisible();
+          |                              ^
+      135 |     await editButton.click();
+      136 |
+      137 |     // Wait for edit dialog
+        at FoldersPage.editFolder (/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/pages/FoldersPage.ts:134:30)
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/folders.spec.ts:68:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--1c8f9-xisting-folder-successfully-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--1c8f9-xisting-folder-successfully-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/folders-Folder-Management--1c8f9-xisting-folder-successfully-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/folders.spec.ts:76:7 › Folder Management E2E Tests › delete folder with confirmation 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('[data-folder-name="ToDelete"]').or(getByText('ToDelete').locator('xpath=ancestor::tr|ancestor::div[contains(@class, "folder")]')).getByRole('button', { name: /delete|remove/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('[data-folder-name="ToDelete"]').or(getByText('ToDelete').locator('xpath=ancestor::tr|ancestor::div[contains(@class, "folder")]')).getByRole('button', { name: /delete|remove/i })[22m
+
+
+       at pages/FoldersPage.ts:164
+
+      162 |
+      163 |     const deleteButton = folderRow.getByRole('button', { name: /delete|remove/i });
+    > 164 |     await expect(deleteButton).toBeVisible();
+          |                                ^
+      165 |     await deleteButton.click();
+      166 |
+      167 |     // Confirm deletion
+        at FoldersPage.deleteFolder (/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/pages/FoldersPage.ts:164:32)
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/folders.spec.ts:86:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--0eb2f-te-folder-with-confirmation-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--0eb2f-te-folder-with-confirmation-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/folders-Folder-Management--0eb2f-te-folder-with-confirmation-chromium/error-context.md
+
+  2 failed
+    [chromium] › tests/e2e/folders.spec.ts:61:7 › Folder Management E2E Tests › edit existing folder successfully 
+    [chromium] › tests/e2e/folders.spec.ts:76:7 › Folder Management E2E Tests › delete folder with confirmation 
+  1 skipped
+  8 passed (20.2s)
+
+[36m  Serving HTML report at http://localhost:9323. Press Ctrl+C to quit.[39m

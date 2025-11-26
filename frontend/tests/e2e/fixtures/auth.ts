@@ -98,6 +98,8 @@ export async function setupAuthenticatedSession(page: Page, user: MockUser = moc
 export async function mockAuthEndpoints(page: Page, user: MockUser = mockAuthenticatedUser) {
   // Mock GET /api/v1/auth/status (CRITICAL: this is what useAuthStatus() calls)
   await page.route('**/api/v1/auth/status', (route) => {
+    console.log(`🔵 PW Route: Intercepted ${route.request().method()} ${route.request().url()}`);
+    console.log(`🔵 PW Route: Returning user:`, JSON.stringify(user, null, 2));
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -150,8 +152,8 @@ export async function mockGmailOAuthFlow(page: Page) {
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          // Return callback URL directly (component will add state parameter)
-          auth_url: '/onboarding?code=mock-code',
+          // Return absolute URL with state parameter (not relative URL)
+          auth_url: 'http://localhost:3000/onboarding?code=mock-code&state=mock-state',
           client_id: 'mock-client-id',
           scopes: ['gmail.modify', 'gmail.send'],
         },
@@ -179,9 +181,11 @@ export async function mockGmailOAuthFlow(page: Page) {
     });
   });
 
-  // Mock POST /api/v1/auth/gmail/callback
+  // Mock GET /api/v1/auth/gmail/callback (OAuth callback with query params)
   // GmailConnect component expects: response.data.token and response.data.user
-  await page.route('**/api/v1/auth/gmail/callback', (route) => {
+  // CRITICAL FIX: Use specific URL pattern with localhost:8000 to ensure interception
+  await page.route('http://localhost:8000/api/v1/auth/gmail/callback**', (route) => {
+    console.log(`🔵 PW Route: Intercepted ${route.request().method()} ${route.request().url()}`);
     route.fulfill({
       status: 200,
       contentType: 'application/json',

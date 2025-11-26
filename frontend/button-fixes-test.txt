@@ -1,0 +1,2006 @@
+
+> frontend@0.1.0 test:e2e:chromium
+> playwright test --project=chromium
+
+
+Running 78 tests using 4 workers
+
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+  ✓   3 [chromium] › tests/e2e/accessibility.spec.ts:91:7 › Accessibility Tests - WCAG 2.1 Level AA › form inputs have proper labels (3.5s)
+  ✓   4 [chromium] › tests/e2e/accessibility.spec.ts:27:7 › Accessibility Tests - WCAG 2.1 Level AA › onboarding page has no accessibility violations (3.5s)
+  ✓   2 [chromium] › tests/e2e/accessibility.spec.ts:52:7 › Accessibility Tests - WCAG 2.1 Level AA › dashboard page has no accessibility violations (3.5s)
+  ✓   1 [chromium] › tests/e2e/accessibility.spec.ts:68:7 › Accessibility Tests - WCAG 2.1 Level AA › all interactive elements are keyboard accessible (3.6s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓   6 [chromium] › tests/e2e/accessibility.spec.ts:135:7 › Accessibility Tests - WCAG 2.1 Level AA › heading hierarchy is correct (1.5s)
+  ✓   5 [chromium] › tests/e2e/accessibility.spec.ts:117:7 › Accessibility Tests - WCAG 2.1 Level AA › images have alt text (1.6s)
+  ✓   7 [chromium] › tests/e2e/accessibility.spec.ts:154:7 › Accessibility Tests - WCAG 2.1 Level AA › color contrast is sufficient (manual check placeholder) (1.6s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+  ✓   8 [chromium] › tests/e2e/accessibility.spec.ts:169:7 › Accessibility Tests - WCAG 2.1 Level AA › focus indicators are visible (1.6s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+Skip links found: 1
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓   9 [chromium] › tests/e2e/accessibility.spec.ts:190:7 › Accessibility Tests - WCAG 2.1 Level AA › skip to main content link exists (best practice) (1.5s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  10 [chromium] › tests/e2e/accessibility.spec.ts:206:7 › Accessibility Tests - WCAG 2.1 Level AA › page has valid language attribute (1.6s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  11 [chromium] › tests/e2e/dashboard.spec.ts:34:7 › Dashboard Page E2E Tests › dashboard page loads and displays all data (2.2s)
+  ✓  12 [chromium] › tests/e2e/dashboard.spec.ts:45:7 › Dashboard Page E2E Tests › connection status cards display correctly (2.2s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  13 [chromium] › tests/e2e/dashboard.spec.ts:60:7 › Dashboard Page E2E Tests › email statistics display correctly (1.5s)
+  ✓  14 [chromium] › tests/e2e/dashboard.spec.ts:73:7 › Dashboard Page E2E Tests › recent activity feed displays items (1.4s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  15 [chromium] › tests/e2e/dashboard.spec.ts:86:7 › Dashboard Page E2E Tests › time saved widget displays correctly (1.5s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  18 [chromium] › tests/e2e/dashboard.spec.ts:131:7 › Dashboard Page E2E Tests › dashboard handles API errors gracefully (1.2s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  19 [chromium] › tests/e2e/dashboard.spec.ts:155:7 › Dashboard Page E2E Tests › navigation to folder settings works (1.1s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  17 [chromium] › tests/e2e/dashboard.spec.ts:113:7 › Dashboard Page E2E Tests › dashboard displays loading states initially (2.2s)
+  ✓  20 [chromium] › tests/e2e/dashboard.spec.ts:168:7 › Dashboard Page E2E Tests › navigation to notification settings works (994ms)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  21 [chromium] › tests/e2e/dashboard.spec.ts:181:7 › Dashboard Page E2E Tests › dashboard responsive on mobile viewport (1.1s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  22 [chromium] › tests/e2e/dashboard.spec.ts:199:7 › Dashboard Page E2E Tests › dashboard displays correct last sync time (1.1s)
+  ✓  23 [chromium] › tests/e2e/dashboard.spec.ts:212:7 › Dashboard Page E2E Tests › dashboard email stats are clickable/interactive (1.2s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+=== NAVIGATING TO /settings/folders ===
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+[BROWSER] log: [OnboardingRedirect] First-time user detected, redirecting to /onboarding
+  ✓  24 [chromium] › tests/e2e/dashboard.spec.ts:230:7 › Dashboard Page E2E Tests › dashboard shows empty state when no emails processed (1.0s)
+[BROWSER] info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[BROWSER] log: [HMR] connected
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+=== AFTER GOTO ===
+localStorage: [1mnull[22m
+URL: http://localhost:3000/onboarding
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+
+=== NAVIGATING TO ONBOARDING ===
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+
+=== WAITING FOR WELCOME PAGE ===
+
+=== WELCOME PAGE LOADED ===
+Console messages so far: [33m5[39m
+Console errors so far: [33m0[39m
+
+=== CLICKING GET STARTED BUTTON ===
+
+=== STATE BEFORE CLICK ===
+localStorage: [1mnull[22m
+Current URL: http://localhost:3000/settings/folders
+Page title: Mail Agent - AI Email Management
+All headings found: ["Folder Categories"]
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+Body text (first 500 chars): Skip to main contentFolder CategoriesCreate and manage your email folder categories. Categories help organize your emails with custom labels in Gmail.3 categoriesAdd CategoryGovernmentfinanzamttaxbürgeramtBankingbanksparkassen26Workprojectmeetingdeadlineself.__next_r="Up5bYXpKkfC9sFL8-h9CE"(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,"5:I[\"[project]/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js [app-client] (ecmascript)\",[\"/_next/static/chunks
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+"Folder Categories" heading visible: true
+
+=== CONSOLE ERRORS (0) ===
+
+=== PAGE ERRORS (0) ===
+✓ Button clicked
+  ✓  25 [chromium] › tests/e2e/debug-folder-navigation.spec.ts:9:7 › Folder Navigation Debug › debug folder page navigation and URL (1.5s)
+  -  28 [chromium] › tests/e2e/errors.spec.ts:35:7 › Error Scenario E2E Tests › API failure shows error message and retry button
+  -  29 [chromium] › tests/e2e/errors.spec.ts:60:7 › Error Scenario E2E Tests › retry button recovers from API failure
+  -  30 [chromium] › tests/e2e/errors.spec.ts:95:7 › Error Scenario E2E Tests › network offline shows offline banner
+  -  31 [chromium] › tests/e2e/errors.spec.ts:113:7 › Error Scenario E2E Tests › network recovery restores functionality
+  -  32 [chromium] › tests/e2e/errors.spec.ts:136:7 › Error Scenario E2E Tests › API timeout shows timeout error message
+  -  33 [chromium] › tests/e2e/errors.spec.ts:152:7 › Error Scenario E2E Tests › 404 error shows appropriate message
+  -  34 [chromium] › tests/e2e/errors.spec.ts:166:7 › Error Scenario E2E Tests › unauthorized access redirects to login
+  -  35 [chromium] › tests/e2e/errors.spec.ts:179:7 › Error Scenario E2E Tests › folder creation with duplicate name shows error
+  -  36 [chromium] › tests/e2e/errors.spec.ts:218:7 › Error Scenario E2E Tests › invalid email format shows validation error
+  -  37 [chromium] › tests/e2e/errors.spec.ts:236:7 › Error Scenario E2E Tests › session expiration redirects to login with message
+  -  38 [chromium] › tests/e2e/errors.spec.ts:262:7 › Error Scenario E2E Tests › rate limiting shows appropriate error message
+  -  39 [chromium] › tests/e2e/errors.spec.ts:288:7 › Error Scenario E2E Tests › malformed API response shows generic error
+  -  40 [chromium] › tests/e2e/errors.spec.ts:306:7 › Error Scenario E2E Tests › empty required field shows validation error
+  -  41 [chromium] › tests/e2e/errors.spec.ts:323:7 › Error Scenario E2E Tests › error messages are user-friendly and actionable
+  -  42 [chromium] › tests/e2e/errors.spec.ts:350:7 › Error Scenario E2E Tests › loading spinner shows during async operations
+  -  43 [chromium] › tests/e2e/errors.spec.ts:372:7 › Error Scenario E2E Tests › concurrent API failures dont break UI
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  16 [chromium] › tests/e2e/dashboard.spec.ts:96:7 › Dashboard Page E2E Tests › dashboard auto-refreshes data (SWR polling) (6.5s)
+
+=== STATE AFTER CLICK ===
+localStorage: {"currentStep":2,"gmailConnected":false,"telegramConnected":false,"folders":[],"lastUpdated":"2025-11-19T00:26:54.672Z"}
+Gmail text visible: [33mtrue[39m
+
+=== WAITING FOR GMAIL BUTTON (10s timeout) ===
+✓ Gmail button appeared!
+
+=== ALL BROWSER CONSOLE MESSAGES ===
+1. [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+2. [log] [HMR] connected
+3. [log] [OnboardingRedirect] First-time user detected, redirecting to /onboarding
+4. [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+5. [log] [HMR] connected
+
+✓ No console errors or warnings
+  ✓  27 [chromium] › tests/e2e/debug-onboarding.spec.ts:21:7 › Onboarding Debug Tests › debug Welcome to Gmail transition with console logging (2.1s)
+  ✓  44 [chromium] › tests/e2e/folders.spec.ts:39:7 › Folder Management E2E Tests › folders page loads and displays folder list (1.1s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+
+=== AFTER GET STARTED ===
+localStorage: {"currentStep":2,"gmailConnected":false,"telegramConnected":false,"folders":[],"lastUpdated":"2025-11-19T00:26:54.145Z"}
+URL: http://localhost:3000/onboarding
+
+=== BEFORE CONNECT CLICK ===
+localStorage: {"currentStep":2,"gmailConnected":false,"telegramConnected":false,"folders":[],"lastUpdated":"2025-11-19T00:26:54.145Z"}
+URL: http://localhost:3000/onboarding
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+[BROWSER] info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[BROWSER] log: [HMR] connected
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/gmail/callback?code=mock-code&state=mock-state
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": false,
+  "telegram_connected": false,
+  "onboarding_completed": false
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/gmail/callback?code=mock-code&state=mock-state
+[BROWSER] error: Gmail connection error: Security validation failed. Please try again.
+[BROWSER] error: Gmail connection error: Security validation failed. Please try again.
+[BROWSER] log: [Fast Refresh] rebuilding
+[BROWSER] log: [Fast Refresh] done in 193ms
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+
+=== AFTER CONNECT CLICK ===
+localStorage: {"currentStep":2,"gmailConnected":true,"telegramConnected":false,"folders":[],"lastUpdated":"2025-11-19T00:26:57.507Z"}
+URL: http://localhost:3000/onboarding?code=mock-code&state=mock-state
+sessionStorage oauth_state: [1mnull[22m
+Welcome visible? [33mfalse[39m
+Gmail Connected visible? [33mtrue[39m
+  ✘  26 [chromium] › tests/e2e/debug-oauth.spec.ts:29:7 › OAuth Debug › debug OAuth flow with localStorage tracking (5.2s)
+  ✘  45 [chromium] › tests/e2e/folders.spec.ts:49:7 › Folder Management E2E Tests › create new folder successfully (3.0s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✘  47 [chromium] › tests/e2e/folders.spec.ts:76:7 › Folder Management E2E Tests › delete folder with confirmation (4.1s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  48 [chromium] › tests/e2e/folders.spec.ts:92:7 › Folder Management E2E Tests › folder deletion shows confirmation dialog (2.0s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  49 [chromium] › tests/e2e/folders.spec.ts:117:7 › Folder Management E2E Tests › folder form validation works (2.4s)
+  -  52 [chromium] › tests/e2e/folders.spec.ts:171:8 › Folder Management E2E Tests › folders persist after page refresh
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  50 [chromium] › tests/e2e/folders.spec.ts:144:7 › Folder Management E2E Tests › folder list shows color indicators (1.6s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  51 [chromium] › tests/e2e/folders.spec.ts:156:7 › Folder Management E2E Tests › folder keywords are displayed (1.3s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  53 [chromium] › tests/e2e/folders.spec.ts:187:7 › Folder Management E2E Tests › folder edit dialog prefills existing data (1.3s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  54 [chromium] › tests/e2e/folders.spec.ts:210:7 › Folder Management E2E Tests › folder order can be changed (1.1s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  55 [chromium] › tests/e2e/notifications.spec.ts:35:7 › Notification Preferences E2E Tests › notification preferences page loads correctly (2.5s)
+  ✓  56 [chromium] › tests/e2e/notifications.spec.ts:49:7 › Notification Preferences E2E Tests › toggle batch notifications on and off (2.2s)
+  ✓  57 [chromium] › tests/e2e/notifications.spec.ts:64:7 › Notification Preferences E2E Tests › set batch time when batch notifications enabled (1.9s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  58 [chromium] › tests/e2e/notifications.spec.ts:79:7 › Notification Preferences E2E Tests › toggle quiet hours on and off (1.6s)
+  ✓  59 [chromium] › tests/e2e/notifications.spec.ts:94:7 › Notification Preferences E2E Tests › set quiet hours time range (1.6s)
+  ✓  60 [chromium] › tests/e2e/notifications.spec.ts:114:7 › Notification Preferences E2E Tests › toggle priority immediate notifications (1.6s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✘  46 [chromium] › tests/e2e/folders.spec.ts:61:7 › Folder Management E2E Tests › edit existing folder successfully (13.1s)
+  ✓  61 [chromium] › tests/e2e/notifications.spec.ts:129:7 › Notification Preferences E2E Tests › test notification button sends notification (2.7s)
+  ✓  62 [chromium] › tests/e2e/notifications.spec.ts:147:7 › Notification Preferences E2E Tests › save notification preferences successfully (3.0s)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+  ✓  66 [chromium] › tests/e2e/notifications.spec.ts:238:7 › Notification Preferences E2E Tests › notification preferences show helpful descriptions (1.7s)
+  -  67 [chromium] › tests/e2e/notifications.spec.ts:259:8 › Notification Preferences E2E Tests › notification preferences validate time format
+  ✓  64 [chromium] › tests/e2e/notifications.spec.ts:206:7 › Notification Preferences E2E Tests › batch time field disabled when batch notifications off (1.9s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+  ✓  69 [chromium] › tests/e2e/onboarding.spec.ts:107:7 › Onboarding Flow E2E Tests › onboarding page loads correctly (608ms)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+  ✓  63 [chromium] › tests/e2e/notifications.spec.ts:170:7 › Notification Preferences E2E Tests › notification preferences persist after page refresh (6.5s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Gmail already connected - clicking Continue button
+✓ Transitioned to Telegram step
+✓ Telegram connected
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+✓ Gmail already connected - clicking Continue button
+✓ Transitioned to Telegram step
+  ✓  70 [chromium] › tests/e2e/onboarding.spec.ts:127:7 › Onboarding Flow E2E Tests › Gmail OAuth step completes successfully (2.6s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Folders added (suggested)
+  ✓  68 [chromium] › tests/e2e/onboarding.spec.ts:53:7 › Onboarding Flow E2E Tests › complete onboarding flow - full 5-step wizard (4.1s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Gmail already connected - clicking Continue button
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+✓ Transitioned to Telegram step
+✓ Telegram connected
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+  ✓  71 [chromium] › tests/e2e/onboarding.spec.ts:138:7 › Onboarding Flow E2E Tests › Telegram linking step completes successfully (2.8s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Gmail already connected - clicking Continue button
+✓ Transitioned to Telegram step
+✓ Telegram connected
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+✓ Gmail already connected - clicking Continue button
+✓ Transitioned to Telegram step
+✓ Telegram connected
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Folders added (suggested)
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Gmail already connected - clicking Continue button
+  ✓  72 [chromium] › tests/e2e/onboarding.spec.ts:152:7 › Onboarding Flow E2E Tests › folder creation step works correctly (3.8s)
+✓ Transitioned to Telegram step
+✓ Telegram connected
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+  ✓  74 [chromium] › tests/e2e/onboarding.spec.ts:201:7 › Onboarding Flow E2E Tests › onboarding validates required fields (3.3s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Gmail already connected - clicking Continue button
+✓ Transitioned to Telegram step
+✓ Telegram connected
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+✓ Gmail already connected - clicking Continue button
+✓ Transitioned to Telegram step
+  ✓  76 [chromium] › tests/e2e/onboarding.spec.ts:258:7 › Onboarding Flow E2E Tests › onboarding wizard displays progress indicators (2.7s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Folders added (suggested)
+✓ Onboarding completed in 0.06 minutes
+  ✓  75 [chromium] › tests/e2e/onboarding.spec.ts:227:7 › Onboarding Flow E2E Tests › onboarding completion time is under 10 minutes (performance) (4.4s)
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 2,
+  "email": "newuser@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "onboarding_completed": true
+}
+✓ Gmail already connected - clicking Continue button
+✓ Transitioned to Telegram step
+✓ Telegram connected
+  ✓  77 [chromium] › tests/e2e/onboarding.spec.ts:272:7 › Onboarding Flow E2E Tests › onboarding wizard allows going back to previous steps (2.9s)
+✓ Gmail already connected - clicking Continue button
+✓ Transitioned to Telegram step
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+🔵 MSW→PW: GET /api/v1/telegram/verify/123456 → 200
+  ✓  78 [chromium] › tests/e2e/onboarding.spec.ts:293:7 › Onboarding Flow E2E Tests › onboarding displays helpful instructions at each step (5.4s)
+  ✘  73 [chromium] › tests/e2e/onboarding.spec.ts:173:7 › Onboarding Flow E2E Tests › onboarding can be resumed from any step (13.3s)
+  ✓  65 [chromium] › tests/e2e/notifications.spec.ts:219:7 › Notification Preferences E2E Tests › quiet hours time fields disabled when quiet hours off (1.0m)
+
+
+  1) [chromium] › tests/e2e/debug-oauth.spec.ts:29:7 › OAuth Debug › debug OAuth flow with localStorage tracking 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      72 |
+      73 |     // Fail the test so we see the output
+    > 74 |     expect(false).toBe(true);
+         |                   ^
+      75 |   });
+      76 | });
+      77 |
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/debug-oauth.spec.ts:74:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/debug-oauth-OAuth-Debug-de-89ead--with-localStorage-tracking-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/debug-oauth-OAuth-Debug-de-89ead--with-localStorage-tracking-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/debug-oauth-OAuth-Debug-de-89ead--with-localStorage-tracking-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/folders.spec.ts:49:7 › Folder Management E2E Tests › create new folder successfully 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText('NewFolder')
+    Expected: visible
+    Error: strict mode violation: getByText('NewFolder') resolved to 2 elements:
+        1) <span class="font-semibold">NewFolder</span> aka getByText('NewFolder', { exact: true })
+        2) <div class="" data-title="">Category 'NewFolder' created!</div> aka getByText('Category \'NewFolder\' created!')
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText('NewFolder')[22m
+
+
+       at pages/FoldersPage.ts:121
+
+      119 |
+      120 |     // Wait for success toast or folder to appear in list
+    > 121 |     await expect(this.page.getByText(name)).toBeVisible({ timeout: 5000 });
+          |                                             ^
+      122 |   }
+      123 |
+      124 |   /**
+        at FoldersPage.createFolder (/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/pages/FoldersPage.ts:121:45)
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/folders.spec.ts:53:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--5b3de-ate-new-folder-successfully-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--5b3de-ate-new-folder-successfully-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/folders-Folder-Management--5b3de-ate-new-folder-successfully-chromium/error-context.md
+
+  3) [chromium] › tests/e2e/folders.spec.ts:61:7 › Folder Management E2E Tests › edit existing folder successfully 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('[data-folder-name="Government"]').or(getByText('Government').locator('xpath=ancestor::tr|ancestor::div[contains(@class, "folder")]')).getByRole('button', { name: /edit/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('[data-folder-name="Government"]').or(getByText('Government').locator('xpath=ancestor::tr|ancestor::div[contains(@class, "folder")]')).getByRole('button', { name: /edit/i })[22m
+
+
+       at pages/FoldersPage.ts:134
+
+      132 |
+      133 |     const editButton = folderRow.getByRole('button', { name: /edit/i });
+    > 134 |     await expect(editButton).toBeVisible();
+          |                              ^
+      135 |     await editButton.click();
+      136 |
+      137 |     // Wait for edit dialog
+        at FoldersPage.editFolder (/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/pages/FoldersPage.ts:134:30)
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/folders.spec.ts:68:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--1c8f9-xisting-folder-successfully-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--1c8f9-xisting-folder-successfully-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/folders-Folder-Management--1c8f9-xisting-folder-successfully-chromium/error-context.md
+
+  4) [chromium] › tests/e2e/folders.spec.ts:76:7 › Folder Management E2E Tests › delete folder with confirmation 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText('ToDelete')
+    Expected: visible
+    Error: strict mode violation: getByText('ToDelete') resolved to 2 elements:
+        1) <span class="font-semibold">ToDelete</span> aka getByText('ToDelete', { exact: true })
+        2) <div class="" data-title="">Category 'ToDelete' created!</div> aka getByText('Category \'ToDelete\' created!')
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText('ToDelete')[22m
+
+
+       at pages/FoldersPage.ts:121
+
+      119 |
+      120 |     // Wait for success toast or folder to appear in list
+    > 121 |     await expect(this.page.getByText(name)).toBeVisible({ timeout: 5000 });
+          |                                             ^
+      122 |   }
+      123 |
+      124 |   /**
+        at FoldersPage.createFolder (/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/pages/FoldersPage.ts:121:45)
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/folders.spec.ts:80:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--0eb2f-te-folder-with-confirmation-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/folders-Folder-Management--0eb2f-te-folder-with-confirmation-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/folders-Folder-Management--0eb2f-te-folder-with-confirmation-chromium/error-context.md
+
+  5) [chromium] › tests/e2e/onboarding.spec.ts:173:7 › Onboarding Flow E2E Tests › onboarding can be resumed from any step 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /setup.*folders/i }).first()
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /setup.*folders/i }).first()[22m
+
+
+      193 |
+      194 |     // Verify we resume from folders step (wizard preserved state)
+    > 195 |     await expect(page.getByRole('heading', { name: /setup.*folders/i }).first()).toBeVisible({ timeout: 10000 });
+          |                                                                                  ^
+      196 |
+      197 |     // Verify we're on step 4 (progress indicator shows "Step 4 of 5")
+      198 |     await expect(page.getByText(/step 4 of 5/i)).toBeVisible();
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/onboarding.spec.ts:195:82
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/onboarding-Onboarding-Flow-f455b-an-be-resumed-from-any-step-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/onboarding-Onboarding-Flow-f455b-an-be-resumed-from-any-step-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/onboarding-Onboarding-Flow-f455b-an-be-resumed-from-any-step-chromium/error-context.md
+
+  5 failed
+    [chromium] › tests/e2e/debug-oauth.spec.ts:29:7 › OAuth Debug › debug OAuth flow with localStorage tracking 
+    [chromium] › tests/e2e/folders.spec.ts:49:7 › Folder Management E2E Tests › create new folder successfully 
+    [chromium] › tests/e2e/folders.spec.ts:61:7 › Folder Management E2E Tests › edit existing folder successfully 
+    [chromium] › tests/e2e/folders.spec.ts:76:7 › Folder Management E2E Tests › delete folder with confirmation 
+    [chromium] › tests/e2e/onboarding.spec.ts:173:7 › Onboarding Flow E2E Tests › onboarding can be resumed from any step 
+  18 skipped
+  55 passed (1.6m)
+
+[36m  Serving HTML report at http://localhost:9323. Press Ctrl+C to quit.[39m

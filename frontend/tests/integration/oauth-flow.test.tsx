@@ -102,10 +102,12 @@ describe('Gmail OAuth Flow - Integration Tests', () => {
     const { useSearchParams } = await import('next/navigation');
     const { apiClient } = await import('@/lib/api-client');
 
+    const mockStateToken = 'integration-test-state-123';
+
     // Mock successful OAuth config response
     vi.mocked(apiClient.gmailOAuthConfig).mockResolvedValue({
       data: {
-        auth_url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test-client-id&redirect_uri=http://localhost:8000/auth/callback&state=test-state',
+        auth_url: `https://accounts.google.com/o/oauth2/v2/auth?client_id=test-client-id&redirect_uri=http://localhost:8000/auth/callback&state=${mockStateToken}`,
         client_id: 'test-client-id.apps.googleusercontent.com',
         scopes: [
           'https://www.googleapis.com/auth/gmail.readonly',
@@ -150,24 +152,20 @@ describe('Gmail OAuth Flow - Integration Tests', () => {
       expect(screen.getByRole('button', { name: /Connect Gmail/i })).toBeInTheDocument();
     });
 
-    // Step 2: Mock crypto.randomUUID
-    const mockStateToken = 'integration-test-state-123';
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue(mockStateToken);
-
-    // Step 3: Click "Connect Gmail" button
+    // Step 2: Click "Connect Gmail" button (state already in auth_url from mock)
     const connectButton = screen.getByRole('button', { name: /Connect Gmail/i });
     await user.click(connectButton);
 
-    // Step 4: Verify state stored in sessionStorage
+    // Step 3: Verify state stored in sessionStorage
     expect(sessionStorage.getItem('oauth_state')).toBe(mockStateToken);
 
-    // Step 5: Verify redirect URL constructed correctly
+    // Step 4: Verify redirect URL constructed correctly
     await waitFor(() => {
       expect(window.location.href).toContain('accounts.google.com');
       expect(window.location.href).toContain(`state=${encodeURIComponent(mockStateToken)}`);
     });
 
-    // Step 6: Simulate OAuth callback (user returned from Google)
+    // Step 5: Simulate OAuth callback (user returned from Google)
     const mockCallbackParams = new URLSearchParams({
       code: 'integration-test-code',
       state: mockStateToken,
@@ -183,7 +181,7 @@ describe('Gmail OAuth Flow - Integration Tests', () => {
     // Rerender component with callback params
     rerender(<GmailConnect />);
 
-    // Step 7: Wait for OAuth callback processing
+    // Step 6: Wait for OAuth callback processing
     await waitFor(
       () => {
         expect(screen.getByText(/Gmail Connected!/i)).toBeInTheDocument();
@@ -373,7 +371,7 @@ describe('Gmail OAuth Flow - Integration Tests', () => {
 
     // Wait for error state
     await waitFor(() => {
-      expect(screen.getByText(/Cannot load OAuth configuration/i)).toBeInTheDocument();
+      expect(screen.getByText(/No internet connection/i)).toBeInTheDocument();
     });
 
     // Verify error alert

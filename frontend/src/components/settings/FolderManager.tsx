@@ -506,7 +506,7 @@ export default function FolderManager() {
       {folders.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {folders.map((folder) => (
-            <Card key={folder.id}>
+            <Card key={folder.id} data-folder-name={folder.name}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-lg">
                   <div className="flex items-center">
@@ -522,6 +522,7 @@ export default function FolderManager() {
                       variant="ghost"
                       onClick={() => handleOpenEditDialog(folder)}
                       title="Edit category"
+                      aria-label="Edit category"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -530,6 +531,7 @@ export default function FolderManager() {
                       variant="ghost"
                       onClick={() => handleOpenDeleteDialog(folder)}
                       title="Delete category"
+                      aria-label="Delete category"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>

@@ -13,6 +13,7 @@ from app.api.v1.telegram import router as telegram_router
 from app.api.v1.test import router as test_router
 from app.api.v1.stats import router as stats_router
 from app.api.v1.admin import router as admin_router
+from app.api.v1.users import router as users_router
 # NOTE: Chatbot router includes LangGraph components, deferred to Epic 2
 # from app.api.v1.chatbot import router as chatbot_router
 from app.core.logging import logger
@@ -21,6 +22,7 @@ api_router = APIRouter()
 
 # Include routers
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
+api_router.include_router(users_router, prefix="/users", tags=["users"])
 api_router.include_router(health_router, prefix="/health", tags=["health"])
 api_router.include_router(folders_router, prefix="/folders", tags=["folders"])
 api_router.include_router(telegram_router, prefix="/telegram", tags=["telegram"])

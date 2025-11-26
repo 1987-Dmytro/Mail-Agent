@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import type { ApiResponse } from '@/types/api';
+import type { ApiResponse, OAuthConfig } from '@/types/api';
 import { getToken, removeToken } from './auth';
 
 /**
@@ -224,6 +224,7 @@ class ApiClient {
 
   /**
    * Generic GET request
+   * Returns axios response.data (which contains backend's {data: T} wrapper)
    */
   async get<T>(url: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
     const response = await this.client.get<ApiResponse<T>>(url, { params });
@@ -232,6 +233,7 @@ class ApiClient {
 
   /**
    * Generic POST request
+   * Returns axios response.data (which contains backend's {data: T} wrapper)
    */
   async post<T>(url: string, data?: unknown): Promise<ApiResponse<T>> {
     const response = await this.client.post<ApiResponse<T>>(url, data);
@@ -240,6 +242,7 @@ class ApiClient {
 
   /**
    * Generic PUT request
+   * Returns axios response.data (which contains backend's {data: T} wrapper)
    */
   async put<T>(url: string, data?: unknown): Promise<ApiResponse<T>> {
     const response = await this.client.put<ApiResponse<T>>(url, data);
@@ -248,6 +251,7 @@ class ApiClient {
 
   /**
    * Generic DELETE request
+   * Returns axios response.data (which contains backend's {data: T} wrapper)
    */
   async delete<T>(url: string): Promise<ApiResponse<T>> {
     const response = await this.client.delete<ApiResponse<T>>(url);
@@ -256,6 +260,7 @@ class ApiClient {
 
   /**
    * Generic PATCH request
+   * Returns axios response.data (which contains backend's {data: T} wrapper)
    */
   async patch<T>(url: string, data?: unknown): Promise<ApiResponse<T>> {
     const response = await this.client.patch<ApiResponse<T>>(url, data);
@@ -269,13 +274,10 @@ class ApiClient {
   /**
    * Get Gmail OAuth configuration
    * Returns authorization URL with client_id and scopes
+   * AC: 4 - Response validation with typed interface
    */
   async gmailOAuthConfig() {
-    return this.get<{
-      auth_url: string;
-      client_id: string;
-      scopes: string[];
-    }>('/api/v1/auth/gmail/config');
+    return this.get<OAuthConfig>('/api/v1/auth/gmail/config');
   }
 
   /**
@@ -517,6 +519,18 @@ class ApiClient {
       created_at: string;
       updated_at: string;
     }>('/api/v1/users/me', data);
+  }
+
+  /**
+   * Mark onboarding as completed
+   * Sets user.onboarding_completed = true in backend
+   * Called from CompletionStep when user finishes onboarding wizard
+   */
+  async completeOnboarding() {
+    return this.post<{
+      success: boolean;
+      message: string;
+    }>('/api/v1/users/complete-onboarding');
   }
 
   // ============================================

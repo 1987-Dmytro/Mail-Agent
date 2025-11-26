@@ -100,7 +100,7 @@ describe('TelegramLink Component - Unit Tests', () => {
     // Set up default Telegram status (not linked)
     vi.mocked(apiClient.telegramStatus).mockResolvedValue({
       data: {
-        connected: false,
+        linked: false,
       },
       status: 200,
     });

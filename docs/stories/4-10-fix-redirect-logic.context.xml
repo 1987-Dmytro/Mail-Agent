@@ -1,0 +1,283 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>10</storyId>
+    <title>Fix Redirect Logic & Onboarding State Management</title>
+    <status>TODO</status>
+    <generatedAt>2025-11-18</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-4-10-fix-redirect-logic.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer fixing critical onboarding bugs</asA>
+    <iWant>to fix broken redirect logic and implement proper onboarding state management with a database-backed onboarding_completed field</iWant>
+    <soThat>users can complete the onboarding flow, access the dashboard after completion, and have a working skip option when encountering errors</soThat>
+    <tasks>
+      <task id="1" title="Add onboarding_completed to User Model">
+        <file>backend/app/models/user.py</file>
+        <action>Add Boolean field onboarding_completed with default=False, nullable=False</action>
+      </task>
+      <task id="2" title="Create Database Migration">
+        <file>backend/alembic/versions/[new]</file>
+        <action>Create migration to add onboarding_completed column with server_default='false'</action>
+      </task>
+      <task id="3" title="Update Auth Status Endpoint">
+        <file>backend/app/api/v1/auth.py</file>
+        <action>Add onboarding_completed field to /status endpoint response</action>
+      </task>
+      <task id="4" title="Create Complete Onboarding Endpoint">
+        <file>backend/app/api/v1/users.py (NEW)</file>
+        <action>Create POST /complete-onboarding endpoint requiring authentication</action>
+      </task>
+      <task id="5" title="Register Users Router">
+        <file>backend/app/api/v1/api.py</file>
+        <action>Import and include users router with /users prefix</action>
+      </task>
+      <task id="6" title="Fix OnboardingRedirect Logic">
+        <file>frontend/src/components/shared/OnboardingRedirect.tsx</file>
+        <action>Replace strict === false check with simple !user.onboarding_completed</action>
+      </task>
+      <task id="7" title="Fix Dashboard Redirect Logic">
+        <file>frontend/src/app/dashboard/page.tsx</file>
+        <action>Update redirect logic to use !user.onboarding_completed check</action>
+      </task>
+      <task id="8" title="Update CompletionStep">
+        <file>frontend/src/components/onboarding/CompletionStep.tsx</file>
+        <action>Call /users/complete-onboarding API on button click</action>
+      </task>
+      <task id="9" title="Implement Skip Functionality">
+        <files>
+          <file>frontend/src/components/onboarding/GmailConnect.tsx</file>
+          <file>frontend/src/components/onboarding/TelegramConnect.tsx</file>
+          <file>frontend/src/components/onboarding/FolderSetup.tsx</file>
+          <file>frontend/src/components/onboarding/TestConnection.tsx</file>
+        </files>
+        <action>Add working handleSkip handlers that call onNext()</action>
+      </task>
+      <task id="10" title="Testing">
+        <action>Unit tests, integration tests, and manual E2E flow testing</action>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="1" title="User Model Has onboarding_completed Field">
+      <criterion>User model includes onboarding_completed: Boolean, default=False, nullable=False</criterion>
+      <criterion>Database migration created and applied successfully</criterion>
+      <criterion>All existing users have field set to False (migration default)</criterion>
+      <criterion>New users automatically get onboarding_completed = False</criterion>
+    </ac>
+    <ac id="2" title="Auth Status Returns onboarding_completed">
+      <criterion>/api/v1/auth/status endpoint returns onboarding_completed field</criterion>
+      <criterion>Field is always boolean (true or false, never null/undefined)</criterion>
+      <criterion>Field accurately reflects user's onboarding state</criterion>
+    </ac>
+    <ac id="3" title="Complete Onboarding Endpoint Works">
+      <criterion>POST /api/v1/users/complete-onboarding endpoint exists</criterion>
+      <criterion>Requires authentication (JWT token)</criterion>
+      <criterion>Sets onboarding_completed = True for current user</criterion>
+      <criterion>Returns success response and persists to database</criterion>
+    </ac>
+    <ac id="4" title="OnboardingRedirect Logic Fixed">
+      <criterion>Uses simple !user.onboarding_completed check (not === false)</criterion>
+      <criterion>Works correctly when field is true, false, or undefined</criterion>
+      <criterion>Redirects to /onboarding only if onboarding_completed is false</criterion>
+      <criterion>Does NOT redirect if already on /onboarding page</criterion>
+      <criterion>No redirect loops</criterion>
+    </ac>
+    <ac id="5" title="Dashboard Redirect Logic Fixed">
+      <criterion>Dashboard checks !user.onboarding_completed (simple boolean check)</criterion>
+      <criterion>Redirects to /onboarding if not completed</criterion>
+      <criterion>Does NOT redirect if onboarding completed</criterion>
+      <criterion>Dashboard accessible after completing onboarding</criterion>
+    </ac>
+    <ac id="6" title="CompletionStep Marks Onboarding Complete">
+      <criterion>CompletionStep calls /users/complete-onboarding on "Go to Dashboard"</criterion>
+      <criterion>Shows loading state during API call</criterion>
+      <criterion>Handles errors gracefully (still redirects if API fails)</criterion>
+      <criterion>User's onboarding_completed set to true in database</criterion>
+    </ac>
+    <ac id="7" title="Skip Functionality Works on All Steps">
+      <criterion>Gmail, Telegram, Folder, Test connection steps: Skip button moves to next step</criterion>
+      <criterion>Skip doesn't mark onboarding as complete (only completion step does)</criterion>
+    </ac>
+    <ac id="8" title="No Regressions">
+      <criterion>Login flow still works</criterion>
+      <criterion>No TypeScript errors, no console errors</criterion>
+    </ac>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Mail Agent</title>
+        <section>Backend Framework</section>
+        <snippet>FastAPI 0.120.4 with async endpoints, JWT authentication, rate limiting, structured logging. Production-ready template with LangGraph integration and PostgreSQL.</snippet>
+      </doc>
+      <doc>
+        <path>docs/developer-guide/epic-4-architecture.md</path>
+        <title>Epic 4: Frontend Architecture Documentation</title>
+        <section>State Management & API Integration</section>
+        <snippet>Next.js 16.0.1 with App Router, TypeScript, Axios for API communication, React Hook Form for form state. Container/Presentation component pattern with useAuthStatus hook.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-change-proposal-2025-11-18.md</path>
+        <title>Sprint Change Proposal - Bug Fixes</title>
+        <section>Proposals #3, #4</section>
+        <snippet>Proposal #3: Implement onboarding_completed field with database migration. Proposal #4: Implement working skip functionality to provide escape path during errors.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>backend/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>35-102</lines>
+        <reason>User model already has onboarding_completed field (line 67). Shows SQLModel pattern, Boolean field usage, relationships pattern.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/auth.py</path>
+        <kind>router</kind>
+        <symbol>get_current_user</symbol>
+        <lines>66-106</lines>
+        <reason>Authentication dependency pattern - shows how to use Depends(get_current_user) for protected endpoints. Required for new users endpoint.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/app/api/v1/api.py</path>
+        <kind>router_registration</kind>
+        <symbol>api_router</symbol>
+        <lines>1-32</lines>
+        <reason>Pattern for registering new routers - need to add users router with /users prefix here.</reason>
+      </artifact>
+      <artifact>
+        <path>backend/alembic/versions/f8b04f852f1f_add_is_priority_sender_to_folder_.py</path>
+        <kind>migration</kind>
+        <symbol>upgrade/downgrade</symbol>
+        <lines>21-30</lines>
+        <reason>Example of adding Boolean column to existing table with server_default. Pattern to follow for adding onboarding_completed if not exists.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/shared/OnboardingRedirect.tsx</path>
+        <kind>component</kind>
+        <symbol>OnboardingRedirect</symbol>
+        <lines>19-45</lines>
+        <reason>Current redirect logic that needs fixing - replace strict checks with simple !user.onboarding_completed pattern.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/lib/api-client.ts</path>
+        <kind>client</kind>
+        <symbol>ApiClient</symbol>
+        <lines>34-68</lines>
+        <reason>Shows axios client pattern with auth interceptor. Use apiClient.post() for complete-onboarding endpoint.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/onboarding/GmailConnect.tsx</path>
+        <kind>component</kind>
+        <symbol>GmailConnect</symbol>
+        <lines>all</lines>
+        <reason>Example onboarding step component - needs handleSkip implementation that calls onNext().</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/components/onboarding/CompletionStep.tsx</path>
+        <kind>component</kind>
+        <symbol>CompletionStep</symbol>
+        <lines>all</lines>
+        <reason>Final onboarding step - needs to call /users/complete-onboarding before redirecting to dashboard.</reason>
+      </artifact>
+      <artifact>
+        <path>frontend/src/app/dashboard/page.tsx</path>
+        <kind>page</kind>
+        <symbol>DashboardPage</symbol>
+        <lines>all</lines>
+        <reason>Dashboard redirect logic needs fixing - should redirect to /onboarding if !user.onboarding_completed.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <backend>
+        <python>3.13</python>
+        <fastapi>0.115.12</fastapi>
+        <sqlmodel>0.0.24</sqlmodel>
+        <alembic>1.13.3</alembic>
+        <pydantic>2.11.1</pydantic>
+        <python-jose>3.4.0</python-jose>
+        <uvicorn>0.34.0</uvicorn>
+      </backend>
+      <frontend>
+        <next>16.0.1</next>
+        <react>19.2.0</react>
+        <typescript>^5</typescript>
+        <axios>1.7.9</axios>
+      </frontend>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>CRITICAL: onboarding_completed field already exists in User model (line 67) - verify before creating migration</constraint>
+    <constraint>Database migration MUST use server_default='false' for backwards compatibility with existing users</constraint>
+    <constraint>All redirects must check pathname to avoid infinite redirect loops</constraint>
+    <constraint>Use simple boolean checks (!user.onboarding_completed) NOT strict equality (=== false)</constraint>
+    <constraint>CompletionStep must handle API errors gracefully - still redirect even if API fails</constraint>
+    <constraint>Skip functionality must NOT mark onboarding as complete - only CompletionStep does that</constraint>
+    <constraint>Backend: Use FastAPI dependency injection pattern (Depends(get_current_user))</constraint>
+    <constraint>Backend: Use DatabaseService for all database operations</constraint>
+    <constraint>Frontend: Use useAuthStatus hook for auth state, useRouter for navigation</constraint>
+    <constraint>Frontend: All API calls via apiClient singleton, not raw axios</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/users/complete-onboarding</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/v1/users/complete-onboarding
+Headers: Authorization: Bearer {jwt_token}
+Response: {"success": true, "message": "Onboarding completed successfully"}</signature>
+      <path>backend/app/api/v1/users.py (NEW FILE)</path>
+    </interface>
+    <interface>
+      <name>GET /api/v1/auth/status</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/auth/status
+Headers: Authorization: Bearer {jwt_token}
+Response: {"authenticated": true, "user": {"id": 1, "email": "...", "onboarding_completed": false, ...}}</signature>
+      <path>backend/app/api/v1/auth.py (UPDATE to include onboarding_completed)</path>
+    </interface>
+    <interface>
+      <name>get_current_user</name>
+      <kind>FastAPI dependency</kind>
+      <signature>async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db_service: DatabaseService = Depends(get_db_service)) -> User</signature>
+      <path>backend/app/api/v1/auth.py</path>
+    </interface>
+    <interface>
+      <name>useAuthStatus</name>
+      <kind>React hook</kind>
+      <signature>const { isAuthenticated, isLoading, user } = useAuthStatus()
+Returns: {isAuthenticated: boolean, isLoading: boolean, user: {onboarding_completed: boolean, ...} | null}</signature>
+      <path>frontend/src/hooks/useAuthStatus.ts</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Backend: Pytest with async support. Frontend: Vitest for unit tests, Playwright for E2E. All tests must pass before merging. Integration tests for database operations. E2E tests for full user flows.</standards>
+    <locations>
+      <backend>backend/tests/</backend>
+      <frontend_unit>frontend/tests/unit/</frontend_unit>
+      <frontend_e2e>frontend/tests/e2e/</frontend_e2e>
+    </locations>
+    <ideas>
+      <test ac="AC1">Unit test: User model onboarding_completed defaults to False for new users</test>
+      <test ac="AC1">Integration test: Migration adds column with server_default='false' to existing users</test>
+      <test ac="AC2">Integration test: /auth/status returns onboarding_completed field (always boolean, never null)</test>
+      <test ac="AC3">Integration test: POST /users/complete-onboarding sets field to True and persists to database</test>
+      <test ac="AC3">Integration test: /users/complete-onboarding requires valid JWT token (401 if missing)</test>
+      <test ac="AC4">Unit test: OnboardingRedirect uses !user.onboarding_completed (not === false)</test>
+      <test ac="AC4">E2E test: User with onboarding_completed=false redirects to /onboarding</test>
+      <test ac="AC4">E2E test: User already on /onboarding does not redirect (no loop)</test>
+      <test ac="AC5">E2E test: Dashboard redirects to /onboarding if onboarding_completed=false</test>
+      <test ac="AC5">E2E test: Dashboard loads successfully if onboarding_completed=true</test>
+      <test ac="AC6">E2E test: CompletionStep calls API, updates user, redirects to dashboard</test>
+      <test ac="AC6">E2E test: CompletionStep still redirects even if API call fails (graceful error handling)</test>
+      <test ac="AC7">E2E test: Skip button on each step moves to next step</test>
+      <test ac="AC7">E2E test: Skipping all steps reaches completion, user can complete onboarding</test>
+    </ideas>
+  </tests>
+</story-context>

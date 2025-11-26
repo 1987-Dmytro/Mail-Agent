@@ -12,7 +12,7 @@ import { Page } from '@playwright/test';
 export interface FolderCategory {
   id: number;
   name: string;
-  keywords: string;
+  keywords: string[];  // FIXED: Must be array to match src/types/folder.ts
   color: string;
   order: number;
   is_default: boolean;
@@ -64,7 +64,7 @@ export const mockFolderCategories: FolderCategory[] = [
   {
     id: 1,
     name: 'Government',
-    keywords: 'finanzamt, tax, bürgeramt',
+    keywords: ['finanzamt', 'tax', 'bürgeramt'],  // FIXED: Array instead of comma-separated string
     color: '#3b82f6',
     order: 1,
     is_default: false,
@@ -74,7 +74,7 @@ export const mockFolderCategories: FolderCategory[] = [
   {
     id: 2,
     name: 'Banking',
-    keywords: 'bank, sparkasse, n26',
+    keywords: ['bank', 'sparkasse', 'n26'],  // FIXED: Array instead of comma-separated string
     color: '#10b981',
     order: 2,
     is_default: false,
@@ -84,7 +84,7 @@ export const mockFolderCategories: FolderCategory[] = [
   {
     id: 3,
     name: 'Work',
-    keywords: 'project, meeting, deadline',
+    keywords: ['project', 'meeting', 'deadline'],  // FIXED: Array instead of comma-separated string
     color: '#f59e0b',
     order: 3,
     is_default: false,
@@ -155,7 +155,7 @@ export function createMockFolder(overrides?: Partial<FolderCategory>): FolderCat
   return {
     id: Date.now(),
     name: 'Test Folder',
-    keywords: 'test, example',
+    keywords: ['test', 'example'],  // FIXED: Array to match FolderCategory type
     color: '#8b5cf6',
     order: 99,
     is_default: false,
@@ -214,7 +214,7 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
             {
               id: 1,
               name: 'Government',
-              keywords: 'finanzamt, tax, bürgeramt',
+              keywords: ['finanzamt', 'tax', 'bürgeramt'],  // FIXED: Array to match FolderCategory type
               color: '#3b82f6',
               order: 1,
               is_default: false,
@@ -224,7 +224,7 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
             {
               id: 2,
               name: 'Banking',
-              keywords: 'bank, sparkasse, n26',
+              keywords: ['bank', 'sparkasse', 'n26'],  // FIXED: Array to match FolderCategory type
               color: '#10b981',
               order: 2,
               is_default: false,
@@ -234,7 +234,7 @@ export async function mockAllApiEndpoints(page: Page): Promise<void> {
             {
               id: 3,
               name: 'Work',
-              keywords: 'project, meeting, deadline',
+              keywords: ['project', 'meeting', 'deadline'],  // FIXED: Array to match FolderCategory type
               color: '#f59e0b',
               order: 3,
               is_default: false,

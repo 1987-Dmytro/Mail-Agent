@@ -38,7 +38,7 @@ export default function GmailStep({ onStepComplete, onNext }: StepProps) {
   };
 
   return (
-    <div>
+    <div className="flex flex-col items-center text-center space-y-6">
       {/* Reuse existing GmailConnect component from Story 4.2 */}
       <GmailConnect onSuccess={handleSuccess} onError={handleError} onNavigate={onNext} />
     </div>

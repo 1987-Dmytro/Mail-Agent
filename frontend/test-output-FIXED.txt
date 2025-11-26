@@ -1,0 +1,119 @@
+
+> frontend@0.1.0 test:e2e:chromium
+> playwright test --project=chromium tests/e2e/complete-user-journey.spec.ts
+
+
+Running 2 tests using 2 workers
+
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== TESTING RETURNING USER EXPERIENCE ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+✅ RETURNING USER TEST PASSED
+  ✓  1 [chromium] › tests/e2e/complete-user-journey.spec.ts:175:7 › Complete User Journey E2E › returning user can access all features directly (1.5s)
+
+💬 PHASE 3: Telegram Linking - verifying token detection
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+🔵 MSW→PW: GET /api/v1/telegram/verify/123456 → 200
+Telegram detected token and showed success state - clicking Continue
+
+📁 PHASE 4: Folder Setup - creating default folder
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+
+✅ PHASE 5: Completion Step
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/users/complete-onboarding
+🔵 MSW→PW: POST /api/v1/users/complete-onboarding → 200
+
+📊 PHASE 6: Verifying Dashboard
+Current URL: http://localhost:3000/onboarding
+  ✘  2 [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (20.0s)
+
+
+  1) [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system 
+
+    Error: [2mexpect([22m[31mpage[39m[2m).[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: [32m/\/dashboard/[39m
+    Received string:  [31m"http://localhost:3000/onboarding"[39m
+    Timeout: 10000ms
+
+    Call log:
+    [2m  - Expect "toHaveURL" with timeout 10000ms[22m
+    [2m    14 × unexpected value "http://localhost:3000/onboarding"[22m
+
+
+      159 |     // CRITICAL: Verify we reached the DASHBOARD page (not just completion message)
+      160 |     // This is what the user specifically requested - see dashboard in screenshot
+    > 161 |     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
+          |                        ^
+      162 |
+      163 |     // Verify dashboard content loads
+      164 |     const dashboardHeading = page.getByRole('heading', { name: /dashboard|overview/i });
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/complete-user-journey.spec.ts:161:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system 
+  1 passed (24.6s)
+
+[36m  Serving HTML report at http://localhost:9323. Press Ctrl+C to quit.[39m

@@ -1,0 +1,106 @@
+
+> frontend@0.1.0 test:e2e:chromium
+> playwright test --project=chromium tests/e2e/complete-user-journey.spec.ts
+
+
+Running 2 tests using 2 workers
+
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+=== TESTING RETURNING USER EXPERIENCE ===
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+✅ RETURNING USER TEST PASSED
+  ✓  2 [chromium] › tests/e2e/complete-user-journey.spec.ts:180:7 › Complete User Journey E2E › returning user can access all features directly (1.4s)
+
+💬 PHASE 3: Telegram Linking - verifying token detection
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+🔵 MSW→PW: GET /api/v1/telegram/verify/123456 → 200
+Telegram detected token and showed success state - clicking Continue
+
+📁 PHASE 4: Folder Setup - creating default folder
+  ✘  1 [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (5.6s)
+
+
+  1) [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /setup folders|folder/i })
+    Expected: visible
+    Error: strict mode violation: getByRole('heading', { name: /setup folders|folder/i }) resolved to 2 elements:
+        1) <h2 class="text-xl font-semibold text-foreground">Setup Folders</h2> aka getByRole('heading', { name: 'Setup Folders' })
+        2) <h2 class="text-2xl font-bold">Setup Your Folders</h2> aka getByRole('heading', { name: 'Setup Your Folders' })
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /setup folders|folder/i })[22m
+
+
+      117 |
+      118 |     // Wait for folder setup step
+    > 119 |     await expect(page.getByRole('heading', { name: /setup folders|folder/i })).toBeVisible({ timeout: 5000 });
+          |                                                                                ^
+      120 |
+      121 |     // Create at least one folder (required for validation)
+      122 |     const folderNameInput = page.getByPlaceholder(/folder name|category name/i);
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/complete-user-journey.spec.ts:119:80
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system 
+  1 passed (10.0s)
+
+[36m  Serving HTML report at http://localhost:56384. Press Ctrl+C to quit.[39m

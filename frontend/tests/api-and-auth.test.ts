@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getToken, setToken, removeToken, isAuthenticated } from '@/lib/auth';
 
 /**
@@ -113,25 +113,29 @@ describe('Auth Helpers Token Storage', () => {
     // Mock localStorage
     localStorageMock = {};
 
-    Object.defineProperty(window, 'localStorage', {
-      value: {
-        getItem: (key: string) => localStorageMock[key] || null,
-        setItem: (key: string, value: string) => {
-          localStorageMock[key] = value;
-        },
-        removeItem: (key: string) => {
-          delete localStorageMock[key];
-        },
-        clear: () => {
-          localStorageMock = {};
-        },
+    const mockStorage = {
+      getItem: vi.fn((key: string) => localStorageMock[key] || null),
+      setItem: vi.fn((key: string, value: string) => {
+        localStorageMock[key] = value;
+      }),
+      removeItem: vi.fn((key: string) => {
+        delete localStorageMock[key];
+      }),
+      clear: vi.fn(() => {
+        localStorageMock = {};
+      }),
+      get length() {
+        return Object.keys(localStorageMock).length;
       },
-      writable: true,
-    });
+      key: vi.fn((index: number) => Object.keys(localStorageMock)[index] || null),
+    };
+
+    vi.stubGlobal('localStorage', mockStorage);
   });
 
   afterEach(() => {
     localStorageMock = {};
+    vi.unstubAllGlobals();
   });
 
   it('test_auth_helpers_token_storage - should store, retrieve, and remove tokens correctly', () => {
@@ -139,7 +143,7 @@ describe('Auth Helpers Token Storage', () => {
 
     // Test setToken
     setToken(testToken);
-    expect(localStorageMock['mail_agent_token']).toBe(testToken);
+    expect(localStorageMock['auth_token']).toBe(testToken);
 
     // Test getToken
     const retrievedToken = getToken();
@@ -150,7 +154,7 @@ describe('Auth Helpers Token Storage', () => {
 
     // Test removeToken
     removeToken();
-    expect(localStorageMock['mail_agent_token']).toBeUndefined();
+    expect(localStorageMock['auth_token']).toBeUndefined();
     expect(getToken()).toBe(null);
 
     // Test isAuthenticated (without token)

@@ -1,0 +1,97 @@
+
+> frontend@0.1.0 test:e2e:chromium
+> playwright test --project=chromium tests/e2e/complete-user-journey.spec.ts
+
+
+Running 2 tests using 2 workers
+
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+✅ MSW→Playwright Bridge: Installed 12/12 routes
+=== TESTING RETURNING USER EXPERIENCE ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+✅ RETURNING USER TEST PASSED
+  ✓  1 [chromium] › tests/e2e/complete-user-journey.spec.ts:169:7 › Complete User Journey E2E › returning user can access all features directly (1.4s)
+  ✘  2 [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (3.4s)
+
+
+  1) [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m([22m[2m)[22m failed
+
+    Locator: getByRole('button', { name: /next/i })
+    Expected: enabled
+    Error: strict mode violation: getByRole('button', { name: /next/i }) resolved to 2 elements:
+        1) <button class="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Next</button> aka getByRole('button', { name: 'Next', exact: true })
+        2) <button id="next-logo" aria-haspopup="menu" data-next-mark="true" aria-expanded="false" aria-label="Open Next.js Dev Tools" data-nextjs-dev-tools-button="true" aria-controls="nextjs-dev-tools-menu">…</button> aka getByRole('button', { name: 'Open Next.js Dev Tools' })
+
+    Call log:
+    [2m  - Expect "toBeEnabled" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('button', { name: /next/i })[22m
+
+
+      83 |     // Click Next to proceed (should be enabled now that Gmail is "connected")
+      84 |     const nextBtn = page.getByRole('button', { name: /next/i });
+    > 85 |     await expect(nextBtn).toBeEnabled({ timeout: 5000 });
+         |                           ^
+      86 |     await nextBtn.click();
+      87 |
+      88 |     // =====================================================
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/complete-user-journey.spec.ts:85:27
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system 
+  1 passed (7.8s)
+
+[36m  Serving HTML report at http://localhost:54230. Press Ctrl+C to quit.[39m

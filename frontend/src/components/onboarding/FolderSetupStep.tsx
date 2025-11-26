@@ -222,9 +222,9 @@ export default function FolderSetupStep({ onStepComplete, currentState }: StepPr
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col items-center text-center space-y-6">
       {/* Header */}
-      <div>
+      <div className="w-full space-y-3">
         <h2 className="text-2xl font-bold">Setup Your Folders</h2>
         <p className="text-muted-foreground">
           Create at least one folder category to organize your emails. You can add more later.

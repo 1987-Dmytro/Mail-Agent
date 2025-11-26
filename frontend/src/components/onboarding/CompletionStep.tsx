@@ -37,7 +37,7 @@ export default function CompletionStep({ currentState }: StepProps) {
 
     try {
       // Update backend: mark onboarding as completed (AC10)
-      await apiClient.updateUser({ onboarding_completed: true });
+      await apiClient.completeOnboarding();
 
       // Clear localStorage onboarding progress
       localStorage.removeItem('onboarding_progress');
@@ -50,14 +50,19 @@ export default function CompletionStep({ currentState }: StepProps) {
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
       toast.error('Oops! Something went wrong. Let\'s try that again.');
+
+      // Even if API fails, still redirect (user mostly done with onboarding)
+      // The OnboardingRedirect component will handle any incomplete state
+      router.push('/dashboard');
+    } finally {
       setIsCompleting(false);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col items-center text-center space-y-6">
       {/* Celebration header */}
-      <div className="text-center">
+      <div className="w-full space-y-3">
         <div className="mb-4 flex justify-center">
           <div className="rounded-full bg-green-100 p-6 dark:bg-green-900/20">
             <PartyPopper className="h-16 w-16 text-green-600 dark:text-green-400" />

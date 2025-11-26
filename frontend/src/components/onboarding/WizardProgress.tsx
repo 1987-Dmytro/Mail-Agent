@@ -55,16 +55,25 @@ export default function WizardProgress({
 
       {/* Visual step indicators (desktop: horizontal, mobile: compact) */}
       <div className="relative">
-        {/* Progress bar background */}
-        <div className="absolute left-0 top-5 h-0.5 w-full bg-muted md:top-1/2" />
-
-        {/* Progress bar fill (completed portion) */}
+        {/* Progress bar container - centered with margins to align with circle centers */}
         <div
-          className="absolute left-0 top-5 h-0.5 bg-primary transition-all duration-300 md:top-1/2"
+          className="absolute top-5 h-0.5 md:top-1/2"
           style={{
-            width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
+            left: '20px',
+            right: '20px',
           }}
-        />
+        >
+          {/* Progress bar background */}
+          <div className="absolute inset-0 bg-muted" />
+
+          {/* Progress bar fill (completed portion) */}
+          <div
+            className="absolute left-0 top-0 h-full bg-primary transition-all duration-300"
+            style={{
+              width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
+            }}
+          />
+        </div>
 
         {/* Step circles */}
         <div className="relative flex justify-between">

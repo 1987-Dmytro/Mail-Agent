@@ -98,8 +98,8 @@ export class FoldersPage {
    * Create a new folder
    */
   async createFolder(name: string, keywords: string, _color: string = '#3b82f6') {
-    // Click "Add Folder" or "Create Folder" button
-    const addButton = this.page.getByRole('button', { name: /add folder|create folder/i });
+    // Click "Add Category" button (changed from "Add Folder" to match actual UI text)
+    const addButton = this.page.getByRole('button', { name: /add category/i });
     await expect(addButton).toBeVisible();
     await addButton.click();
 
@@ -117,8 +117,8 @@ export class FoldersPage {
     const saveButton = this.page.getByRole('button', { name: /save|create/i });
     await saveButton.click();
 
-    // Wait for success toast or folder to appear in list
-    await expect(this.page.getByText(name)).toBeVisible({ timeout: 5000 });
+    // Wait for folder to appear in list (use .first() to avoid strict mode violation with toast message)
+    await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 5000 });
   }
 
   /**
@@ -146,8 +146,8 @@ export class FoldersPage {
     const saveButton = this.page.getByRole('button', { name: /save|update/i });
     await saveButton.click();
 
-    // Verify updated name is displayed
-    await expect(this.page.getByText(newName)).toBeVisible({ timeout: 5000 });
+    // Verify updated name is displayed (use .first() to avoid strict mode violation with toast)
+    await expect(this.page.getByText(newName).first()).toBeVisible({ timeout: 5000 });
     await expect(this.page.getByText(oldName)).not.toBeVisible();
   }
 

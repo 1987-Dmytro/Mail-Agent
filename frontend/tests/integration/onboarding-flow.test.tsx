@@ -113,6 +113,14 @@ vi.mock('@/lib/api-client', () => ({
         verified: false,
       },
     }),
+    completeOnboarding: vi.fn().mockResolvedValue({
+      data: {
+        success: true,
+      },
+    }),
+    getFolders: vi.fn().mockResolvedValue({
+      data: [],
+    }),
   },
 }));
 
@@ -343,11 +351,9 @@ describe('OnboardingWizard Integration Tests', () => {
     const dashboardButton = screen.getByRole('button', { name: /Take Me to My Dashboard/i });
     fireEvent.click(dashboardButton);
 
-    // Verify apiClient.updateUser was called with correct payload
+    // Verify apiClient.completeOnboarding was called
     await waitFor(() => {
-      expect(apiClient.updateUser).toHaveBeenCalledWith({
-        onboarding_completed: true,
-      });
+      expect(apiClient.completeOnboarding).toHaveBeenCalled();
     });
 
     // Verify localStorage was cleared

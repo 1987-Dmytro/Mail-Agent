@@ -233,13 +233,13 @@ export default function OnboardingWizard() {
   };
 
   /**
-   * Handle skip onboarding
-   * Allow users to skip setup and go directly to dashboard
-   * Provides escape path when users are blocked
+   * Handle skip step
+   * Move to the next onboarding step without completing the current one
+   * Provides escape path when users encounter errors
    */
   const handleSkip = () => {
-    console.log('Skip onboarding clicked - navigating to /dashboard');
-    router.push('/dashboard');
+    console.log(`[Onboarding] User skipped step ${currentStep}`);
+    handleNext(); // Just move to next step
   };
 
   // ============================================
@@ -389,8 +389,16 @@ export default function OnboardingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="mx-auto max-w-3xl">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8"
+      style={{
+        // Safari-specific fixes for flexbox centering
+        WebkitBoxAlign: 'center',
+        WebkitBoxPack: 'center',
+        minHeight: '100vh',
+      }}
+    >
+      <div className="w-full max-w-2xl mx-auto space-y-8">
         {/* Progress indicator (AC1) */}
         <WizardProgress
           currentStep={currentStep}
@@ -398,87 +406,116 @@ export default function OnboardingWizard() {
           stepTitles={stepTitles}
         />
 
-        {/* Step component renderer */}
-        <div className="mb-8">
-          {currentStep === 1 && (
-            <WelcomeStep
-              onNext={handleNext}
-              onBack={handleBack}
-              onStepComplete={handleStepComplete}
-              currentState={wizardState}
-            />
-          )}
-          {currentStep === 2 && (
-            <GmailStep
-              onNext={handleNext}
-              onBack={handleBack}
-              onStepComplete={handleStepComplete}
-              currentState={wizardState}
-            />
-          )}
-          {currentStep === 3 && (
-            <TelegramStep
-              onNext={handleNext}
-              onBack={handleBack}
-              onStepComplete={handleStepComplete}
-              currentState={wizardState}
-            />
-          )}
-          {currentStep === 4 && (
-            <FolderSetupStep
-              onNext={handleNext}
-              onBack={handleBack}
-              onStepComplete={handleStepComplete}
-              currentState={wizardState}
-            />
-          )}
-          {currentStep === 5 && (
-            <CompletionStep
-              onNext={handleNext}
-              onBack={handleBack}
-              onStepComplete={handleStepComplete}
-              currentState={wizardState}
-            />
-          )}
-        </div>
+        {/* Wizard card - centered content */}
+        <div className="bg-card rounded-lg shadow-lg p-8 w-full">
+          <div className="mx-auto max-w-lg">
+            {/* Step component renderer */}
+            <div className="mb-8">
+              {currentStep === 1 && (
+                <WelcomeStep
+                  onNext={handleNext}
+                  onBack={handleBack}
+                  onStepComplete={handleStepComplete}
+                  currentState={wizardState}
+                />
+              )}
+              {currentStep === 2 && (
+                <GmailStep
+                  onNext={handleNext}
+                  onBack={handleBack}
+                  onStepComplete={handleStepComplete}
+                  currentState={wizardState}
+                />
+              )}
+              {currentStep === 3 && (
+                <TelegramStep
+                  onNext={handleNext}
+                  onBack={handleBack}
+                  onStepComplete={handleStepComplete}
+                  currentState={wizardState}
+                />
+              )}
+              {currentStep === 4 && (
+                <FolderSetupStep
+                  onNext={handleNext}
+                  onBack={handleBack}
+                  onStepComplete={handleStepComplete}
+                  currentState={wizardState}
+                />
+              )}
+              {currentStep === 5 && (
+                <CompletionStep
+                  onNext={handleNext}
+                  onBack={handleBack}
+                  onStepComplete={handleStepComplete}
+                  currentState={wizardState}
+                />
+              )}
+            </div>
 
-        {/* Navigation buttons */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={handleBack}
-            disabled={currentStep === 1}
-            className="rounded-md border px-4 py-2 disabled:opacity-50"
-          >
-            Back
-          </button>
+            {/* Navigation buttons */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handleBack}
+                disabled={currentStep === 1}
+                className="rounded-md border px-4 py-2 disabled:opacity-50"
+              >
+                Back
+              </button>
 
-          <button
-            onClick={handleNext}
-            disabled={!canProceedToNextStep()}
-            className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
-          >
-            {currentStep === totalSteps ? 'Complete' : 'Next'}
-          </button>
-        </div>
+              <button
+                onClick={handleNext}
+                disabled={!canProceedToNextStep()}
+                className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+              >
+                {currentStep === totalSteps ? 'Complete' : 'Next'}
+              </button>
+            </div>
 
-        {/* Validation error message */}
-        {!canProceedToNextStep() && (
-          <div className="mt-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-            {getValidationErrorMessage()}
+            {/* Validation error message */}
+            {!canProceedToNextStep() && (
+              <div
+                className="mt-6 mb-6 w-full p-4 rounded-lg bg-red-50 border border-red-200"
+                style={{
+                  zIndex: 10,
+                  marginTop: '1.5rem',
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <div className="flex items-start space-x-3">
+                  <svg
+                    className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <p className="text-sm text-red-800 text-left leading-relaxed">
+                    {getValidationErrorMessage()}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Skip setup link - available on all steps except completion */}
+            {currentStep < totalSteps && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={handleSkip}
+                  className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+                >
+                  Skip setup—I&apos;ll configure this later
+                </button>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Skip setup link - available on all steps except completion */}
-        {currentStep < totalSteps && (
-          <div className="mt-4 text-center">
-            <button
-              onClick={handleSkip}
-              className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
-            >
-              Skip setup—I&apos;ll configure this later
-            </button>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

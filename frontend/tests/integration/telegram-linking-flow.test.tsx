@@ -104,7 +104,7 @@ describe('Telegram Linking Flow - Integration Tests', () => {
 
     vi.mocked(apiClient.telegramStatus).mockResolvedValue({
       data: {
-        connected: false,
+        linked: false,
       },
       status: 200,
     });
@@ -349,7 +349,7 @@ describe('Telegram Linking Flow - Integration Tests', () => {
     // Mock Telegram status API (already connected)
     vi.mocked(apiClient.telegramStatus).mockResolvedValue({
       data: {
-        connected: true,
+        linked: true,
         telegram_id: '123456789',
         telegram_username: '@persistent_user',
       },
