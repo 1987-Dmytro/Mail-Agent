@@ -172,15 +172,15 @@ class TestPromptConstruction:
         assert "- Government: Official documents" in formatted
         assert "- Clients: Business correspondence" in formatted
         assert "- Newsletters: Marketing emails" in formatted
-        assert "- Unclassified:" in formatted  # Always included
+        # No "Unclassified" fallback - LLM picks from user's actual folders
 
     def test_format_folder_categories_empty(self):
         """
         Test: Empty folder list
-        Verify: Returns Unclassified as fallback
+        Verify: Returns Important as fallback
         """
         formatted = _format_folder_categories([])
-        assert "- Unclassified:" in formatted
+        assert "- Important:" in formatted
 
     def test_build_classification_prompt_with_multiple_folder_categories(self):
         """
