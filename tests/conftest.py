@@ -118,6 +118,16 @@ async def workflow_db_session_factory(db_session: AsyncSession):
     if _test_engine is None:
         raise RuntimeError("db_session fixture must be used before workflow_db_session_factory")
 
+    # CRITICAL: Verify that _test_engine is actually an AsyncEngine
+    # This prevents the "AsyncEngine expected, got Engine" error
+    from sqlalchemy.ext.asyncio import AsyncEngine
+    from sqlalchemy.engine import Engine
+    if isinstance(_test_engine, Engine) and not isinstance(_test_engine, AsyncEngine):
+        raise TypeError(
+            f"FATAL: _test_engine is a sync Engine instead of AsyncEngine! "
+            f"Type: {type(_test_engine)}, URL: {_test_engine.url}"
+        )
+
     session_factory = async_sessionmaker(
         _test_engine, class_=AsyncSession, expire_on_commit=False
     )
