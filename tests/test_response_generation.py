@@ -130,7 +130,8 @@ async def sample_newsletter_email(db_session, test_user: User) -> EmailProcessin
 
 # Test 1: AC #2 - Personal email with questions → True
 
-def test_should_generate_response_personal_email(
+@pytest.mark.asyncio
+async def test_should_generate_response_personal_email(
     sample_personal_email: EmailProcessingQueue,
     mock_context_service,
     mock_language_service,
@@ -149,14 +150,15 @@ def test_should_generate_response_personal_email(
         llm_client=mock_llm_client
     )
 
-    result = service.should_generate_response(sample_personal_email)
+    result = await service.should_generate_response(sample_personal_email)
 
     assert result is True, "Personal email with question should trigger response generation"
 
 
 # Test 2: AC #2 - Newsletter → False
 
-def test_should_generate_response_newsletter(
+@pytest.mark.asyncio
+async def test_should_generate_response_newsletter(
     sample_newsletter_email: EmailProcessingQueue,
     mock_context_service,
     mock_language_service,
@@ -175,7 +177,7 @@ def test_should_generate_response_newsletter(
         llm_client=mock_llm_client
     )
 
-    result = service.should_generate_response(sample_newsletter_email)
+    result = await service.should_generate_response(sample_newsletter_email)
 
     assert result is False, "Newsletter email should NOT trigger response generation"
 
@@ -218,7 +220,7 @@ async def test_should_generate_response_noreply_email(
         llm_client=mock_llm_client
     )
 
-    result = service.should_generate_response(noreply_email)
+    result = await service.should_generate_response(noreply_email)
 
     assert result is False, "No-reply email should NOT trigger response generation"
 
