@@ -1,0 +1,53 @@
+{
+  "test_name": "ukrainian_professional_business",
+  "description": "Ukrainian business email with professional tone",
+  "original_email": {
+    "sender": "partner@example.ua",
+    "sender_name": "Ірина Шевченко",
+    "subject": "Пропозиція щодо партнерства",
+    "body": "Шановний колего,\n\nЗвертаюся до вас з пропозицією щодо можливої співпраці у сфері IT-консалтингу. Наша компанія має успішний досвід реалізації проектів для великих корпорацій.\n\nБудемо раді обговорити деталі на зустрічі.\n\nЗ повагою,\nІрина Шевченко\nДиректор з розвитку",
+    "thread_id": "thread-uk-business-001",
+    "received_at": "2025-11-09T10:45:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Знайомство",
+      "body": "Шановна Ірино,\n\nДякую за інтерес до нашої компанії. Ми завжди відкриті до нових можливостей співпраці.\n\nЗ повагою",
+      "timestamp": "2025-11-07T16:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "partner@example.ua",
+      "subject": "Знайомство",
+      "body": "Добрий день, хотіла б познайомитись з можливостями вашої компанії.",
+      "timestamp": "2025-11-07T14:30:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "uk",
+  "expected_tone": "professional",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["партнерство", "співпраця", "IT-консалтинг", "зустріч"],
+    "thread_history_references": ["можливості співпраці", "інтерес"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "uk",
+      "greeting_examples": ["Шановна Ірино", "Шановна пані", "Добрий день"],
+      "closing_examples": ["З повагою", "З найкращими побажаннями"]
+    },
+    "tone_markers": {
+      "tone": "professional",
+      "formality_level": "high",
+      "expected_phrases": ["дякуємо за пропозицію", "з радістю обговоримо", "будемо раді співпрацювати"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["пропозиція партнерства", "зустріч для обговорення"]
+    }
+  },
+  "quality_threshold": 80
+}

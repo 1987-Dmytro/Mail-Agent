@@ -1,0 +1,215 @@
+# Prometheus Alert Rules for Email Processing Error Monitoring
+# Story 2.11 - Error Handling and Recovery (Task 9)
+#
+# These alerts monitor email processing errors and Dead Letter Queue metrics
+# to ensure timely detection and response to system issues.
+#
+# Alert Severity Levels:
+# - critical: Immediate action required (page on-call engineer)
+# - warning: Investigation needed (notify team chat)
+# - info: Informational (log for review)
+
+groups:
+  - name: email_processing_errors
+    interval: 30s
+    rules:
+      # CRITICAL: High error rate (>15% of emails failing)
+      - alert: HighEmailProcessingErrorRate
+        expr: |
+          (
+            sum(rate(email_processing_errors_total[5m])) /
+            sum(rate(http_requests_total{endpoint="/api/v1/emails/process"}[5m]))
+          ) > 0.15
+        for: 5m
+        labels:
+          severity: critical
+          component: email_processing
+        annotations:
+          summary: "High email processing error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes (threshold: 15%). Immediate investigation required."
+          runbook_url: "https://docs.mailagent.com/runbooks/high-error-rate"
+
+      # WARNING: Degraded error rate (5-15% of emails failing)
+      - alert: DegradedEmailProcessingErrorRate
+        expr: |
+          (
+            sum(rate(email_processing_errors_total[5m])) /
+            sum(rate(http_requests_total{endpoint="/api/v1/emails/process"}[5m]))
+          ) > 0.05 and (
+            sum(rate(email_processing_errors_total[5m])) /
+            sum(rate(http_requests_total{endpoint="/api/v1/emails/process"}[5m]))
+          ) <= 0.15
+        for: 10m
+        labels:
+          severity: warning
+          component: email_processing
+        annotations:
+          summary: "Degraded email processing error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes (threshold: 5-15%). Monitor closely."
+          runbook_url: "https://docs.mailagent.com/runbooks/degraded-error-rate"
+
+      # CRITICAL: Dead Letter Queue growing rapidly (>10 emails in last 5 minutes)
+      - alert: HighDeadLetterQueueRate
+        expr: rate(email_dlq_total[5m]) > 2
+        for: 5m
+        labels:
+          severity: critical
+          component: email_processing
+        annotations:
+          summary: "High rate of emails moving to Dead Letter Queue"
+          description: "{{ $value }} emails per second are being moved to DLQ (threshold: 2/sec). This indicates persistent processing failures."
+          runbook_url: "https://docs.mailagent.com/runbooks/high-dlq-rate"
+
+      # WARNING: DLQ has accumulated emails (>50 total)
+      - alert: DeadLetterQueueAccumulation
+        expr: sum(emails_in_error_state) > 50
+        for: 15m
+        labels:
+          severity: warning
+          component: email_processing
+        annotations:
+          summary: "Dead Letter Queue has accumulated {{ $value }} failed emails"
+          description: "There are {{ $value }} emails in error state (threshold: 50). Review and retry failed emails."
+          runbook_url: "https://docs.mailagent.com/runbooks/dlq-accumulation"
+
+      # CRITICAL: Gmail API failures (>5 per minute)
+      - alert: HighGmailAPIFailureRate
+        expr: rate(email_processing_errors_total{error_type="gmail_api_failure"}[5m]) > 0.083
+        for: 5m
+        labels:
+          severity: critical
+          component: gmail_api
+        annotations:
+          summary: "High Gmail API failure rate detected"
+          description: "Gmail API is failing at {{ $value }} errors per second (threshold: 5/min). Check Gmail API status and quotas."
+          runbook_url: "https://docs.mailagent.com/runbooks/gmail-api-failures"
+
+      # WARNING: Telegram API failures (>5 per minute)
+      - alert: HighTelegramAPIFailureRate
+        expr: rate(email_processing_errors_total{error_type="telegram_send_failure"}[5m]) > 0.083
+        for: 5m
+        labels:
+          severity: warning
+          component: telegram_api
+        annotations:
+          summary: "High Telegram API failure rate detected"
+          description: "Telegram API is failing at {{ $value }} errors per second (threshold: 5/min). Check Telegram bot status."
+          runbook_url: "https://docs.mailagent.com/runbooks/telegram-api-failures"
+
+      # WARNING: High retry rate (>30% of operations requiring retries)
+      - alert: HighRetryRate
+        expr: |
+          (
+            sum(rate(email_retry_attempts_total{success="true"}[5m])) /
+            sum(rate(email_retry_attempts_total[5m]))
+          ) > 0.30
+        for: 10m
+        labels:
+          severity: warning
+          component: email_processing
+        annotations:
+          summary: "High retry rate detected"
+          description: "{{ $value | humanizePercentage }} of operations are requiring retries (threshold: 30%). This indicates network or API instability."
+          runbook_url: "https://docs.mailagent.com/runbooks/high-retry-rate"
+
+      # INFO: Retry exhaustion (operations failing after all retries)
+      - alert: RetryExhaustion
+        expr: rate(email_retry_attempts_total{success="false"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: info
+          component: email_processing
+        annotations:
+          summary: "Operations are failing after retry exhaustion"
+          description: "{{ $value }} operations per second are exhausting all retry attempts. Review error logs for patterns."
+          runbook_url: "https://docs.mailagent.com/runbooks/retry-exhaustion"
+
+      # CRITICAL: No successful email processing in last 30 minutes
+      - alert: EmailProcessingStalled
+        expr: |
+          rate(http_requests_total{endpoint="/api/v1/emails/process",status="200"}[30m]) == 0
+          and
+          rate(http_requests_total{endpoint="/api/v1/emails/process"}[30m]) > 0
+        for: 30m
+        labels:
+          severity: critical
+          component: email_processing
+        annotations:
+          summary: "Email processing has stalled"
+          description: "No successful email processing detected in the last 30 minutes, despite incoming requests. Service may be down."
+          runbook_url: "https://docs.mailagent.com/runbooks/processing-stalled"
+
+  - name: email_processing_performance
+    interval: 30s
+    rules:
+      # WARNING: Slow error recovery (>1 hour average)
+      - alert: SlowErrorRecovery
+        expr: |
+          histogram_quantile(0.95,
+            rate(email_error_recovery_duration_seconds_bucket[30m])
+          ) > 3600
+        for: 30m
+        labels:
+          severity: warning
+          component: email_processing
+        annotations:
+          summary: "Slow error recovery detected"
+          description: "95th percentile error recovery time is {{ $value | humanizeDuration }} (threshold: 1 hour). Users may be waiting too long for manual retries."
+          runbook_url: "https://docs.mailagent.com/runbooks/slow-recovery"
+
+      # INFO: High retry count distribution (most emails require max retries)
+      - alert: HighRetryCountDistribution
+        expr: |
+          histogram_quantile(0.90,
+            rate(email_retry_count_histogram_bucket[15m])
+          ) >= 3
+        for: 15m
+        labels:
+          severity: info
+          component: email_processing
+        annotations:
+          summary: "Most retries are exhausting all attempts"
+          description: "90th percentile retry count is {{ $value }} (max: 3). This suggests underlying issues requiring more than transient retries."
+          runbook_url: "https://docs.mailagent.com/runbooks/high-retry-count"
+
+  - name: email_processing_quotas
+    interval: 60s
+    rules:
+      # WARNING: Approaching Gmail API quota (>80% of daily limit)
+      - alert: GmailAPIQuotaNearLimit
+        expr: |
+          (
+            sum(increase(http_requests_total{endpoint=~"/api/v1/gmail/.*"}[24h])) /
+            25000000
+          ) > 0.80
+        for: 1h
+        labels:
+          severity: warning
+          component: gmail_api
+        annotations:
+          summary: "Gmail API quota approaching daily limit"
+          description: "Gmail API usage is at {{ $value | humanizePercentage }} of daily quota (threshold: 80%). Consider rate limiting."
+          runbook_url: "https://docs.mailagent.com/runbooks/gmail-quota-limit"
+
+# Usage Instructions:
+#
+# 1. Add this file to your Prometheus configuration:
+#    ```yaml
+#    rule_files:
+#      - /path/to/prometheus/alerts/error_monitoring.yml
+#    ```
+#
+# 2. Configure Alertmanager routing:
+#    - critical: Page on-call engineer via PagerDuty
+#    - warning: Send notification to Slack #alerts channel
+#    - info: Log to monitoring dashboard
+#
+# 3. Reload Prometheus configuration:
+#    ```bash
+#    curl -X POST http://localhost:9090/-/reload
+#    ```
+#
+# 4. Verify rules are loaded:
+#    ```bash
+#    curl http://localhost:9090/api/v1/rules | jq '.data.groups[] | select(.name=="email_processing_errors")'
+#    ```

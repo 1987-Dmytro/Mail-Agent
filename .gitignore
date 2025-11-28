@@ -15,9 +15,13 @@ wheels/
 .env.development
 .env.staging
 .env.production
+.env.e2e
 
 # Misc
 *.ipynb
+
+# ChromaDB Vector Database Storage
+data/
 
 # Reports
 evals/reports/

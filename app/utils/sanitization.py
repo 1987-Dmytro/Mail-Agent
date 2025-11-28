@@ -127,3 +127,41 @@ def validate_password_strength(password: str) -> bool:
         raise ValueError("Password must contain at least one special character")
 
     return True
+
+
+def sanitize_oauth_parameter(value: str, param_name: str = "parameter", max_length: int = 2048) -> str:
+    """Sanitize OAuth parameters (code, state) to prevent injection attacks.
+
+    OAuth parameters should only contain alphanumeric characters, hyphens, underscores,
+    and URL-safe base64 characters.
+
+    Args:
+        value: The OAuth parameter value to sanitize
+        param_name: Name of the parameter (for error messages)
+        max_length: Maximum allowed length for the parameter
+
+    Returns:
+        str: The sanitized OAuth parameter
+
+    Raises:
+        ValueError: If the parameter contains invalid characters or exceeds max length
+    """
+    if not isinstance(value, str):
+        raise ValueError(f"{param_name} must be a string")
+
+    # Remove null bytes
+    value = value.replace("\0", "")
+
+    # Check length
+    if len(value) > max_length:
+        raise ValueError(f"{param_name} exceeds maximum length of {max_length}")
+
+    if len(value) == 0:
+        raise ValueError(f"{param_name} cannot be empty")
+
+    # OAuth parameters should only contain alphanumeric, hyphens, underscores, and URL-safe characters
+    # Allow: a-z, A-Z, 0-9, -, _, ., ~, %, / (Google OAuth codes often start with "4/")
+    if not re.match(r"^[a-zA-Z0-9\-_.~%/]+$", value):
+        raise ValueError(f"{param_name} contains invalid characters")
+
+    return value

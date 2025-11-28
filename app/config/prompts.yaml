@@ -1,0 +1,65 @@
+# Prompt Engineering Configuration
+# Tracks prompt versions for AI email classification
+# Used for: prompt refinement, accuracy monitoring, A/B testing
+
+classification_prompt:
+  version: "1.0"
+  created: "2025-11-07"
+  last_updated: "2025-11-07"
+  description: "Initial classification prompt with multilingual support (RU/UK/EN/DE)"
+  file_path: "app/prompts/classification_prompt.py"
+
+  # Prompt Engineering Strategy
+  strategy:
+    few_shot_examples: 5
+    languages_supported:
+      - Russian (ru)
+      - Ukrainian (uk)
+      - English (en)
+      - German (de)
+    output_format: "JSON with schema validation"
+    token_budget: 700  # Total tokens per classification (prompt + email content)
+    email_body_limit: 500  # Characters
+
+  # Performance Metrics (from integration tests 2025-11-07)
+  performance:
+    average_latency_ms: 3800
+    average_tokens_per_call: 1320
+    classification_accuracy:
+      government_emails: 100%  # 3/3 correct
+      client_emails: 100%      # 1/1 correct
+      newsletters: 100%        # 1/1 correct
+      multilingual: 100%       # 3/3 correct (RU/UK/DE)
+      edge_cases: 100%         # 2/2 correct (no body, special chars)
+
+  # Version Changelog
+  changelog:
+    - version: "1.0"
+      date: "2025-11-07"
+      changes:
+        - "Initial prompt template with few-shot examples"
+        - "Multilingual support for Russian, Ukrainian, English, German"
+        - "JSON schema output with ClassificationResponse model"
+        - "Email body preprocessing (HTML stripping, 500-char limit)"
+        - "Priority score and confidence level optional fields"
+        - "Classification guidelines for 6 categories (Government, Clients, Newsletters, Important, Personal, Unclassified)"
+      test_results:
+        - "28/28 tests passing (19 unit + 9 integration)"
+        - "100% classification accuracy across all test categories"
+        - "Average response time: 3.8 seconds"
+        - "Average tokens per call: 1320"
+
+# Prompt Refinement Process
+# When to update prompt version:
+# 1. Classification accuracy drops below 85% for any category
+# 2. New edge cases identified that require prompt adjustments
+# 3. User feedback indicates consistent misclassifications
+# 4. New folder categories added that need classification guidelines
+#
+# How to update:
+# 1. Analyze failure patterns from ApprovalHistory (Story 2.10)
+# 2. Update prompt template in app/prompts/classification_prompt.py
+# 3. Increment version (MINOR for wording/examples, MAJOR for schema changes)
+# 4. Run full test suite (unit + integration)
+# 5. Update this config file with new version and changelog
+# 6. Monitor accuracy for 1 week before considering stable

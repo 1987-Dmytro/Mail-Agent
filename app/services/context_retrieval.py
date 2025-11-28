@@ -273,13 +273,16 @@ class ContextRetrievalService:
 
             # Query ChromaDB for top k most similar emails
             # Filter by user_id AND sender for conversation-specific context
+            # ChromaDB requires $and operator for multiple filter conditions
             results = self.vector_db_client.query_embeddings(
                 collection_name="email_embeddings",
                 query_embedding=query_embedding,
                 n_results=k,
                 filter={
-                    "user_id": str(user_id),  # Multi-tenant isolation
-                    "sender": sender  # Conversation-specific context (same correspondent)
+                    "$and": [
+                        {"user_id": str(user_id)},  # Multi-tenant isolation
+                        {"sender": sender}  # Conversation-specific context (same correspondent)
+                    ]
                 }
             )
 

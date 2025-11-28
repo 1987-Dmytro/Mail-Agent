@@ -1,0 +1,50 @@
+{
+  "test_name": "edge_case_unclear_tone",
+  "description": "Edge case: Ambiguous formality level - requires LLM tone detection fallback",
+  "original_email": {
+    "sender": "contact@example.com",
+    "sender_name": "Alex Johnson",
+    "subject": "Question about the Product",
+    "body": "Hi,\n\nI saw your product and think it's interesting. Can you tell me more about how it works? Also, what are the main features?\n\nThanks,\nAlex",
+    "thread_id": "thread-unclear-001",
+    "received_at": "2025-11-09T17:30:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Initial Contact",
+      "body": "Hello,\n\nThanks for reaching out. I'm happy to answer any questions you have.\n\nRegards",
+      "timestamp": "2025-11-08T10:00:00Z",
+      "is_sent_by_user": true
+    }
+  ],
+  "expected_language": "en",
+  "expected_tone": "professional",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["product", "features", "how it works"],
+    "thread_history_references": ["questions", "reaching out"],
+    "note": "Tone is ambiguous - could be casual or professional. System should default to professional."
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "en",
+      "greeting_examples": ["Hi Alex", "Hello Alex", "Hey"],
+      "closing_examples": ["Best regards", "Thanks", "Cheers"]
+    },
+    "tone_markers": {
+      "tone": "professional",
+      "formality_level": "medium",
+      "expected_phrases": ["I'd be happy to", "let me explain", "the main features include"],
+      "note": "System should select professional tone as safe default for ambiguous cases"
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["how product works", "main features"]
+    }
+  },
+  "quality_threshold": 75,
+  "edge_case_type": "unclear_tone",
+  "notes": "Tests LLM-based tone detection fallback when rule-based detection is ambiguous"
+}

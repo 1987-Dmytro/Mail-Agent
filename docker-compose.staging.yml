@@ -1,0 +1,151 @@
+# Docker Compose for Full Staging Environment
+# Production-identical setup for pre-deployment testing
+# Usage: docker-compose -f docker-compose.staging.yml up
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:18-alpine
+    container_name: mailagent-db-staging
+    environment:
+      - POSTGRES_DB=mailagent
+      - POSTGRES_USER=mailagent
+      - POSTGRES_PASSWORD=mailagent_staging_password_2024
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with local PostgreSQL
+    volumes:
+      - postgres-staging-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mailagent -d mailagent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mailagent-staging
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: mailagent-redis-staging
+    ports:
+      - "6380:6379"  # Different port to avoid conflict with local Redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-staging-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mailagent-staging
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: staging
+    container_name: mailagent-backend-staging
+    ports:
+      - "8001:8000"  # Different port to avoid conflict with local backend
+    volumes:
+      - ./logs:/app/logs
+      - ./data/chromadb:/app/data/chromadb
+    env_file:
+      - .env.staging
+    environment:
+      - APP_ENV=staging
+      - DATABASE_URL=postgresql://mailagent:mailagent_staging_password_2024@db:5432/mailagent
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mailagent-staging
+
+  # Celery Worker (Background Tasks)
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: staging
+    container_name: mailagent-celery-worker-staging
+    command: ["/app/.venv/bin/celery", "-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2"]
+    volumes:
+      - ./logs:/app/logs
+      - ./data/chromadb:/app/data/chromadb
+    env_file:
+      - .env.staging
+    environment:
+      - APP_ENV=staging
+      - DATABASE_URL=postgresql://mailagent:mailagent_staging_password_2024@db:5432/mailagent
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - mailagent-staging
+
+  # Celery Beat (Periodic Tasks Scheduler)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: staging
+    container_name: mailagent-celery-beat-staging
+    command: ["/app/.venv/bin/celery", "-A", "app.tasks", "beat", "--loglevel=info"]
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env.staging
+    environment:
+      - APP_ENV=staging
+      - DATABASE_URL=postgresql://mailagent:mailagent_staging_password_2024@db:5432/mailagent
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - mailagent-staging
+
+networks:
+  mailagent-staging:
+    driver: bridge
+    name: mailagent-staging-network
+
+volumes:
+  postgres-staging-data:
+    name: mailagent-postgres-staging-data
+  redis-staging-data:
+    name: mailagent-redis-staging-data

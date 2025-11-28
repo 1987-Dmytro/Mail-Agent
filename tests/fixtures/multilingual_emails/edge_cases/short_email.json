@@ -1,0 +1,57 @@
+{
+  "test_name": "edge_case_short_email",
+  "description": "Edge case: Very short email (<50 chars) - language detection challenge",
+  "original_email": {
+    "sender": "colleague@example.com",
+    "sender_name": "Tom",
+    "subject": "Quick question",
+    "body": "Ready for the meeting?",
+    "thread_id": "thread-short-001",
+    "received_at": "2025-11-09T09:45:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Project Discussion",
+      "body": "Sure, let's discuss the project requirements in detail during our meeting tomorrow at 10 AM.",
+      "timestamp": "2025-11-08T16:30:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "colleague@example.com",
+      "subject": "Project Discussion",
+      "body": "Hey, can we schedule a meeting to discuss the new project?",
+      "timestamp": "2025-11-08T15:00:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "en",
+  "expected_tone": "casual",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["meeting", "project", "discussion"],
+    "thread_history_references": ["meeting", "discuss", "project"],
+    "note": "Language detection should fall back to thread history context due to very short email"
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "en",
+      "greeting_examples": ["Hey", "Hi", "Yes"],
+      "closing_examples": ["See you", "Thanks", "Cheers"],
+      "note": "Language detected from thread history context"
+    },
+    "tone_markers": {
+      "tone": "casual",
+      "formality_level": "low",
+      "expected_phrases": ["yes", "sure", "ready", "see you there"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["meeting readiness", "project discussion"]
+    }
+  },
+  "quality_threshold": 75,
+  "edge_case_type": "short_email",
+  "notes": "Tests language detection fallback when email is too short for reliable detection"
+}

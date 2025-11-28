@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   db:
-    image: pgvector/pgvector:pg16
+    image: postgres:18-alpine
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -19,6 +19,21 @@ services:
     restart: always
     networks:
       - monitoring
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - monitoring
+    volumes:
+      - redis-data:/data
 
   # Single API service with dynamic environment
   app:
@@ -99,3 +114,4 @@ networks:
 volumes:
   grafana-storage:
   postgres-data:
+  redis-data:

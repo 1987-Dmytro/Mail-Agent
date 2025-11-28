@@ -20,6 +20,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlmodel import Session
+from langgraph.types import interrupt
 
 from app.workflows.states import EmailWorkflowState
 from app.services.classification import EmailClassificationService
@@ -498,8 +499,12 @@ async def send_telegram(
                 )
 
                 # Format message with original email preview + draft + language/tone
+                # Pass draft_response, detected_language, and tone from state (not database)
                 message_text = await draft_service.format_response_draft_message(
-                    email_id=int(state["email_id"])
+                    email_id=int(state["email_id"]),
+                    draft_response=state.get("draft_response"),
+                    detected_language=state.get("detected_language"),
+                    tone=state.get("tone")
                 )
 
                 # Create response draft keyboard with [Send][Edit][Reject] buttons
@@ -761,9 +766,10 @@ async def await_approval(state: EmailWorkflowState) -> EmailWorkflowState:
         note="Workflow paused - awaiting user decision from Telegram",
     )
 
-    # Workflow pauses here - no further nodes executed
+    # Interrupt workflow execution here - no further nodes executed
     # State persisted to PostgreSQL via checkpointer
-    # Resumption handled in Story 2.7 via Telegram callback
+    # Resumption handled in Story 2.7 via Telegram callback with user_decision
+    interrupt(value="Waiting for user approval via Telegram")
 
     return state
 

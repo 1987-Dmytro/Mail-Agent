@@ -1,0 +1,49 @@
+{
+  "test_name": "edge_case_mixed_language",
+  "description": "Edge case: Email with mixed German and English - system should pick primary language",
+  "original_email": {
+    "sender": "client@example.com",
+    "sender_name": "Michael Schmidt",
+    "subject": "Project Update - Projektfortschritt",
+    "body": "Hallo Team,\n\nI wanted to give you a quick update on the project. We have completed the first milestone successfully.\n\nDie nächsten Schritte sind:\n1. Backend implementation\n2. Frontend design\n3. Testing phase\n\nPlease let me know if you have any questions.\n\nBest regards,\nMichael",
+    "thread_id": "thread-mixed-001",
+    "received_at": "2025-11-09T16:00:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Kickoff Meeting",
+      "body": "Vielen Dank für das Meeting heute. Looking forward to working with you on this project!",
+      "timestamp": "2025-11-07T14:00:00Z",
+      "is_sent_by_user": true
+    }
+  ],
+  "expected_language": "en",
+  "expected_tone": "professional",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["project", "milestone", "implementation"],
+    "thread_history_references": ["meeting", "working"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "en",
+      "note": "System should detect English as primary language (more content in English)",
+      "greeting_examples": ["Hi Michael", "Hello"],
+      "closing_examples": ["Best regards", "Thanks"]
+    },
+    "tone_markers": {
+      "tone": "professional",
+      "formality_level": "medium",
+      "expected_phrases": ["thank you", "great progress", "looking forward"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["project update", "next steps"]
+    }
+  },
+  "quality_threshold": 80,
+  "edge_case_type": "mixed_language",
+  "notes": "System must pick primary language (English) and respond only in that language"
+}

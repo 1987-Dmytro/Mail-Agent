@@ -1,0 +1,50 @@
+{
+  "test_name": "german_finanzamt_tax",
+  "description": "German tax office (Finanzamt) email - CRITICAL for AC #4 - formal government tone",
+  "original_email": {
+    "sender": "finanzamt@example.de",
+    "sender_name": "Finanzamt München",
+    "subject": "Aufforderung zur Abgabe der Steuererklärung",
+    "body": "Sehr geehrte Damen und Herren,\n\ngemäß § 149 Abs. 2 AO fordern wir Sie auf, Ihre Einkommensteuererklärung für das Jahr 2024 bis zum 31. Juli 2025 einzureichen.\n\nBitte beachten Sie, dass bei verspäteter Abgabe ein Verspätungszuschlag gemäß § 152 AO festgesetzt werden kann.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\nMit freundlichen Grüßen\nFinanzamt München\nSachgebiet Veranlagung",
+    "thread_id": "thread-de-finanzamt-001",
+    "received_at": "2025-11-09T08:00:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Antrag auf Fristverlängerung",
+      "body": "Sehr geehrte Damen und Herren,\n\nhiermit beantrage ich eine Fristverlängerung für die Abgabe meiner Steuererklärung.\n\nMit freundlichen Grüßen",
+      "timestamp": "2025-10-15T14:00:00Z",
+      "is_sent_by_user": true
+    }
+  ],
+  "expected_language": "de",
+  "expected_tone": "formal",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["Steuererklärung", "Frist", "Abgabe", "Finanzamt"],
+    "thread_history_references": ["Fristverlängerung", "Antrag"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "de",
+      "greeting_examples": ["Sehr geehrte Damen und Herren"],
+      "closing_examples": ["Mit freundlichen Grüßen"],
+      "required_greeting": "Sehr geehrte Damen und Herren",
+      "required_closing": "Mit freundlichen Grüßen"
+    },
+    "tone_markers": {
+      "tone": "formal",
+      "formality_level": "very-high",
+      "expected_phrases": ["hiermit", "gemäß", "ich bestätige", "zur Kenntnis genommen", "fristgerecht"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["Frist", "Steuererklärung", "Einreichung"]
+    }
+  },
+  "quality_threshold": 90,
+  "critical_for_ac": 4,
+  "notes": "CRITICAL TEST - Must include exact formal German government greetings and closings"
+}

@@ -1,0 +1,53 @@
+{
+  "test_name": "ukrainian_client_request",
+  "description": "Ukrainian client request with professional tone",
+  "original_email": {
+    "sender": "client@example.ua",
+    "sender_name": "Олена Коваленко",
+    "subject": "Запит щодо послуг",
+    "body": "Добрий день,\n\nЗвертаюся до вас з приводу можливості надання послуг веб-розробки. Чи можете ви надати комерційну пропозицію та орієнтовні терміни виконання?\n\nДякую,\nОлена",
+    "thread_id": "thread-uk-client-001",
+    "received_at": "2025-11-09T13:20:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "info@mycompany.ua",
+      "subject": "Re: Перше знайомство",
+      "body": "Доброго дня,\n\nДякуємо за звернення. Ми спеціалізуємося на розробці корпоративних веб-рішень.\n\nЗ повагою,\nКоманда підтримки",
+      "timestamp": "2025-11-08T11:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "client@example.ua",
+      "subject": "Перше знайомство",
+      "body": "Доброго дня, хотіла б дізнатися більше про ваші послуги.",
+      "timestamp": "2025-11-08T10:00:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "uk",
+  "expected_tone": "professional",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["послуги", "веб-розробка", "пропозиція", "терміни"],
+    "thread_history_references": ["корпоративні рішення", "звернення"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "uk",
+      "greeting_examples": ["Доброго дня", "Добрий день", "Вітаю"],
+      "closing_examples": ["З повагою", "З найкращими побажаннями"]
+    },
+    "tone_markers": {
+      "tone": "professional",
+      "formality_level": "medium-high",
+      "expected_phrases": ["дякуємо", "з радістю", "готові надати"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["комерційна пропозиція", "терміни виконання"]
+    }
+  },
+  "quality_threshold": 80
+}

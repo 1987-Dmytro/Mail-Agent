@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "langgraph-fastapi-template"
+name = "mail-agent-backend"
 version = "0.1.0"
-description = "LangGraph FastAPI Template"
+description = "Mail Agent Backend Service"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -19,11 +23,13 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "python-jose[cryptography]>=3.4.0",
     "python-multipart>=0.0.20",
+    "python-telegram-bot>=21.0",
     "sqlmodel>=0.0.24",
     "structlog>=25.2.0",
     "supabase>=2.15.0",
     "uvicorn>=0.34.0",
     "bcrypt>=4.3.0",
+    "chromadb>=0.4.22",
     "slowapi>=0.1.9",
     "email-validator>=2.2.0",
     "prometheus-client>=0.19.0",
@@ -34,18 +40,36 @@ dependencies = [
     "tqdm>=4.67.1",
     "colorama>=0.4.6",
     "ddgs>=9.6.0",
+    "alembic>=1.13.3",
+    "google-api-python-client>=2.146.0",
+    "google-auth>=2.34.0",
+    "google-auth-oauthlib>=1.2.1",
+    "google-auth-httplib2>=0.2.0",
+    "cryptography>=43.0.1",
+    "celery>=5.4.0",
+    "redis>=5.0.1",
+    "google-generativeai>=0.8.3",
+    "tenacity>=8.2.3",
+    "beautifulsoup4>=4.12.0",
+    "tiktoken>=0.5.0",
 ]
 
 [project.optional-dependencies]
 dev = ["black", "isort", "flake8", "ruff", "djlint==1.36.4"]
 
 [dependency-groups]
-test = ["httpx>=0.28.1", "pytest>=8.3.5"]
+test = ["httpx>=0.28.1", "pytest>=8.3.5", "pytest-asyncio>=0.25.2"]
 
 
 [tool.pytest.ini_options]
-markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests with real database",
+    "e2e: marks tests as end-to-end tests with real external APIs (Gmail, Telegram, Gemini)",
+]
 python_files = ["test_*.py", "*_test.py", "tests.py"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.black]
 line-length = 119
@@ -99,3 +123,7 @@ convention = "google"
 # Ignore `E402` (import violations) in all `__init__.py` files
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["tests*", "evals*", "grafana*", "prometheus*", "scripts*"]

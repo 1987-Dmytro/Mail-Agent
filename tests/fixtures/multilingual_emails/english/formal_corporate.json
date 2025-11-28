@@ -1,0 +1,53 @@
+{
+  "test_name": "english_formal_corporate",
+  "description": "English corporate email with formal professional tone",
+  "original_email": {
+    "sender": "executive@corporation.com",
+    "sender_name": "Margaret Thompson",
+    "subject": "Quarterly Review Meeting - Action Items",
+    "body": "Dear Team,\n\nFollowing our quarterly review meeting held on November 5th, I am writing to confirm the action items discussed:\n\n1. Finalize Q4 budget projections by November 15th\n2. Submit departmental reports by November 20th\n3. Schedule follow-up meetings with key stakeholders\n\nPlease acknowledge receipt of this email and confirm your availability for the follow-up session.\n\nBest regards,\nMargaret Thompson\nChief Operations Officer",
+    "thread_id": "thread-en-corporate-001",
+    "received_at": "2025-11-09T09:30:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Quarterly Review Agenda",
+      "body": "Dear Margaret,\n\nThank you for sharing the agenda. I will prepare the necessary materials for the review.\n\nBest regards",
+      "timestamp": "2025-11-04T17:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "executive@corporation.com",
+      "subject": "Quarterly Review Agenda",
+      "body": "Dear Team,\n\nPlease find attached the agenda for our upcoming quarterly review meeting.\n\nBest regards,\nMargaret Thompson",
+      "timestamp": "2025-11-04T15:00:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "en",
+  "expected_tone": "formal",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["quarterly review", "action items", "budget", "reports", "stakeholders"],
+    "thread_history_references": ["review meeting", "agenda", "materials"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "en",
+      "greeting_examples": ["Dear Margaret", "Dear Ms. Thompson"],
+      "closing_examples": ["Best regards", "Sincerely", "Respectfully"]
+    },
+    "tone_markers": {
+      "tone": "formal",
+      "formality_level": "high",
+      "expected_phrases": ["I acknowledge receipt", "I confirm", "I will ensure"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["acknowledgment of action items", "availability confirmation", "deadlines"]
+    }
+  },
+  "quality_threshold": 85
+}

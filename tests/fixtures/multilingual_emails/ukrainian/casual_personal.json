@@ -1,0 +1,53 @@
+{
+  "test_name": "ukrainian_casual_personal",
+  "description": "Ukrainian personal email with casual tone",
+  "original_email": {
+    "sender": "friend@example.ua",
+    "sender_name": "Андрій",
+    "subject": "Привіт! Як справи?",
+    "body": "Привіт!\n\nДавно не спілкувались. Як твої справи? Чув, що ти переїхав до Києва. Розкажи, як там?\n\nЧекаю на відповідь!\nАндрій",
+    "thread_id": "thread-uk-personal-001",
+    "received_at": "2025-11-09T19:30:00Z"
+  },
+  "thread_history": [
+    {
+      "sender": "me@example.com",
+      "subject": "Re: Зустріч",
+      "body": "Так, давай зустрінемось на наступному тижні. Мені є що розказати.",
+      "timestamp": "2025-10-20T14:00:00Z",
+      "is_sent_by_user": true
+    },
+    {
+      "sender": "friend@example.ua",
+      "subject": "Зустріч",
+      "body": "Привіт! Може зустрінемось якось?",
+      "timestamp": "2025-10-20T12:30:00Z",
+      "is_sent_by_user": false
+    }
+  ],
+  "expected_language": "uk",
+  "expected_tone": "casual",
+  "expected_context_criteria": {
+    "thread_continuity": true,
+    "relevant_keywords": ["справи", "переїзд", "Київ", "зустріч"],
+    "thread_history_references": ["зустрінемось", "розказати"]
+  },
+  "expected_response_criteria": {
+    "language_markers": {
+      "language_code": "uk",
+      "greeting_examples": ["Привіт", "Вітаю", "Привіт!"],
+      "closing_examples": ["Бувай", "До зустрічі", "Чекаю зустрічі"]
+    },
+    "tone_markers": {
+      "tone": "casual",
+      "formality_level": "low",
+      "expected_phrases": ["все добре", "класно", "давай"]
+    },
+    "context_awareness": {
+      "should_reference_thread": true,
+      "should_address_inquiry": true,
+      "key_topics_to_address": ["переїзд до Києва", "зустріч"]
+    }
+  },
+  "quality_threshold": 80
+}
