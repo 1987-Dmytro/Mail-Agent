@@ -134,11 +134,13 @@ async def test_workflow_state_transitions(
         mock_gmail_client = mock_gmail_instance
         mock_llm_client = AsyncMock()
         mock_llm_client.receive_completion = mock_llm
+        mock_telegram_client = AsyncMock()
 
         tracker = WorkflowInstanceTracker(
             db=db_session,
             gmail_client=mock_gmail_client,
             llm_client=mock_llm_client,
+            telegram_bot_client=mock_telegram_client,
             database_url=database_url,
         )
 
@@ -203,10 +205,12 @@ async def test_workflow_checkpoint_persistence(
 
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
+        mock_telegram_client = AsyncMock()
         tracker = WorkflowInstanceTracker(
             db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
+            telegram_bot_client=mock_telegram_client,
             database_url=database_url,
         )
 
@@ -277,10 +281,12 @@ async def test_classification_result_stored_in_database(
 
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
+        mock_telegram_client = AsyncMock()
         tracker = WorkflowInstanceTracker(
             db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
+            telegram_bot_client=mock_telegram_client,
             database_url=database_url,
         )
 
@@ -334,10 +340,12 @@ async def test_workflow_error_handling(
 
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
+        mock_telegram_client = AsyncMock()
         tracker = WorkflowInstanceTracker(
             db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
+            telegram_bot_client=mock_telegram_client,
             database_url=database_url,
         )
 
