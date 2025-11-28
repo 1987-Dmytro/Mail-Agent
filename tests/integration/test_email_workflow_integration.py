@@ -33,7 +33,7 @@ from app.utils.errors import GeminiAPIError
 
 
 @pytest.fixture
-async def test_user(async_db_session):
+async def test_user(db_session):
     """Create test user in database."""
     user = User(
         email="test@example.com",
@@ -41,14 +41,14 @@ async def test_user(async_db_session):
         is_active=True,
         onboarding_completed=True,
     )
-    async_db_session.add(user)
-    await async_db_session.commit()
-    await async_db_session.refresh(user)
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
 
 
 @pytest.fixture
-async def test_folders(async_db_session, test_user):
+async def test_folders(db_session, test_user):
     """Create test folder categories in database."""
     folders = [
         FolderCategory(
@@ -71,13 +71,13 @@ async def test_folders(async_db_session, test_user):
         ),
     ]
     for folder in folders:
-        async_db_session.add(folder)
-    await async_db_session.commit()
+        db_session.add(folder)
+    await db_session.commit()
     return folders
 
 
 @pytest.fixture
-async def test_email(async_db_session, test_user):
+async def test_email(db_session, test_user):
     """Create test email in EmailProcessingQueue."""
     email = EmailProcessingQueue(
         user_id=test_user.id,
@@ -88,16 +88,16 @@ async def test_email(async_db_session, test_user):
         received_at=datetime.utcnow(),
         status="pending",
     )
-    async_db_session.add(email)
-    await async_db_session.commit()
-    await async_db_session.refresh(email)
+    db_session.add(email)
+    await db_session.commit()
+    await db_session.refresh(email)
     return email
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_workflow_state_transitions(
-    async_db_session, test_user, test_folders, test_email
+    db_session, test_user, test_folders, test_email
 ):
     """Test workflow executes nodes in correct order.
 
@@ -136,7 +136,7 @@ async def test_workflow_state_transitions(
         mock_llm_client.receive_completion = mock_llm
 
         tracker = WorkflowInstanceTracker(
-            db=async_db_session,
+            db=db_session,
             gmail_client=mock_gmail_client,
             llm_client=mock_llm_client,
             database_url=database_url,
@@ -152,7 +152,7 @@ async def test_workflow_state_transitions(
         assert thread_id.startswith(f"email_{test_email.id}_")
 
         # Verify workflow paused at await_approval (status updated)
-        await async_db_session.refresh(test_email)
+        await db_session.refresh(test_email)
         assert test_email.status == "awaiting_approval"
 
         # Verify classification results stored in database
@@ -169,7 +169,7 @@ async def test_workflow_state_transitions(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_workflow_checkpoint_persistence(
-    async_db_session, test_user, test_folders, test_email
+    db_session, test_user, test_folders, test_email
 ):
     """Test PostgreSQL checkpoint persistence after classification.
 
@@ -204,7 +204,7 @@ async def test_workflow_checkpoint_persistence(
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
         tracker = WorkflowInstanceTracker(
-            db=async_db_session,
+            db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
             database_url=database_url,
@@ -225,7 +225,7 @@ async def test_workflow_checkpoint_persistence(
             ORDER BY checkpoint_id DESC
             LIMIT 1
         """
-        result = await async_db_session.execute(checkpoint_query)
+        result = await db_session.execute(checkpoint_query)
         checkpoint_row = result.fetchone()
 
         # Verify checkpoint exists
@@ -242,7 +242,7 @@ async def test_workflow_checkpoint_persistence(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_classification_result_stored_in_database(
-    async_db_session, test_user, test_folders, test_email
+    db_session, test_user, test_folders, test_email
 ):
     """Test classification results are stored in EmailProcessingQueue.
 
@@ -278,7 +278,7 @@ async def test_classification_result_stored_in_database(
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
         tracker = WorkflowInstanceTracker(
-            db=async_db_session,
+            db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
             database_url=database_url,
@@ -291,7 +291,7 @@ async def test_classification_result_stored_in_database(
         )
 
         # Refresh email from database
-        await async_db_session.refresh(test_email)
+        await db_session.refresh(test_email)
 
         # Verify all classification fields updated correctly
         personal_folder = next(f for f in test_folders if f.name == "Personal")
@@ -305,7 +305,7 @@ async def test_classification_result_stored_in_database(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_workflow_error_handling(
-    async_db_session, test_user, test_folders, test_email
+    db_session, test_user, test_folders, test_email
 ):
     """Test workflow continues with fallback classification when Gemini fails.
 
@@ -335,7 +335,7 @@ async def test_workflow_error_handling(
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
         tracker = WorkflowInstanceTracker(
-            db=async_db_session,
+            db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
             database_url=database_url,
@@ -348,7 +348,7 @@ async def test_workflow_error_handling(
         )
 
         # Verify workflow completed with fallback classification
-        await async_db_session.refresh(test_email)
+        await db_session.refresh(test_email)
 
         # Verify fallback classification applied
         unclassified_folder = next(f for f in test_folders if f.name == "Unclassified")
