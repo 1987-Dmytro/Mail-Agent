@@ -148,7 +148,6 @@ async def test_oauth_token_refresh_on_401(db_session: AsyncSession):
         is_active=True,
         gmail_oauth_token=expired_token,
         gmail_refresh_token=valid_refresh_token,
-        gmail_connected_at=datetime.now(timezone.utc),
     )
 
     db_session.add(user)
