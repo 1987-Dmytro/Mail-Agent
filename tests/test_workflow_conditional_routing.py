@@ -172,6 +172,14 @@ class TestNodeLogic:
         # Return different results for different execute calls (db.execute IS async)
         mock_db.execute = AsyncMock(side_effect=mock_execute)
 
+        # Create db_factory that returns mock_db as async context manager
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_db_factory():
+            """Context manager factory that yields the mock session."""
+            yield mock_db
+
         # Mock classification service
         mock_classification_service = AsyncMock()
         mock_classification_result = Mock()
@@ -191,8 +199,8 @@ class TestNodeLogic:
                 mock_gmail = AsyncMock()
                 mock_llm = Mock()
 
-                # Act
-                result_state = await classify(state, mock_db, mock_gmail, mock_llm)
+                # Act - Pass db_factory instead of db
+                result_state = await classify(state, mock_db_factory, mock_gmail, mock_llm)
 
         # Assert
         assert result_state["classification"] == "needs_response", (
@@ -252,6 +260,14 @@ class TestNodeLogic:
         mock_result.scalar_one_or_none = Mock(return_value=mock_email)
         mock_db.execute = AsyncMock(return_value=mock_result)
 
+        # Create db_factory that returns mock_db as async context manager
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_db_factory():
+            """Context manager factory that yields the mock session."""
+            yield mock_db
+
         # Mock ResponseGenerationService
         mock_response_text = "Dear colleague, I'd be happy to help you with that. Best regards."
 
@@ -260,8 +276,8 @@ class TestNodeLogic:
             mock_service.generate_response.return_value = mock_response_text
             MockResponseService.return_value = mock_service
 
-            # Act
-            result_state = await draft_response(state, mock_db)
+            # Act - Pass db_factory instead of db
+            result_state = await draft_response(state, mock_db_factory)
 
         # Assert
         assert result_state["draft_response"] == mock_response_text, (
@@ -345,6 +361,14 @@ class TestNodeLogic:
         # Return user result for first query, email result for subsequent queries (db.execute IS async)
         mock_db.execute = AsyncMock(side_effect=[user_result, email_result])
 
+        # Create db_factory that returns mock_db as async context manager
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_db_factory():
+            """Context manager factory that yields the mock session."""
+            yield mock_db
+
         # Mock TelegramResponseDraftService
         with patch('app.services.telegram_response_draft.TelegramResponseDraftService') as MockDraftService:
             mock_draft_service = Mock()
@@ -353,11 +377,15 @@ class TestNodeLogic:
             mock_draft_service.build_response_draft_keyboard.return_value = [["Send", "Edit", "Reject"]]
             MockDraftService.return_value = mock_draft_service
 
-            # Act
-            result_state = await send_telegram(state_with_draft, mock_db, mock_telegram)
+            # Act - Pass db_factory instead of db
+            result_state = await send_telegram(state_with_draft, mock_db_factory, mock_telegram)
 
             # Assert
-            mock_draft_service.format_response_draft_message.assert_called_once_with(email_id=123)
+            # Note: format_response_draft_message is called with email_id and additional parameters
+            mock_draft_service.format_response_draft_message.assert_called_once()
+            call_args_draft = mock_draft_service.format_response_draft_message.call_args
+            assert call_args_draft.kwargs["email_id"] == 123
+
             mock_draft_service.build_response_draft_keyboard.assert_called_once_with(email_id=123)
             mock_telegram.send_message_with_buttons.assert_called_once()
 
