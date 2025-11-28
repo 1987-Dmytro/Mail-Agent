@@ -50,9 +50,20 @@ async def sync_db_service(db_session):
     # Create sync engine
     sync_engine = create_engine(sync_url, echo=False, pool_pre_ping=True)
 
+    # Create async session factory using the same async engine from db_session fixture
+    from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+    from contextlib import asynccontextmanager
+
+    # The db_session fixture already provides a working async session
+    # We'll create a mock that returns the same session
+    @asynccontextmanager
+    async def mock_async_session_factory():
+        yield db_session
+
     # Create mock DatabaseService with sync engine
     mock_db_service = Mock(spec=DatabaseService)
     mock_db_service.engine = sync_engine
+    mock_db_service.async_session = mock_async_session_factory
 
     yield mock_db_service
 
