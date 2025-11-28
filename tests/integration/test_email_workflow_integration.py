@@ -110,7 +110,7 @@ async def test_workflow_state_transitions(
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
          patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
-         patch("app.services.response_generation.ResponseGenerationService.should_generate_response") as mock_should_respond:
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response", new_callable=AsyncMock) as mock_should_respond:
 
         # Mock Gmail API response
         mock_gmail_instance = AsyncMock()
@@ -131,6 +131,7 @@ async def test_workflow_state_transitions(
         }
 
         # Mock response generation service to return False (sort_only workflow)
+        # Using AsyncMock so await works correctly
         mock_should_respond.return_value = False
 
         # Initialize workflow tracker
@@ -188,7 +189,7 @@ async def test_workflow_checkpoint_persistence(
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
          patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
-         patch("app.services.response_generation.ResponseGenerationService.should_generate_response") as mock_should_respond:
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response", new_callable=AsyncMock) as mock_should_respond:
 
         # Mock Gmail API
         mock_gmail_instance = AsyncMock()
@@ -208,7 +209,7 @@ async def test_workflow_checkpoint_persistence(
             "confidence": 0.85,
         }
 
-        # Mock response generation service
+        # Mock response generation service (AsyncMock for await)
         mock_should_respond.return_value = False
 
         # Initialize workflow tracker
@@ -268,7 +269,7 @@ async def test_classification_result_stored_in_database(
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
          patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
-         patch("app.services.response_generation.ResponseGenerationService.should_generate_response") as mock_should_respond:
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response", new_callable=AsyncMock) as mock_should_respond:
 
         # Mock Gmail API
         mock_gmail_instance = AsyncMock()
@@ -288,7 +289,7 @@ async def test_classification_result_stored_in_database(
             "confidence": 0.92,
         }
 
-        # Mock response generation service
+        # Mock response generation service (AsyncMock for await)
         mock_should_respond.return_value = False
 
         # Initialize workflow tracker
@@ -336,7 +337,7 @@ async def test_workflow_error_handling(
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
          patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
-         patch("app.services.response_generation.ResponseGenerationService.should_generate_response") as mock_should_respond:
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response", new_callable=AsyncMock) as mock_should_respond:
 
         # Mock Gmail API (successful)
         mock_gmail_instance = AsyncMock()
@@ -351,7 +352,7 @@ async def test_workflow_error_handling(
         # Mock Gemini LLM to raise API error
         mock_llm.side_effect = GeminiAPIError("Rate limit exceeded")
 
-        # Mock response generation service
+        # Mock response generation service (AsyncMock for await)
         mock_should_respond.return_value = False
 
         # Initialize workflow tracker
