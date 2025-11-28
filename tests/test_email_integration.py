@@ -280,7 +280,7 @@ async def test_send_email_invalid_recipient(
         resp=Mock(status=400),
         content=b'{"error": {"message": "Invalid recipient"}}',
     )
-    mock_send.execute = AsyncMock(side_effect=http_error)
+    mock_send.execute = Mock(side_effect=http_error)
     mock_service.users().messages().send.return_value = mock_send
 
     with patch.object(GmailClient, "_get_gmail_service", return_value=mock_service):
@@ -325,7 +325,7 @@ async def test_send_email_quota_exceeded(
         resp=Mock(status=429),
         content=b'{"error": {"message": "Quota exceeded"}}',
     )
-    mock_send.execute = AsyncMock(side_effect=http_error)
+    mock_send.execute = Mock(side_effect=http_error)
     mock_service.users().messages().send.return_value = mock_send
 
     with patch.object(GmailClient, "_get_gmail_service", return_value=mock_service):
@@ -369,7 +369,7 @@ async def test_send_email_message_too_large(
         resp=Mock(status=413),
         content=b'{"error": {"message": "Message too large"}}',
     )
-    mock_send.execute = AsyncMock(side_effect=http_error)
+    mock_send.execute = Mock(side_effect=http_error)
     mock_service.users().messages().send.return_value = mock_send
 
     with patch.object(GmailClient, "_get_gmail_service", return_value=mock_service):
