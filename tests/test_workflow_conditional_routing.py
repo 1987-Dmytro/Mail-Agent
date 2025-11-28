@@ -183,7 +183,7 @@ class TestNodeLogic:
         # Mock ResponseGenerationService to return True (needs response)
         with patch('app.workflows.nodes.EmailClassificationService', return_value=mock_classification_service):
             with patch('app.services.response_generation.ResponseGenerationService') as MockResponseService:
-                mock_response_service = Mock()
+                mock_response_service = AsyncMock()
                 mock_response_service.should_generate_response.return_value = True
                 MockResponseService.return_value = mock_response_service
 
