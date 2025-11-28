@@ -5,10 +5,11 @@ checkpoint storage, enabling workflow pause/resume across service restarts
 and asynchronous user interactions.
 
 Key Features:
-    - StateGraph: Directed workflow with 7 nodes
+    - StateGraph: Directed workflow with 8 nodes
     - PostgreSQL Checkpointing: State persisted after every node execution
     - Pause/Resume: Workflow pauses at await_approval, resumes hours/days later
     - Thread Tracking: Each workflow instance identified by unique thread_id
+    - Unified Email Sending: Email responses integrated into main workflow
 
 Workflow Flow:
     START
@@ -19,11 +20,19 @@ Workflow Flow:
       ↓
     detect_priority (Priority detection - Story 2.9)
       ↓
+    {CONDITIONAL ROUTING based on classification}
+      ↓
+    needs_response: generate_response (Draft AI response with RAG context)
+      ↓
+    sort_only: (skip response generation)
+      ↓
     send_telegram (Send approval request or batch)
       ↓
     await_approval (⚠️ PAUSE - State saved to PostgreSQL)
       ↓
     (User responds via Telegram, workflow resumes from checkpoint - Story 2.7)
+      ↓
+    send_email_response (Send AI-generated email if needs_response + approved)
       ↓
     execute_action (Apply Gmail label)
       ↓
@@ -65,6 +74,7 @@ from app.workflows.nodes import (
     send_telegram,
     draft_response,
     await_approval,
+    send_email_response,  # New node for sending email responses
     execute_action,
     send_confirmation,
 )
@@ -139,8 +149,8 @@ def create_email_workflow(
     checkpointer to enable persistent state storage across service restarts.
 
     Workflow Architecture:
-        - Nodes: 7 workflow steps (extract, classify, detect_priority, telegram, await, execute, confirm)
-        - Edges: Sequential flow with pause at await_approval
+        - Nodes: 8 workflow steps (extract, classify, detect_priority, generate_response, telegram, await, send_email_response, execute, confirm)
+        - Edges: Sequential flow with conditional routing and pause at await_approval
         - Checkpointer: PostgreSQL storage for state persistence (or custom checkpointer for tests)
         - Thread ID: Unique identifier for each workflow instance
 
@@ -227,6 +237,7 @@ def create_email_workflow(
         workflow.add_node("generate_response", partial(draft_response, db_factory=db_session_factory))  # Story 3.11 - AC #3
         workflow.add_node("send_telegram", partial(send_telegram, db_factory=db_session_factory, telegram_bot_client=telegram_client))
         workflow.add_node("await_approval", await_approval)  # No dependencies needed
+        workflow.add_node("send_email_response", partial(send_email_response, db_factory=db_session_factory, gmail_client=gmail_client))
         workflow.add_node("execute_action", partial(execute_action, db_factory=db_session_factory, gmail_client=gmail_client))
         workflow.add_node("send_confirmation", partial(send_confirmation, db_factory=db_session_factory, telegram_bot_client=telegram_client))
     else:
@@ -239,6 +250,7 @@ def create_email_workflow(
         workflow.add_node("generate_response", draft_response)  # Story 3.11 - AC #3
         workflow.add_node("send_telegram", send_telegram)
         workflow.add_node("await_approval", await_approval)
+        workflow.add_node("send_email_response", send_email_response)
         workflow.add_node("execute_action", execute_action)
         workflow.add_node("send_confirmation", send_confirmation)
 
@@ -267,12 +279,10 @@ def create_email_workflow(
     # Continue to await_approval (workflow pauses here)
     workflow.add_edge("send_telegram", "await_approval")
 
-    # CRITICAL: await_approval node does NOT add edges
-    # This causes the workflow to pause and save state to PostgreSQL
-    # Resumption will be handled in Story 2.7 via Telegram callback
-
-    # Edges after resumption (Story 2.7 will trigger execute_action)
-    # These edges will be traversed when workflow resumes from checkpoint
+    # After user approval, send email response (if needs_response)
+    # then apply Gmail label and send confirmation
+    workflow.add_edge("await_approval", "send_email_response")
+    workflow.add_edge("send_email_response", "execute_action")
     workflow.add_edge("execute_action", "send_confirmation")
     workflow.add_edge("send_confirmation", END)
 
@@ -283,7 +293,7 @@ def create_email_workflow(
 
     logger.info(
         "workflow_compiled_successfully",
-        node_count=7,
+        node_count=8,
         checkpointer="PostgreSQL",
         pause_point="await_approval",
     )

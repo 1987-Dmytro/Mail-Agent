@@ -1430,3 +1430,146 @@ async def send_confirmation(
             # Don't set error_message in state - confirmation failure is not critical
     
         return state
+
+
+async def send_email_response(
+    state: EmailWorkflowState,
+    db_factory,
+    gmail_client: GmailClient,
+) -> EmailWorkflowState:
+    """Node: Send AI-generated email response after user approval.
+
+    This node sends the email response that was generated in draft_response node
+    and approved by the user. It integrates response sending into the main workflow
+    instead of using a separate Telegram callback handler.
+
+    Actions:
+        1. Check if response needs to be sent (classification=needs_response + approved)
+        2. Load email from database
+        3. Send email via Gmail API with proper threading
+        4. Update email status
+        5. (Future) Index sent response in vector DB for RAG context
+
+    Args:
+        state: Current workflow state with draft_response and user_decision
+        db_factory: AsyncSession factory for creating database sessions
+        gmail_client: Gmail API client for sending emails
+
+    Returns:
+        Updated state with sent_message_id if email was sent
+    """
+    email_id = state["email_id"]
+    classification = state.get("classification")
+    user_decision = state.get("user_decision")
+    draft_response = state.get("draft_response")
+
+    logger.info(
+        "node_send_email_response_start",
+        email_id=email_id,
+        classification=classification,
+        user_decision=user_decision,
+        has_draft=bool(draft_response)
+    )
+
+    # Skip if not needs_response or not approved
+    if classification != "needs_response":
+        logger.info(
+            "send_email_response_skipped_not_needed",
+            email_id=email_id,
+            classification=classification
+        )
+        return state
+
+    if user_decision != "approve":
+        logger.info(
+            "send_email_response_skipped_not_approved",
+            email_id=email_id,
+            user_decision=user_decision
+        )
+        return state
+
+    if not draft_response:
+        logger.warning(
+            "send_email_response_no_draft",
+            email_id=email_id,
+            note="classification=needs_response but no draft_response in state"
+        )
+        return state
+
+    # Create fresh session for this node
+    async with db_factory() as db:
+        # Load email from database
+        result = await db.execute(
+            select(EmailProcessingQueue).where(EmailProcessingQueue.id == int(email_id))
+        )
+        email = result.scalar_one_or_none()
+
+        if not email:
+            error_msg = f"Email {email_id} not found in database"
+            logger.error("send_email_response_email_not_found", email_id=email_id)
+            state["error_message"] = error_msg
+            return state
+
+        # Generate reply subject
+        reply_subject = email.subject or "(no subject)"
+        if not reply_subject.startswith("Re: "):
+            reply_subject = f"Re: {reply_subject}"
+
+        try:
+            # Send email via Gmail API with threading support
+            logger.info(
+                "sending_email_response",
+                email_id=email_id,
+                recipient=email.sender,
+                subject=reply_subject,
+                thread_id=email.gmail_thread_id
+            )
+
+            sent_message_id = await gmail_client.send_email(
+                to=email.sender,
+                subject=reply_subject,
+                body=draft_response,
+                thread_id=email.gmail_thread_id  # Proper threading for conversation continuity
+            )
+
+            logger.info(
+                "email_response_sent_successfully",
+                email_id=email_id,
+                sent_message_id=sent_message_id,
+                recipient=email.sender
+            )
+
+            # Update state with sent message ID
+            state["sent_message_id"] = sent_message_id
+
+            # Update email record
+            from datetime import datetime, UTC
+            email.status = "response_sent"
+            email.sent_at = datetime.now(UTC)
+            db.add(email)
+            await db.commit()
+
+            # TODO: Index sent response in vector DB for future RAG context
+            # This will help AI learn from successfully sent responses
+            # await index_sent_response_in_vector_db(email, draft_response)
+
+        except Exception as e:
+            error_msg = f"Failed to send email response: {str(e)}"
+            logger.error(
+                "send_email_response_failed",
+                email_id=email_id,
+                recipient=email.sender,
+                error=str(e),
+                error_type=type(e).__name__,
+                exc_info=True
+            )
+            state["error_message"] = error_msg
+
+            # Update email status to error
+            email.status = "error"
+            email.error_type = "gmail_send_failure"
+            email.error_message = error_msg
+            db.add(email)
+            await db.commit()
+
+    return state
