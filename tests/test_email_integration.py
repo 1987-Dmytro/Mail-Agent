@@ -78,7 +78,7 @@ async def authenticated_client(test_user: User) -> AsyncGenerator[AsyncClient, N
     app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_gmail_service():
     """Create a mock Gmail API service for testing.
 
