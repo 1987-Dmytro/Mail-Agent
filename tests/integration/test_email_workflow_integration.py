@@ -23,7 +23,7 @@ import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.services.workflow_tracker import WorkflowInstanceTracker
 from app.models.email import EmailProcessingQueue
@@ -109,7 +109,8 @@ async def test_workflow_state_transitions(
     """
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
-         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm:
+         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response") as mock_should_respond:
 
         # Mock Gmail API response
         mock_gmail_instance = AsyncMock()
@@ -128,6 +129,9 @@ async def test_workflow_state_transitions(
             "priority_score": 70,
             "confidence": 0.90,
         }
+
+        # Mock response generation service to return False (sort_only workflow)
+        mock_should_respond.return_value = False
 
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
@@ -183,7 +187,8 @@ async def test_workflow_checkpoint_persistence(
     """
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
-         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm:
+         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response") as mock_should_respond:
 
         # Mock Gmail API
         mock_gmail_instance = AsyncMock()
@@ -202,6 +207,9 @@ async def test_workflow_checkpoint_persistence(
             "priority_score": 60,
             "confidence": 0.85,
         }
+
+        # Mock response generation service
+        mock_should_respond.return_value = False
 
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
@@ -222,13 +230,13 @@ async def test_workflow_checkpoint_persistence(
 
         # Query PostgreSQL checkpoints table
         # Note: LangGraph creates checkpoints table automatically
-        checkpoint_query = f"""
+        checkpoint_query = text(f"""
             SELECT thread_id, checkpoint_ns, checkpoint
             FROM checkpoints
             WHERE thread_id = '{thread_id}'
             ORDER BY checkpoint_id DESC
             LIMIT 1
-        """
+        """)
         result = await db_session.execute(checkpoint_query)
         checkpoint_row = result.fetchone()
 
@@ -259,7 +267,8 @@ async def test_classification_result_stored_in_database(
     """
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
-         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm:
+         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response") as mock_should_respond:
 
         # Mock Gmail API
         mock_gmail_instance = AsyncMock()
@@ -278,6 +287,9 @@ async def test_classification_result_stored_in_database(
             "priority_score": 85,
             "confidence": 0.92,
         }
+
+        # Mock response generation service
+        mock_should_respond.return_value = False
 
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
@@ -323,7 +335,8 @@ async def test_workflow_error_handling(
     """
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
-         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm:
+         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response") as mock_should_respond:
 
         # Mock Gmail API (successful)
         mock_gmail_instance = AsyncMock()
@@ -337,6 +350,9 @@ async def test_workflow_error_handling(
 
         # Mock Gemini LLM to raise API error
         mock_llm.side_effect = GeminiAPIError("Rate limit exceeded")
+
+        # Mock response generation service
+        mock_should_respond.return_value = False
 
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
@@ -359,8 +375,9 @@ async def test_workflow_error_handling(
         await db_session.refresh(test_email)
 
         # Verify fallback classification applied
-        unclassified_folder = next(f for f in test_folders if f.name == "Unclassified")
-        assert test_email.proposed_folder_id == unclassified_folder.id
+        # Fallback uses first user folder (Work), not hardcoded "Unclassified"
+        work_folder = next(f for f in test_folders if f.name == "Work")
+        assert test_email.proposed_folder_id == work_folder.id
         assert "GeminiAPIError" in test_email.classification_reasoning
         assert test_email.priority_score == 50  # Medium priority for manual review
         assert test_email.is_priority is False  # 50 < 70
