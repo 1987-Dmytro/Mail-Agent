@@ -1054,7 +1054,7 @@ class GmailClient:
 
         # Get user's email for From header
         # Load user from database to get email address
-        async with self.db_service.get_session() as session:
+        async with self.db_service.async_session() as session:
             from app.models.user import User
             from sqlmodel import select
 

@@ -41,7 +41,6 @@ async def test_user(db_session: AsyncSession) -> User:
 
     user.gmail_oauth_token = access_token
     user.gmail_refresh_token = refresh_token
-    user.gmail_connected_at = datetime.utcnow()
 
     db_session.add(user)
     await db_session.commit()
@@ -90,7 +89,7 @@ def mock_gmail_service():
 
     # Mock messages().send() endpoint
     mock_send = Mock()
-    mock_send.execute = AsyncMock(
+    mock_send.execute = Mock(
         return_value={
             "id": "18abc123def456",
             "threadId": "thread_abc123",
@@ -100,7 +99,7 @@ def mock_gmail_service():
 
     # Mock threads().get() endpoint
     mock_thread = Mock()
-    mock_thread.execute = AsyncMock(
+    mock_thread.execute = Mock(
         return_value={
             "id": "thread_abc123",
             "messages": [
@@ -210,7 +209,7 @@ async def test_send_email_with_thread_reply(
 
     # Verify threads.get() was called to retrieve message IDs
     mock_gmail_service.users().threads().get.assert_called_once_with(
-        userId="me", id="thread_abc123"
+        userId="me", id="thread_abc123", format="metadata"
     )
 
     # Verify Gmail API send called with MIME message
