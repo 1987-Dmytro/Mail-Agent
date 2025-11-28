@@ -88,7 +88,7 @@ class WorkflowInstanceTracker:
         """Build LangGraph workflow with dependency-injected nodes.
 
         This method creates a StateGraph with nodes that have dependencies bound
-        using functools.partial. This allows nodes to access db, gmail_client,
+        using functools.partial. This allows nodes to access db_factory, gmail_client,
         and llm_client without violating LangGraph's state-only parameter model.
 
         Args:
@@ -107,17 +107,26 @@ class WorkflowInstanceTracker:
         # Create workflow graph
         workflow = StateGraph(EmailWorkflowState)
 
+        # Create a db_factory that returns the same session wrapped in context manager
+        # Nodes expect: async with db_factory() as db:
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def db_factory():
+            """Context manager factory that yields the existing session."""
+            yield self.db
+
         # Bind dependencies to node functions using functools.partial
-        # This creates new functions with db, gmail_client, llm_client pre-filled
+        # This creates new functions with db_factory, gmail_client, llm_client pre-filled
         extract_context_with_deps = partial(
             nodes.extract_context,
-            db=self.db,
+            db_factory=db_factory,
             gmail_client=self.gmail_client,
         )
 
         classify_with_deps = partial(
             nodes.classify,
-            db=self.db,
+            db_factory=db_factory,
             gmail_client=self.gmail_client,
             llm_client=self.llm_client,
         )
@@ -125,21 +134,21 @@ class WorkflowInstanceTracker:
         # Bind dependencies for send_telegram node (Story 2.6)
         send_telegram_with_deps = partial(
             nodes.send_telegram,
-            db=self.db,
+            db_factory=db_factory,
             telegram_bot_client=self.telegram_bot_client,
         )
 
         # Bind dependencies for execute_action node (Story 2.7)
         execute_action_with_deps = partial(
             nodes.execute_action,
-            db=self.db,
+            db_factory=db_factory,
             gmail_client=self.gmail_client,
         )
 
         # Bind dependencies for send_confirmation node (Story 2.7)
         send_confirmation_with_deps = partial(
             nodes.send_confirmation,
-            db=self.db,
+            db_factory=db_factory,
             telegram_bot_client=self.telegram_bot_client,
         )
 
