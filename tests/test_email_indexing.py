@@ -55,7 +55,8 @@ class TestEmailIndexingService:
 
         # Mock database session context
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock checking for existing progress (should return None)
         mock_check_result = MagicMock()
@@ -306,7 +307,8 @@ class TestEmailIndexingService:
 
         # Mock database session
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock existing interrupted progress
         mock_progress = IndexingProgress(
@@ -373,7 +375,8 @@ class TestEmailIndexingService:
 
         # Mock database session
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock existing progress
         mock_progress = IndexingProgress(
@@ -411,7 +414,8 @@ class TestEmailIndexingService:
 
         # Mock database session
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock existing progress
         mock_progress = IndexingProgress(
@@ -455,7 +459,8 @@ class TestEmailIndexingService:
 
         # Mock database session
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock initial indexing complete
         mock_progress = IndexingProgress(
