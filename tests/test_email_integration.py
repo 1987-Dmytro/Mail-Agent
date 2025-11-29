@@ -420,7 +420,7 @@ async def test_send_email_invalid_body_type(
 
 
 @pytest.mark.asyncio
-async def test_send_email_unauthenticated(authenticated_client: AsyncClient):
+async def test_send_email_unauthenticated():
     """Integration test: Require JWT authentication.
 
     Tests:
@@ -429,6 +429,9 @@ async def test_send_email_unauthenticated(authenticated_client: AsyncClient):
 
     AC Coverage: AC#8 (security requirement)
     """
+    # Clear any dependency overrides from previous tests
+    app.dependency_overrides.clear()
+
     # Create client without authentication
     transport = ASGITransport(app=app)
     async with AsyncClient(
@@ -450,7 +453,7 @@ async def test_send_email_unauthenticated(authenticated_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-@patch("app.core.logging.logger")
+@patch("app.api.v1.test.logger")
 async def test_send_email_logging(
     mock_logger,
     authenticated_client: AsyncClient,
