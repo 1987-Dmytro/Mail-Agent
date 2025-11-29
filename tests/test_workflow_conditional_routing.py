@@ -271,13 +271,20 @@ class TestNodeLogic:
         # Mock ResponseGenerationService
         mock_response_text = "Dear colleague, I'd be happy to help you with that. Best regards."
 
+        # Mock ContextRetrievalService (for DI)
+        mock_context_service = AsyncMock()
+
         with patch('app.services.response_generation.ResponseGenerationService') as MockResponseService:
             mock_service = AsyncMock()
             mock_service.generate_response.return_value = mock_response_text
             MockResponseService.return_value = mock_service
 
-            # Act - Pass db_factory instead of db
-            result_state = await draft_response(state, mock_db_factory)
+            # Act - Pass db_factory and mocked context_service for DI
+            result_state = await draft_response(
+                state,
+                mock_db_factory,
+                context_service=mock_context_service
+            )
 
         # Assert
         assert result_state["draft_response"] == mock_response_text, (
@@ -290,8 +297,11 @@ class TestNodeLogic:
             "Expected tone to be set from email metadata"
         )
 
-        # Verify ResponseGenerationService was called correctly
-        MockResponseService.assert_called_once_with(user_id=456)
+        # Verify ResponseGenerationService was called correctly with injected context_service
+        MockResponseService.assert_called_once_with(
+            user_id=456,
+            context_service=mock_context_service
+        )
         mock_service.generate_response.assert_called_once_with(email_id=123)
 
     @pytest.mark.asyncio

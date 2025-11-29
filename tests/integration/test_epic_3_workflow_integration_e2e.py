@@ -94,7 +94,10 @@ class TestConditionalWorkflowRouting:
         db_session: AsyncSession,
         workflow_db_session_factory,
         test_user_with_tokens: User,
-        test_folder: FolderCategory
+        test_folder: FolderCategory,
+        mock_context_service,
+        mock_embedding_service,
+        mock_vector_db_client
     ):
         """Test complete workflow execution for emails needing responses (AC #7).
 
@@ -170,6 +173,9 @@ class TestConditionalWorkflowRouting:
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
+                context_service=mock_context_service,
+                embedding_service=mock_embedding_service,
+                vector_db_client=mock_vector_db_client,
             )
 
             # Create initial state
@@ -253,7 +259,10 @@ class TestConditionalWorkflowRouting:
         db_session: AsyncSession,
         workflow_db_session_factory,
         test_user_with_tokens: User,
-        test_folder: FolderCategory
+        test_folder: FolderCategory,
+        mock_context_service,
+        mock_embedding_service,
+        mock_vector_db_client
     ):
         """Test complete workflow execution for sort-only emails (AC #8).
 
@@ -328,6 +337,9 @@ class TestConditionalWorkflowRouting:
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
+                context_service=mock_context_service,
+                embedding_service=mock_embedding_service,
+                vector_db_client=mock_vector_db_client,
             )
 
             # Create initial state

@@ -283,3 +283,45 @@ async def cleanup_langgraph_checkpoints(db_session: AsyncSession):
     except Exception:
         # Table might have been dropped, that's okay
         await db_session.rollback()
+
+
+# ========================================
+# Mock Service Fixtures for DI
+# ========================================
+
+@pytest.fixture
+def mock_embedding_service():
+    """Mock EmbeddingService for tests requiring dependency injection."""
+    from unittest.mock import Mock
+    mock_service = Mock()
+    mock_service.embed_text.return_value = [0.15] * 768  # Consistent embedding
+    return mock_service
+
+
+@pytest.fixture
+def mock_vector_db_client():
+    """Mock VectorDBClient for tests requiring dependency injection."""
+    from unittest.mock import AsyncMock
+    mock_client = AsyncMock()
+    # Mock semantic search to return empty results by default
+    mock_client.search_similar_emails.return_value = []
+    return mock_client
+
+
+@pytest.fixture
+def mock_context_service():
+    """Mock ContextRetrievalService for tests requiring dependency injection."""
+    from unittest.mock import AsyncMock
+
+    mock_service = AsyncMock()
+    # Return minimal context by default with proper metadata structure
+    mock_service.retrieve_context.return_value = {
+        "thread_history": [],
+        "semantic_results": [],
+        "metadata": {
+            "thread_length": 0,
+            "semantic_count": 0,
+            "total_tokens_used": 0
+        }
+    }
+    return mock_service

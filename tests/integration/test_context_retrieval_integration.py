@@ -103,7 +103,7 @@ def test_vector_db():
         pass
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def indexed_emails(test_vector_db, context_test_user):
     """Create sample indexed emails in ChromaDB for semantic search."""
     # Create 10 sample email embeddings with metadata

@@ -151,7 +151,10 @@ class TestCompleteSystemE2E:
         db_session: AsyncSession,
         test_user_with_tokens: User,
         test_folder: FolderCategory,
-        historical_emails: list[EmailProcessingQueue]
+        historical_emails: list[EmailProcessingQueue],
+        mock_context_service,
+        mock_embedding_service,
+        mock_vector_db_client
     ):
         """Test complete system: Email → Vector Search → Context Retrieval → Response Generation.
 
@@ -357,6 +360,9 @@ class TestCompleteSystemE2E:
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
+                context_service=mock_context_service,
+                embedding_service=mock_embedding_service,
+                vector_db_client=mock_vector_db_client,
             )
 
             # Create initial state
