@@ -248,20 +248,19 @@ class TestCommandHandlers:
     async def test_start_command_handler_with_code(self):
         """Test /start command with linking code."""
         from app.api.telegram_handlers import handle_start_command
-        from app.models.user import User
 
-        # Mock the AsyncSessionLocal context manager used in handle_start_command
-        with patch("app.api.telegram_handlers.AsyncSessionLocal") as mock_session_local:
-            # Create mock user and setup database mock
-            mock_user = User(id=1, email="test@example.com")
-            mock_result = MagicMock()
-            mock_result.scalar_one_or_none = MagicMock(return_value=mock_user)
+        # Mock the link_telegram_account_async function
+        with patch("app.api.telegram_handlers.link_telegram_account_async") as mock_link, \
+             patch("app.api.telegram_handlers.AsyncSessionLocal") as mock_session_local:
 
+            # Mock successful linking response
+            mock_link.return_value = {
+                "success": True,
+                "message": "✅ Your Telegram account has been linked successfully!"
+            }
+
+            # Mock the database session context manager
             mock_session_instance = MagicMock()
-            mock_session_instance.execute = AsyncMock(return_value=mock_result)
-            mock_session_instance.commit = AsyncMock()
-            mock_session_instance.refresh = AsyncMock()
-
             mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
             mock_session_local.return_value.__aexit__ = AsyncMock()
 
@@ -275,6 +274,14 @@ class TestCommandHandlers:
 
             # Call handler
             await handle_start_command(mock_update, mock_context)
+
+            # Verify linking function was called
+            mock_link.assert_called_once_with(
+                telegram_id="123456789",
+                telegram_username="testuser",
+                code="A3B7X9",
+                db=mock_session_instance
+            )
 
             # Verify linking success response was sent
             mock_update.message.reply_text.assert_called_once()

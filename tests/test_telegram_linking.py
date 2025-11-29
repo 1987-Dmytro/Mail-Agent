@@ -234,7 +234,7 @@ def test_link_telegram_account_already_linked_to_another_user(sqlite_session, te
     assert result1["success"] is True
 
     # Try to link same telegram_id to second user
-    code2 = generate_linking_code(test_user.id, sqlite_session)
+    code2 = generate_linking_code(user2.id, sqlite_session)  # Code for second user
     result2 = link_telegram_account(
         telegram_id=telegram_id,  # Same Telegram ID
         telegram_username="testuser",
