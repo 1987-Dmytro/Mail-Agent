@@ -104,44 +104,54 @@ async def test_poll_user_emails_fetches_unread_emails(mock_gmail_client, sample_
     with patch("app.tasks.email_tasks.GmailClient", return_value=mock_gmail_client):
         mock_gmail_client.get_messages.return_value = sample_gmail_emails
 
-        # Mock database session with proper async context manager
-        with patch("app.tasks.email_tasks.database_service.async_session") as mock_session_ctx:
-            # Create mock session instance
-            mock_session_instance = MagicMock()
+        # Mock workflow dependencies to avoid initialization errors
+        with patch("app.tasks.email_tasks.LLMClient"):
+            with patch("app.tasks.email_tasks.TelegramBotClient"):
+                with patch("app.tasks.email_tasks.WorkflowInstanceTracker") as mock_workflow:
+                    # Mock workflow tracker
+                    mock_workflow_instance = AsyncMock()
+                    mock_workflow_instance.start_workflow = AsyncMock(return_value="test_thread_id")
+                    mock_workflow.return_value = mock_workflow_instance
 
-            # Mock session.execute() to return a result with scalar_one_or_none()
-            # This simulates: result = await session.execute(statement)
-            async def mock_execute(statement):
-                mock_result = MagicMock()
-                # No duplicates - scalar_one_or_none returns None
-                mock_result.scalar_one_or_none = MagicMock(return_value=None)
-                return mock_result
+                    # Mock database session with proper async context manager
+                    with patch("app.tasks.email_tasks.database_service.async_session") as mock_session_ctx:
+                        # Create mock session instance
+                        mock_session_instance = MagicMock()
 
-            mock_session_instance.execute = mock_execute
-            mock_session_instance.add = MagicMock()  # session.add(email)
-            mock_session_instance.commit = AsyncMock()  # await session.commit()
+                        # Mock session.execute() to return a result with scalar_one_or_none()
+                        # This simulates: result = await session.execute(statement)
+                        async def mock_execute(statement):
+                            mock_result = MagicMock()
+                            # No duplicates - scalar_one_or_none returns None
+                            mock_result.scalar_one_or_none = MagicMock(return_value=None)
+                            return mock_result
 
-            # Setup async context manager
-            # This makes: async with database_service.async_session() as session:
-            mock_context_manager = AsyncMock()
-            mock_context_manager.__aenter__.return_value = mock_session_instance
-            mock_context_manager.__aexit__.return_value = AsyncMock()
-            mock_session_ctx.return_value = mock_context_manager
+                        mock_session_instance.execute = mock_execute
+                        mock_session_instance.add = MagicMock()  # session.add(email)
+                        mock_session_instance.flush = AsyncMock()  # await session.flush()
+                        mock_session_instance.commit = AsyncMock()  # await session.commit()
 
-            # Call the async helper function
-            new_count, skip_count = await _poll_user_emails_async(user_id)
+                        # Setup async context manager
+                        # This makes: async with database_service.async_session() as session:
+                        mock_context_manager = AsyncMock()
+                        mock_context_manager.__aenter__.return_value = mock_session_instance
+                        mock_context_manager.__aexit__.return_value = AsyncMock()
+                        mock_session_ctx.return_value = mock_context_manager
 
-            # Verify GmailClient.get_messages was called with correct parameters
-            mock_gmail_client.get_messages.assert_called_once_with(query="is:unread", max_results=50)
+                        # Call the async helper function
+                        new_count, skip_count = await _poll_user_emails_async(user_id)
 
-            # Verify all 3 emails were detected as new (no duplicates yet)
-            assert new_count == 3
-            assert skip_count == 0
+                        # Verify GmailClient.get_messages was called with correct parameters
+                        mock_gmail_client.get_messages.assert_called_once_with(query="is:unread", max_results=50)
 
-            # Verify session.add was called 3 times (once per email)
-            assert mock_session_instance.add.call_count == 3
-            # Verify session.commit was called once
-            mock_session_instance.commit.assert_called_once()
+                        # Verify all 3 emails were detected as new (no duplicates yet)
+                        assert new_count == 3
+                        assert skip_count == 0
+
+                        # Verify session.add was called 3 times (once per email)
+                        assert mock_session_instance.add.call_count == 3
+                        # Verify session.commit was called once
+                        mock_session_instance.commit.assert_called_once()
 
 
 # Test: duplicate detection skips existing emails
@@ -154,50 +164,59 @@ async def test_duplicate_detection_skips_existing_emails(mock_gmail_client, samp
     with patch("app.tasks.email_tasks.GmailClient", return_value=mock_gmail_client):
         mock_gmail_client.get_messages.return_value = sample_gmail_emails
 
-        # Mock database session with proper async context manager
-        with patch("app.tasks.email_tasks.database_service.async_session") as mock_session_ctx:
-            # Create mock session instance
-            mock_session_instance = MagicMock()
+        # Mock workflow dependencies
+        with patch("app.tasks.email_tasks.LLMClient"):
+            with patch("app.tasks.email_tasks.TelegramBotClient"):
+                with patch("app.tasks.email_tasks.WorkflowInstanceTracker") as mock_workflow:
+                    mock_workflow_instance = AsyncMock()
+                    mock_workflow_instance.start_workflow = AsyncMock(return_value="test_thread_id")
+                    mock_workflow.return_value = mock_workflow_instance
 
-            # Mock database query - first email exists (duplicate), others are new
-            # We need a counter to track which call we're on
-            call_count = [0]
+                    # Mock database session with proper async context manager
+                    with patch("app.tasks.email_tasks.database_service.async_session") as mock_session_ctx:
+                        # Create mock session instance
+                        mock_session_instance = MagicMock()
 
-            async def mock_execute(statement):
-                mock_result = MagicMock()
-                # First call returns existing email (duplicate)
-                if call_count[0] == 0:
-                    mock_existing = MagicMock()
-                    mock_existing.id = 999
-                    # This simulates finding a duplicate in the database
-                    mock_result.scalar_one_or_none = MagicMock(return_value=mock_existing)
-                else:
-                    # Subsequent calls return None (new emails)
-                    mock_result.scalar_one_or_none = MagicMock(return_value=None)
-                call_count[0] += 1
-                return mock_result
+                        # Mock database query - first email exists (duplicate), others are new
+                        # We need a counter to track which call we're on
+                        call_count = [0]
 
-            mock_session_instance.execute = mock_execute
-            mock_session_instance.add = MagicMock()  # session.add(email)
-            mock_session_instance.commit = AsyncMock()  # await session.commit()
+                        async def mock_execute(statement):
+                            mock_result = MagicMock()
+                            # First call returns existing email (duplicate)
+                            if call_count[0] == 0:
+                                mock_existing = MagicMock()
+                                mock_existing.id = 999
+                                # This simulates finding a duplicate in the database
+                                mock_result.scalar_one_or_none = MagicMock(return_value=mock_existing)
+                            else:
+                                # Subsequent calls return None (new emails)
+                                mock_result.scalar_one_or_none = MagicMock(return_value=None)
+                            call_count[0] += 1
+                            return mock_result
 
-            # Setup async context manager
-            mock_context_manager = AsyncMock()
-            mock_context_manager.__aenter__.return_value = mock_session_instance
-            mock_context_manager.__aexit__.return_value = AsyncMock()
-            mock_session_ctx.return_value = mock_context_manager
+                        mock_session_instance.execute = mock_execute
+                        mock_session_instance.add = MagicMock()  # session.add(email)
+                        mock_session_instance.flush = AsyncMock()  # await session.flush()
+                        mock_session_instance.commit = AsyncMock()  # await session.commit()
 
-            # Call the async helper function
-            new_count, skip_count = await _poll_user_emails_async(user_id)
+                        # Setup async context manager
+                        mock_context_manager = AsyncMock()
+                        mock_context_manager.__aenter__.return_value = mock_session_instance
+                        mock_context_manager.__aexit__.return_value = AsyncMock()
+                        mock_session_ctx.return_value = mock_context_manager
 
-            # 2 new emails + 1 duplicate
-            assert new_count == 2
-            assert skip_count == 1
+                        # Call the async helper function
+                        new_count, skip_count = await _poll_user_emails_async(user_id)
 
-            # Verify session.add was called only 2 times (not for the duplicate)
-            assert mock_session_instance.add.call_count == 2
-            # Verify session.commit was called once
-            mock_session_instance.commit.assert_called_once()
+                        # 2 new emails + 1 duplicate
+                        assert new_count == 2
+                        assert skip_count == 1
+
+                        # Verify session.add was called only 2 times (not for the duplicate)
+                        assert mock_session_instance.add.call_count == 2
+                        # Verify session.commit was called once
+                        mock_session_instance.commit.assert_called_once()
 
 
 # Test: poll_all_users iterates active users
@@ -353,47 +372,56 @@ async def test_email_metadata_extraction(mock_gmail_client, sample_gmail_emails)
     with patch("app.tasks.email_tasks.GmailClient", return_value=mock_gmail_client):
         mock_gmail_client.get_messages.return_value = sample_gmail_emails
 
-        # Mock database session with proper async context manager
-        with patch("app.tasks.email_tasks.database_service.async_session") as mock_session_ctx:
-            # Create mock session instance
-            mock_session_instance = MagicMock()
+        # Mock workflow dependencies
+        with patch("app.tasks.email_tasks.LLMClient"):
+            with patch("app.tasks.email_tasks.TelegramBotClient"):
+                with patch("app.tasks.email_tasks.WorkflowInstanceTracker") as mock_workflow:
+                    mock_workflow_instance = AsyncMock()
+                    mock_workflow_instance.start_workflow = AsyncMock(return_value="test_thread_id")
+                    mock_workflow.return_value = mock_workflow_instance
 
-            # Mock session.execute() to return a result with scalar_one_or_none()
-            async def mock_execute(statement):
-                mock_result = MagicMock()
-                # No duplicates - scalar_one_or_none returns None
-                mock_result.scalar_one_or_none = MagicMock(return_value=None)
-                return mock_result
+                    # Mock database session with proper async context manager
+                    with patch("app.tasks.email_tasks.database_service.async_session") as mock_session_ctx:
+                        # Create mock session instance
+                        mock_session_instance = MagicMock()
 
-            mock_session_instance.execute = mock_execute
-            mock_session_instance.add = MagicMock()  # session.add(email)
-            mock_session_instance.commit = AsyncMock()  # await session.commit()
+                        # Mock session.execute() to return a result with scalar_one_or_none()
+                        async def mock_execute(statement):
+                            mock_result = MagicMock()
+                            # No duplicates - scalar_one_or_none returns None
+                            mock_result.scalar_one_or_none = MagicMock(return_value=None)
+                            return mock_result
 
-            # Setup async context manager
-            mock_context_manager = AsyncMock()
-            mock_context_manager.__aenter__.return_value = mock_session_instance
-            mock_context_manager.__aexit__.return_value = AsyncMock()
-            mock_session_ctx.return_value = mock_context_manager
+                        mock_session_instance.execute = mock_execute
+                        mock_session_instance.add = MagicMock()  # session.add(email)
+                        mock_session_instance.flush = AsyncMock()  # await session.flush()
+                        mock_session_instance.commit = AsyncMock()  # await session.commit()
 
-            # Patch logger to verify log entries
-            with patch("app.tasks.email_tasks.logger") as mock_logger:
-                await _poll_user_emails_async(user_id)
+                        # Setup async context manager
+                        mock_context_manager = AsyncMock()
+                        mock_context_manager.__aenter__.return_value = mock_session_instance
+                        mock_context_manager.__aexit__.return_value = AsyncMock()
+                        mock_session_ctx.return_value = mock_context_manager
 
-                # Verify metadata logged for each email (email_persisted events)
-                # Should have: emails_fetched (1) + email_persisted (3) + email_processing_summary (1) = 5 total
-                assert mock_logger.info.call_count >= 4  # At least 4 info logs
+                        # Patch logger to verify log entries
+                        with patch("app.tasks.email_tasks.logger") as mock_logger:
+                            await _poll_user_emails_async(user_id)
 
-                # Check that message_id, sender, subject are logged
-                logged_calls = [call for call in mock_logger.info.call_args_list if call[0][0] == "email_persisted"]
-                assert len(logged_calls) == 3
+                            # Verify metadata logged for each email (email_persisted events)
+                            # Should have: emails_fetched (1) + email_persisted (3) + email_processing_summary (1) = 5 total
+                            assert mock_logger.info.call_count >= 4  # At least 4 info logs
 
-                # Verify each logged call has the right fields
-                for call in logged_calls:
-                    # call is like: call('email_persisted', user_id=123, message_id='msg001', ...)
-                    assert "user_id" in call[1]
-                    assert "message_id" in call[1]
-                    assert "sender" in call[1]
-                    assert "subject" in call[1]
+                            # Check that message_id, sender, subject are logged
+                            logged_calls = [call for call in mock_logger.info.call_args_list if call[0][0] == "email_persisted"]
+                            assert len(logged_calls) == 3
+
+                            # Verify each logged call has the right fields
+                            for call in logged_calls:
+                                # call is like: call('email_persisted', user_id=123, message_id='msg001', ...)
+                                assert "user_id" in call[1]
+                                assert "message_id" in call[1]
+                                assert "sender" in call[1]
+                                assert "subject" in call[1]
 
 
 # Test: logging for polling cycle
@@ -508,24 +536,31 @@ async def test_poll_saves_new_emails_to_database(db_session):
         mock_instance.get_messages = AsyncMock(return_value=mock_emails)
         mock_gmail_client.return_value = mock_instance
 
-        # Call polling function
-        new_count, skip_count = await _poll_user_emails_async(user.id)
+        # Mock workflow dependencies to prevent workflow execution errors
+        with patch("app.tasks.email_tasks.WorkflowInstanceTracker") as mock_workflow:
+            # Mock workflow to skip execution (test is about email persistence, not workflow)
+            mock_workflow_instance = AsyncMock()
+            mock_workflow_instance.start_workflow = AsyncMock(side_effect=Exception("Skip workflow"))
+            mock_workflow.return_value = mock_workflow_instance
 
-        # Verify results
-        assert new_count == 2
-        assert skip_count == 0
+            # Call polling function
+            new_count, skip_count = await _poll_user_emails_async(user.id)
 
-        # Verify emails were saved to database
-        statement = select(EmailProcessingQueue).where(
-            EmailProcessingQueue.user_id == user.id
-        )
-        result = await db_session.execute(statement)
-        saved_emails = result.scalars().all()
+            # Verify results
+            assert new_count == 2
+            assert skip_count == 0
 
-        assert len(saved_emails) == 2
-        assert {e.gmail_message_id for e in saved_emails} == {"gmail_msg_001", "gmail_msg_002"}
-        assert all(e.status == "pending" for e in saved_emails)
-        assert all(e.user_id == user.id for e in saved_emails)
+            # Verify emails were saved to database
+            statement = select(EmailProcessingQueue).where(
+                EmailProcessingQueue.user_id == user.id
+            )
+            result = await db_session.execute(statement)
+            saved_emails = result.scalars().all()
+
+            assert len(saved_emails) == 2
+            assert {e.gmail_message_id for e in saved_emails} == {"gmail_msg_001", "gmail_msg_002"}
+            assert all(e.status == "pending" for e in saved_emails)
+            assert all(e.user_id == user.id for e in saved_emails)
 
 
 @pytest.mark.asyncio
