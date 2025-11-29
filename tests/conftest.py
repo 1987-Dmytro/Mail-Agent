@@ -61,7 +61,23 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         DATABASE_URL,
         echo=False,
         future=True,
+        pool_pre_ping=True,  # Verify connections before using
+        pool_recycle=3600,  # Recycle connections after 1 hour
     )
+
+    # Clean up any existing tables first (in case previous test cleanup failed)
+    async with _test_engine.begin() as conn:
+        await conn.execute(sa_text("DROP TABLE IF EXISTS prompt_versions CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS linking_codes CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS indexing_progress CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS approval_history CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS workflow_mappings CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS email_processing_queue CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS notification_preferences CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS folder_categories CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS session CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS thread CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS users CASCADE"))
 
     # Create tables needed for tests
     # Note: EmailProcessingQueue has FK to folder_categories, so we must create it too
@@ -87,6 +103,9 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
     async with async_session() as session:
         yield session
+        # Ensure any uncommitted changes are rolled back before cleanup
+        await session.rollback()
+        await session.close()
 
     # Drop tables with CASCADE to handle foreign key constraints from other tables
     async with _test_engine.begin() as conn:
