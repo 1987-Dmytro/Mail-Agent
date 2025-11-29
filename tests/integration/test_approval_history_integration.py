@@ -9,6 +9,7 @@ Tests cover end-to-end flows:
 import pytest
 from datetime import datetime, UTC, timedelta
 from unittest.mock import AsyncMock, Mock, patch
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text as sa_text
@@ -89,6 +90,12 @@ async def test_approval_recording_in_workflow_approve(db_session: AsyncSession, 
     mock_db.add = Mock()
     mock_db.commit = AsyncMock()
 
+    # Create db_factory for workflow nodes
+    @asynccontextmanager
+    async def mock_db_factory():
+        """Context manager factory that yields the mock db."""
+        yield mock_db
+
     # Patch the service to use our real async db_session
     with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
         # Create a real service with our async session
@@ -98,7 +105,7 @@ async def test_approval_recording_in_workflow_approve(db_session: AsyncSession, 
         # Execute the workflow node
         result_state = await execute_action(
             state=state,
-            db=mock_db,
+            db_factory=mock_db_factory,
             gmail_client=mock_gmail,
         )
 
@@ -178,13 +185,19 @@ async def test_approval_recording_in_workflow_reject(db_session: AsyncSession, t
     mock_db.add = Mock()
     mock_db.commit = AsyncMock()
 
+    # Create db_factory for workflow nodes
+    @asynccontextmanager
+    async def mock_db_factory():
+        """Context manager factory that yields the mock db."""
+        yield mock_db
+
     with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
         real_service = ApprovalHistoryService(db_session)
         MockService.return_value = real_service
 
         result_state = await execute_action(
             state=state,
-            db=mock_db,
+            db_factory=mock_db_factory,
             gmail_client=AsyncMock(),
         )
 
@@ -288,13 +301,19 @@ async def test_approval_recording_in_workflow_change_folder(db_session: AsyncSes
     mock_db.add = Mock()
     mock_db.commit = AsyncMock()
 
+    # Create db_factory for workflow nodes
+    @asynccontextmanager
+    async def mock_db_factory():
+        """Context manager factory that yields the mock db."""
+        yield mock_db
+
     with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
         real_service = ApprovalHistoryService(db_session)
         MockService.return_value = real_service
 
         result_state = await execute_action(
             state=state,
-            db=mock_db,
+            db_factory=mock_db_factory,
             gmail_client=mock_gmail,
         )
 
