@@ -18,6 +18,10 @@ from app.models.folder_category import FolderCategory
 from app.models.notification_preferences import NotificationPreferences
 from app.models.approval_history import ApprovalHistory
 from app.models.indexing_progress import IndexingProgress
+from app.models.linking_codes import LinkingCode
+from app.models.prompt_versions import PromptVersion
+from app.models.session import Session
+from app.models.thread import Thread
 
 # Import LazyAsyncSession using relative path
 import sys
@@ -65,12 +69,16 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     async with _test_engine.begin() as conn:
         # Create tables in dependency order (parent tables first)
         await conn.run_sync(User.__table__.create, checkfirst=True)
+        await conn.run_sync(Thread.__table__.create, checkfirst=True)  # Chat threads (no FK dependencies)
+        await conn.run_sync(Session.__table__.create, checkfirst=True)  # Chat sessions (FK to users)
         await conn.run_sync(FolderCategory.__table__.create, checkfirst=True)  # Required by EmailProcessingQueue FK
         await conn.run_sync(NotificationPreferences.__table__.create, checkfirst=True)
         await conn.run_sync(EmailProcessingQueue.__table__.create, checkfirst=True)
         await conn.run_sync(WorkflowMapping.__table__.create, checkfirst=True)
         await conn.run_sync(ApprovalHistory.__table__.create, checkfirst=True)
         await conn.run_sync(IndexingProgress.__table__.create, checkfirst=True)  # Epic 3 email indexing progress
+        await conn.run_sync(LinkingCode.__table__.create, checkfirst=True)  # Telegram linking codes
+        await conn.run_sync(PromptVersion.__table__.create, checkfirst=True)  # Prompt versioning
 
     # Create session
     async_session = async_sessionmaker(
@@ -82,13 +90,17 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
     # Drop tables with CASCADE to handle foreign key constraints from other tables
     async with _test_engine.begin() as conn:
-        # Use raw SQL with CASCADE to drop tables cleanly
+        # Use raw SQL with CASCADE to drop tables cleanly (reverse order of creation)
+        await conn.execute(sa_text("DROP TABLE IF EXISTS prompt_versions CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS linking_codes CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS indexing_progress CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS approval_history CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS workflow_mappings CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS email_processing_queue CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS notification_preferences CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS folder_categories CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS session CASCADE"))
+        await conn.execute(sa_text("DROP TABLE IF EXISTS thread CASCADE"))
         await conn.execute(sa_text("DROP TABLE IF EXISTS users CASCADE"))
 
     await _test_engine.dispose()
