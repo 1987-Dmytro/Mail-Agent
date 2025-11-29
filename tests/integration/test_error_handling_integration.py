@@ -12,9 +12,12 @@ Tests cover:
 
 import pytest
 import asyncio
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, Mock, patch
 from datetime import datetime, UTC
 from telegram.error import NetworkError, Forbidden
+from googleapiclient.errors import HttpError
+from googleapiclient.http import HttpRequest
 
 from app.core.gmail_client import GmailClient
 from app.core.telegram_bot import TelegramBotClient
@@ -81,9 +84,15 @@ class TestGmailAPIErrorHandling:
         mock_modify = Mock()
         mock_service.users.return_value.messages.return_value.modify.return_value = mock_modify
 
+        # Create HttpError with 503 status
+        mock_resp = Mock()
+        mock_resp.status = 503
+        mock_resp.reason = "Service Unavailable"
+        http_error_503 = HttpError(resp=mock_resp, content=b"Service Unavailable")
+
         # First attempt fails (503), second succeeds
         mock_modify.execute.side_effect = [
-            Exception("503 Service Unavailable"),
+            http_error_503,
             {"id": "msg_123", "labelIds": ["Label_456"]}
         ]
 
@@ -256,10 +265,16 @@ class TestWorkflowNodeErrorHandling:
             user_id=str(test_user.id)
         )._value.get() if hasattr(email_processing_errors_total.labels(error_type="gmail_api_failure", user_id=str(test_user.id))._value, 'get') else 0
 
+        # Create db_factory for workflow nodes
+        @asynccontextmanager
+        async def mock_db_factory():
+            """Context manager factory that yields the mock session."""
+            yield db_session
+
         # Execute action node (should handle error gracefully)
         with patch('asyncio.sleep', new_callable=AsyncMock):
             with patch('app.workflows.nodes.TelegramBotClient', return_value=telegram_bot):
-                result_state = await execute_action(state, db_session, gmail_client)
+                result_state = await execute_action(state, mock_db_factory, gmail_client)
 
         # Verify email status updated to error
         await db_session.refresh(email)
@@ -343,7 +358,7 @@ class TestErrorStatisticsEndpoint:
         Expected:
         - total_errors: 2
         - error_rate: 0.2 (20%)
-        - health_status: "degraded" (>5% but <15%)
+        - health_status: "critical" (>=15%)
         """
         from datetime import timedelta
 
@@ -410,7 +425,7 @@ class TestErrorStatisticsEndpoint:
         assert total_errors == 2
         assert total_processed == 10
         assert error_rate == 0.2
-        assert health_status == "degraded"
+        assert health_status == "critical"
 
 
 class TestEndToEndErrorRecovery:
@@ -498,6 +513,7 @@ class TestAdminErrorsEndpoint:
             gmail_thread_id="thread1",
             sender="sender1@example.com",
             subject="Error 1",
+            received_at=datetime.now(UTC),
             status="error",
             error_type="gmail_api_failure",
             error_message="503 Service Unavailable",
@@ -510,6 +526,7 @@ class TestAdminErrorsEndpoint:
             gmail_thread_id="thread2",
             sender="sender2@example.com",
             subject="Error 2",
+            received_at=datetime.now(UTC),
             status="error",
             error_type="telegram_send_failure",
             error_message="Network timeout",
@@ -557,6 +574,7 @@ class TestAdminErrorsEndpoint:
             gmail_thread_id="thread1",
             sender="sender1@example.com",
             subject="Gmail Error",
+            received_at=datetime.now(UTC),
             status="error",
             error_type="gmail_api_failure",
             error_message="503",
@@ -569,6 +587,7 @@ class TestAdminErrorsEndpoint:
             gmail_thread_id="thread2",
             sender="sender2@example.com",
             subject="Telegram Error",
+            received_at=datetime.now(UTC),
             status="error",
             error_type="telegram_send_failure",
             error_message="Timeout",
@@ -581,6 +600,7 @@ class TestAdminErrorsEndpoint:
             gmail_thread_id="thread3",
             sender="sender3@example.com",
             subject="Other User Error",
+            received_at=datetime.now(UTC),
             status="error",
             error_type="gmail_api_failure",
             error_message="429",
@@ -668,7 +688,7 @@ class TestUserStatsEndpoint:
         from datetime import timedelta
 
         now = datetime.now(UTC)
-        yesterday = now - timedelta(days=1)
+        yesterday = now - timedelta(hours=12)  # 12 hours ago (within 24h window)
         two_days_ago = now - timedelta(days=2)
         week_ago = now - timedelta(days=7)
 
@@ -679,6 +699,7 @@ class TestUserStatsEndpoint:
             gmail_thread_id="recent_thread",
             sender="recent@example.com",
             subject="Recent Error",
+            received_at=now,
             status="error",
             error_type="gmail_api_failure",
             error_message="503",
@@ -691,6 +712,7 @@ class TestUserStatsEndpoint:
             gmail_thread_id="yesterday_thread",
             sender="yesterday@example.com",
             subject="Yesterday Error",
+            received_at=yesterday,
             status="error",
             error_type="telegram_send_failure",
             error_message="Timeout",
@@ -703,6 +725,7 @@ class TestUserStatsEndpoint:
             gmail_thread_id="old_thread",
             sender="old@example.com",
             subject="Old Error",
+            received_at=week_ago,
             status="error",
             error_type="gmail_api_failure",
             error_message="401",
@@ -716,6 +739,7 @@ class TestUserStatsEndpoint:
             gmail_thread_id="success_thread",
             sender="success@example.com",
             subject="Success",
+            received_at=now,
             status="completed",
         )
         db_session.add_all([email_recent, email_yesterday, email_old, email_success])

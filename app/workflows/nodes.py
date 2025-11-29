@@ -970,8 +970,6 @@ async def execute_action(
     
                 # Send error notification to user via Telegram (AC #5)
                 try:
-                    from app.core.telegram_bot import TelegramBotClient
-    
                     # Get user's telegram_id from database using SQLAlchemy async pattern
                     user_result = await db.execute(
                         select(User).where(User.id == email.user_id)
@@ -1196,9 +1194,6 @@ async def execute_action(
     
                 # Send error notification to user
                 try:
-                    from app.core.telegram_bot import TelegramBotClient
-                    from app.models.user import User
-    
                     user = await db.get(User, email.user_id)
                     if user and user.telegram_id:
                         telegram_bot = TelegramBotClient()

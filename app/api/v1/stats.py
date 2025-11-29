@@ -1,6 +1,6 @@
 """Statistics endpoints for monitoring AI classification accuracy and error handling (Story 2.11)."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import List, Dict, Any, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -250,7 +250,7 @@ async def get_error_statistics(
     """
     try:
         # Calculate 24h cutoff
-        cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+        cutoff_24h = datetime.now(UTC) - timedelta(hours=24)
 
         # Query total errors
         result = await db.execute(
