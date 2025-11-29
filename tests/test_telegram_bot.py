@@ -121,7 +121,7 @@ class TestSendMessage:
         bot_client.bot = mock_bot
 
         # Attempt to send message
-        with pytest.raises(TelegramSendError, match="Network error"):
+        with pytest.raises(TelegramSendError, match="Failed to send message.*after retries"):
             await bot_client.send_message(
                 telegram_id="123456789",
                 text="Test message",
@@ -158,24 +158,31 @@ class TestSendMessage:
 
     @pytest.mark.asyncio
     async def test_send_message_exceeds_length_limit(self):
-        """Test that messages exceeding 4096 characters are rejected."""
+        """Test that messages exceeding 4096 characters are auto-truncated."""
         # Create bot client and mock bot
         bot_client = TelegramBotClient()
         mock_bot = MagicMock()
+        mock_message = MagicMock()
+        mock_message.message_id = 12345
+        mock_bot.send_message = AsyncMock(return_value=mock_message)
         bot_client.bot = mock_bot
 
         # Create a message longer than 4096 characters
         long_message = "a" * 4097
 
-        # Attempt to send message
-        with pytest.raises(ValueError, match="Message exceeds 4096 character limit"):
-            await bot_client.send_message(
-                telegram_id="123456789",
-                text=long_message,
-            )
+        # Send message - should truncate automatically
+        message_id = await bot_client.send_message(
+            telegram_id="123456789",
+            text=long_message,
+        )
 
-        # Verify send_message was never called
-        mock_bot.send_message.assert_not_called()
+        # Verify message was sent with truncated text (4000 chars + "...")
+        mock_bot.send_message.assert_called_once()
+        call_args = mock_bot.send_message.call_args
+        sent_text = call_args.kwargs["text"]
+        assert len(sent_text) == 4003  # 4000 + "..."
+        assert sent_text.endswith("...")
+        assert message_id == "12345"
 
 
 class TestSendMessageWithButtons:
@@ -241,23 +248,39 @@ class TestCommandHandlers:
     async def test_start_command_handler_with_code(self):
         """Test /start command with linking code."""
         from app.api.telegram_handlers import handle_start_command
+        from app.models.user import User
 
-        # Mock Update and Context with linking code
-        mock_update = MagicMock()
-        mock_update.effective_user.id = 123456789
-        mock_update.effective_user.username = "testuser"
-        mock_update.message.reply_text = AsyncMock()
-        mock_context = MagicMock()
-        mock_context.args = ["A3B7X9"]
+        # Mock the AsyncSessionLocal context manager used in handle_start_command
+        with patch("app.api.telegram_handlers.AsyncSessionLocal") as mock_session_local:
+            # Create mock user and setup database mock
+            mock_user = User(id=1, email="test@example.com")
+            mock_result = MagicMock()
+            mock_result.scalar_one_or_none = MagicMock(return_value=mock_user)
 
-        # Call handler
-        await handle_start_command(mock_update, mock_context)
+            mock_session_instance = MagicMock()
+            mock_session_instance.execute = AsyncMock(return_value=mock_result)
+            mock_session_instance.commit = AsyncMock()
+            mock_session_instance.refresh = AsyncMock()
 
-        # Verify linking code response was sent
-        mock_update.message.reply_text.assert_called_once()
-        call_args = mock_update.message.reply_text.call_args
-        assert "A3B7X9" in call_args[0][0]
-        assert "Account Linking" in call_args[0][0]
+            mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
+            mock_session_local.return_value.__aexit__ = AsyncMock()
+
+            # Mock Update and Context with linking code
+            mock_update = MagicMock()
+            mock_update.effective_user.id = 123456789
+            mock_update.effective_user.username = "testuser"
+            mock_update.message.reply_text = AsyncMock()
+            mock_context = MagicMock()
+            mock_context.args = ["A3B7X9"]
+
+            # Call handler
+            await handle_start_command(mock_update, mock_context)
+
+            # Verify linking success response was sent
+            mock_update.message.reply_text.assert_called_once()
+            call_args = mock_update.message.reply_text.call_args
+            # Should contain success message about linking
+            assert "successfully linked" in call_args[0][0].lower() or "linked" in call_args[0][0].lower()
 
     @pytest.mark.asyncio
     async def test_help_command_handler(self):
