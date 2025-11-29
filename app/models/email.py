@@ -91,7 +91,10 @@ class EmailProcessingQueue(BaseModel, table=True):
     # Relationships
     user: "User" = Relationship(back_populates="emails")
     proposed_folder: Optional["FolderCategory"] = Relationship()
-    workflow_mappings: Optional["WorkflowMapping"] = Relationship(back_populates="email")
+    workflow_mappings: Optional["WorkflowMapping"] = Relationship(
+        back_populates="email",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 # Avoid circular imports
