@@ -144,6 +144,7 @@ class TestSemanticSearch:
         # Act: Perform semantic search
         result = await service._get_semantic_results(
             email_body="Tax return deadline",
+            sender="sender@example.com",
             k=3,
             user_id=123
         )
@@ -154,7 +155,7 @@ class TestSemanticSearch:
             collection_name="email_embeddings",
             query_embedding=[0.1] * 768,
             n_results=3,
-            filter={"user_id": "123"}  # ChromaDB expects string
+            filter={"$and": [{"user_id": "123"}, {"sender": "sender@example.com"}]}  # ChromaDB filter with user_id and sender
         )
 
         # Verify results returned with full email bodies
