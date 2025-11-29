@@ -22,6 +22,7 @@ import os
 from uuid import uuid4
 from datetime import datetime, UTC, timedelta
 from unittest.mock import patch
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -316,12 +317,18 @@ class TestCompleteSystemE2E:
         memory_checkpointer = MemorySaver()
         thread_id = f"test_complete_e2e_{uuid4()}"
 
+        # Create db_factory async context manager
+        @asynccontextmanager
+        async def mock_db_factory():
+            """Context manager factory that yields the db_session."""
+            yield db_session
+
         with patch("app.core.gmail_client.GmailClient", return_value=mock_gmail), \
              patch("app.core.telegram_bot.TelegramBotClient", return_value=mock_telegram):
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=mock_db_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
