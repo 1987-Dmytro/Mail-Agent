@@ -127,6 +127,7 @@ def sample_user():
 
 # Test 1: test_format_response_draft_message_standard (AC #1-4, #6-7)
 
+@pytest.mark.asyncio
 async def test_format_response_draft_message_standard(telegram_service, mock_db_session, sample_email):
     """Test standard message formatting with all sections (AC #1-4, #6-7).
 
@@ -174,6 +175,7 @@ async def test_format_response_draft_message_standard(telegram_service, mock_db_
 
 # Test 2: test_format_response_draft_message_priority (AC #9)
 
+@pytest.mark.asyncio
 async def test_format_response_draft_message_priority(telegram_service, mock_db_session, sample_priority_email):
     """Test priority email flagging with ⚠️ icon (AC #9).
 
@@ -199,6 +201,7 @@ async def test_format_response_draft_message_priority(telegram_service, mock_db_
 
 # Test 3: test_format_response_draft_message_long_draft (AC #8)
 
+@pytest.mark.asyncio
 async def test_format_response_draft_message_long_draft(telegram_service, mock_db_session, sample_email):
     """Test Telegram length limit handling for very long drafts (AC #8).
 
@@ -232,6 +235,7 @@ async def test_format_response_draft_message_long_draft(telegram_service, mock_d
 
 # Test 4: test_format_response_draft_message_no_context (AC #7)
 
+@pytest.mark.asyncio
 async def test_format_response_draft_message_no_context(telegram_service, mock_db_session, sample_email):
     """Test message formatting without RAG context summary (AC #7).
 
@@ -263,6 +267,7 @@ async def test_format_response_draft_message_no_context(telegram_service, mock_d
 
 # Test 5: test_build_response_draft_keyboard (AC #5)
 
+@pytest.mark.asyncio
 async def test_build_response_draft_keyboard(telegram_service):
     """Test inline keyboard builder with 3 buttons (AC #5).
 
@@ -301,6 +306,7 @@ async def test_build_response_draft_keyboard(telegram_service):
 
 # Test 6: test_send_response_draft_to_telegram (AC #1-9)
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_send_response_draft_to_telegram(
     telegram_service,
@@ -345,6 +351,7 @@ async def test_send_response_draft_to_telegram(
 
 # Test 7: test_save_telegram_message_mapping
 
+@pytest.mark.asyncio
 async def test_save_telegram_message_mapping(telegram_service, mock_db_session, sample_email):
     """Test WorkflowMapping database persistence.
 
@@ -387,6 +394,7 @@ async def test_save_telegram_message_mapping(telegram_service, mock_db_session, 
 
 # Test 8: test_send_draft_notification_orchestration
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_send_draft_notification_orchestration(
     telegram_service,
@@ -447,6 +455,7 @@ async def test_send_draft_notification_orchestration(
 # Test 9: test_send_draft_notification_user_blocked (error handling)
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_send_draft_notification_user_blocked(
     telegram_service,
     mock_db_session,
@@ -490,6 +499,7 @@ async def test_send_draft_notification_user_blocked(
 
 # Additional Tests for 100% Coverage
 
+@pytest.mark.asyncio
 async def test_format_response_draft_message_email_not_found(telegram_service, mock_db_session):
     """Test format_response_draft_message raises ValueError when email not found."""
     # Mock session.get to return None (email not found)
@@ -500,6 +510,7 @@ async def test_format_response_draft_message_email_not_found(telegram_service, m
         await telegram_service.format_response_draft_message(email_id=999)
 
 
+@pytest.mark.asyncio
 async def test_format_response_draft_message_no_draft_response(telegram_service, mock_db_session):
     """Test format_response_draft_message raises ValueError when draft_response is missing."""
     # Create email without draft_response
@@ -520,6 +531,7 @@ async def test_format_response_draft_message_no_draft_response(telegram_service,
         await telegram_service.format_response_draft_message(email_id=42)
 
 
+@pytest.mark.asyncio
 async def test_format_response_draft_message_long_subject(telegram_service, mock_db_session):
     """Test format_response_draft_message truncates very long subject with ellipsis."""
     # Create email with subject > 100 chars
@@ -544,6 +556,7 @@ async def test_format_response_draft_message_long_subject(telegram_service, mock
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_send_response_draft_to_telegram_email_not_found(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_response_draft_to_telegram raises ValueError when email not found."""
     # Mock session.get to return None (email not found)
@@ -554,6 +567,7 @@ async def test_send_response_draft_to_telegram_email_not_found(telegram_service,
         await telegram_service.send_response_draft_to_telegram(email_id=999)
 
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_send_response_draft_to_telegram_user_not_found(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_response_draft_to_telegram raises ValueError when user not found."""
@@ -577,6 +591,7 @@ async def test_send_response_draft_to_telegram_user_not_found(telegram_service, 
         await telegram_service.send_response_draft_to_telegram(email_id=42)
 
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_send_response_draft_to_telegram_generic_exception(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_response_draft_to_telegram handles generic exceptions and re-raises."""
@@ -613,6 +628,7 @@ async def test_send_response_draft_to_telegram_generic_exception(telegram_servic
         await telegram_service.send_response_draft_to_telegram(email_id=42)
 
 
+@pytest.mark.asyncio
 async def test_save_telegram_message_mapping_email_not_found(telegram_service, mock_db_session):
     """Test save_telegram_message_mapping raises ValueError when email not found."""
     # Mock session.get to return None (email not found)
@@ -627,6 +643,7 @@ async def test_save_telegram_message_mapping_email_not_found(telegram_service, m
         )
 
 
+@pytest.mark.asyncio
 async def test_save_telegram_message_mapping_update_existing(telegram_service, mock_db_session):
     """Test save_telegram_message_mapping updates existing mapping instead of creating new one."""
     # Create email
@@ -676,6 +693,7 @@ async def test_save_telegram_message_mapping_update_existing(telegram_service, m
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_send_draft_notification_email_not_found(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_draft_notification raises ValueError when email not found."""
     # Mock session.get to return None (email not found)
@@ -689,6 +707,7 @@ async def test_send_draft_notification_email_not_found(telegram_service, mock_db
         )
 
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_send_draft_notification_no_draft_response(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_draft_notification raises ValueError when draft_response is missing."""
