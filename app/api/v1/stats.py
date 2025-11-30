@@ -61,13 +61,13 @@ async def get_approval_statistics(
         None,
         alias="from",
         description="Start date for statistics (ISO 8601 format: 2025-11-01T00:00:00Z)",
-        example="2025-11-01T00:00:00Z"
+        examples=["2025-11-01T00:00:00Z"]
     ),
     to_date: Optional[datetime] = Query(
         None,
         alias="to",
         description="End date for statistics (ISO 8601 format: 2025-11-30T23:59:59Z)",
-        example="2025-11-30T23:59:59Z"
+        examples=["2025-11-30T23:59:59Z"]
     ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),

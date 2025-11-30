@@ -20,7 +20,8 @@ Integration Test Setup:
 import os
 import uuid
 import pytest
-from datetime import datetime
+import pytest_asyncio
+from datetime import datetime, UTC
 from unittest.mock import AsyncMock, patch
 
 from sqlalchemy import select, text
@@ -32,7 +33,7 @@ from app.models.user import User
 from app.utils.errors import GeminiAPIError
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_user(db_session):
     """Create test user in database."""
     user = User(
@@ -47,7 +48,7 @@ async def test_user(db_session):
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_folders(db_session, test_user):
     """Create test folder categories in database."""
     folders = [
@@ -76,7 +77,7 @@ async def test_folders(db_session, test_user):
     return folders
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_email(db_session, test_user):
     """Create test email in EmailProcessingQueue."""
     email = EmailProcessingQueue(
@@ -85,7 +86,7 @@ async def test_email(db_session, test_user):
         gmail_thread_id="thread_test_123",
         sender="sender@example.com",
         subject="Test Email Subject",
-        received_at=datetime.utcnow(),
+        received_at=datetime.now(UTC),
         status="pending",
     )
     db_session.add(email)
