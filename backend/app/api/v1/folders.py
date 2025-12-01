@@ -51,7 +51,7 @@ class FolderResponse(BaseModel):
         from_attributes = True
 
 
-@router.post("/", response_model=FolderResponse, status_code=201)
+@router.post("/", status_code=201)
 async def create_folder(
     folder_data: FolderCreateRequest,
     current_user: User = Depends(get_current_user),
@@ -68,7 +68,7 @@ async def create_folder(
         current_user: Authenticated user from JWT token
 
     Returns:
-        FolderResponse: Created folder with gmail_label_id
+        dict: Response with 'data' key containing created folder
 
     Raises:
         HTTPException 400: If folder name is invalid or duplicate exists
@@ -84,15 +84,17 @@ async def create_folder(
 
         Response:
         {
-            "id": 5,
-            "user_id": 1,
-            "name": "Government",
-            "gmail_label_id": "Label_123",
-            "keywords": ["finanzamt", "tax", "ausländerbehörde"],
-            "color": "#FF5733",
-            "is_default": false,
-            "created_at": "2025-11-05T12:00:00Z",
-            "updated_at": "2025-11-05T12:00:00Z"
+            "data": {
+                "id": 5,
+                "user_id": 1,
+                "name": "Government",
+                "gmail_label_id": "Label_123",
+                "keywords": ["finanzamt", "tax", "ausländerbehörde"],
+                "color": "#FF5733",
+                "is_default": false,
+                "created_at": "2025-11-05T12:00:00Z",
+                "updated_at": "2025-11-05T12:00:00Z"
+            }
         }
     """
     try:
@@ -111,8 +113,8 @@ async def create_folder(
             folder_name=folder.name,
         )
 
-        # Convert datetime to ISO string for JSON serialization
-        return FolderResponse(
+        # Convert datetime to ISO string and wrap in 'data' field
+        folder_response = FolderResponse(
             id=folder.id,
             user_id=folder.user_id,
             name=folder.name,
@@ -123,6 +125,8 @@ async def create_folder(
             created_at=folder.created_at.isoformat(),
             updated_at=folder.updated_at.isoformat(),
         )
+
+        return {"data": folder_response}
 
     except ValueError as e:
         # Validation error (invalid name or duplicate)
@@ -149,7 +153,7 @@ async def create_folder(
         )
 
 
-@router.get("/", response_model=List[FolderResponse])
+@router.get("/")
 async def list_folders(
     current_user: User = Depends(get_current_user),
 ):
@@ -159,26 +163,28 @@ async def list_folders(
         current_user: Authenticated user from JWT token
 
     Returns:
-        List[FolderResponse]: List of user's folders
+        dict: Response with 'data' key containing list of folders
 
     Example:
         GET /api/v1/folders/
 
         Response:
-        [
-            {
-                "id": 5,
-                "user_id": 1,
-                "name": "Government",
-                "gmail_label_id": "Label_123",
-                "keywords": ["finanzamt", "tax"],
-                "color": "#FF5733",
-                "is_default": false,
-                "created_at": "2025-11-05T12:00:00Z",
-                "updated_at": "2025-11-05T12:00:00Z"
-            },
-            ...
-        ]
+        {
+            "data": [
+                {
+                    "id": 5,
+                    "user_id": 1,
+                    "name": "Government",
+                    "gmail_label_id": "Label_123",
+                    "keywords": ["finanzamt", "tax"],
+                    "color": "#FF5733",
+                    "is_default": false,
+                    "created_at": "2025-11-05T12:00:00Z",
+                    "updated_at": "2025-11-05T12:00:00Z"
+                },
+                ...
+            ]
+        }
     """
     try:
         folder_service = FolderService()
@@ -190,8 +196,8 @@ async def list_folders(
             folder_count=len(folders),
         )
 
-        # Convert to response schema
-        return [
+        # Convert to response schema and wrap in 'data' field
+        folders_list = [
             FolderResponse(
                 id=folder.id,
                 user_id=folder.user_id,
@@ -206,6 +212,8 @@ async def list_folders(
             for folder in folders
         ]
 
+        return {"data": folders_list}
+
     except Exception as e:
         logger.error(
             "folders_list_error",
@@ -219,7 +227,7 @@ async def list_folders(
         )
 
 
-@router.get("/{folder_id}", response_model=FolderResponse)
+@router.get("/{folder_id}")
 async def get_folder(
     folder_id: int,
     current_user: User = Depends(get_current_user),
@@ -231,7 +239,7 @@ async def get_folder(
         current_user: Authenticated user from JWT token
 
     Returns:
-        FolderResponse: The folder data
+        dict: Response with 'data' key containing folder
 
     Raises:
         HTTPException 404: If folder not found or not owned by user
@@ -241,11 +249,13 @@ async def get_folder(
 
         Response:
         {
-            "id": 5,
-            "user_id": 1,
-            "name": "Government",
-            "gmail_label_id": "Label_123",
-            ...
+            "data": {
+                "id": 5,
+                "user_id": 1,
+                "name": "Government",
+                "gmail_label_id": "Label_123",
+                ...
+            }
         }
     """
     try:
@@ -270,7 +280,7 @@ async def get_folder(
             folder_name=folder.name,
         )
 
-        return FolderResponse(
+        folder_response = FolderResponse(
             id=folder.id,
             user_id=folder.user_id,
             name=folder.name,
@@ -281,6 +291,8 @@ async def get_folder(
             created_at=folder.created_at.isoformat(),
             updated_at=folder.updated_at.isoformat(),
         )
+
+        return {"data": folder_response}
 
     except HTTPException:
         raise

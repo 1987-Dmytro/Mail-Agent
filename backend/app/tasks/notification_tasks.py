@@ -160,3 +160,207 @@ async def _get_batch_enabled_users(db) -> List[User]:
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_daily_digest(self):
+    """Send daily digest of non-priority emails from BatchNotificationQueue (Story 2.3).
+
+    This task processes all pending batch notifications that were queued during
+    the day when non-priority emails arrived. It:
+    1. Groups pending notifications by user
+    2. Sends a summary message with count breakdown
+    3. Sends individual proposal messages for each email
+    4. Marks notifications as sent in BatchNotificationQueue
+
+    Scheduled by Celery Beat (default: daily at 18:00 UTC).
+
+    Args:
+        self: Celery task instance (injected by bind=True)
+
+    Returns:
+        Dict with task execution summary:
+            - total_users: Number of users processed
+            - total_emails_sent: Total notifications sent
+            - successful: Number of successful sends
+            - failed: Number of failed sends
+
+    Raises:
+        Exception: Re-raises non-retryable errors after logging
+    """
+    start_time = time.time()
+    logger.info("daily_digest_started")
+
+    try:
+        # Run async operations in event loop
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # Execute daily digest logic
+        stats = loop.run_until_complete(_send_daily_digest_async())
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(
+            "daily_digest_finished",
+            total_users=stats["total_users"],
+            total_emails_sent=stats["total_emails_sent"],
+            successful=stats["successful"],
+            failed=stats["failed"],
+            duration_ms=duration_ms,
+        )
+
+        return stats
+
+    except Exception as e:
+        logger.error(
+            "daily_digest_task_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True,
+        )
+        raise
+
+
+async def _send_daily_digest_async() -> dict:
+    """Execute daily digest sending for all users asynchronously (Story 2.3).
+
+    Returns:
+        Dict with execution statistics
+    """
+    from app.models.batch_notification_queue import BatchNotificationQueue, BatchNotificationStatus
+    from app.core.telegram_bot import TelegramBotClient
+    from app.models.workflow_mapping import WorkflowMapping
+    from datetime import date, datetime
+    import json
+
+    async with database_service.get_session() as db:
+        # Get all pending batch notifications scheduled for today or earlier
+        stmt = select(BatchNotificationQueue).where(
+            BatchNotificationQueue.status == BatchNotificationStatus.PENDING.value,
+            BatchNotificationQueue.scheduled_for <= date.today()
+        ).order_by(
+            BatchNotificationQueue.user_id,
+            BatchNotificationQueue.created_at
+        )
+        result = await db.execute(stmt)
+        pending_notifications = list(result.scalars().all())
+
+        if not pending_notifications:
+            logger.info("no_pending_batch_notifications")
+            return {
+                "total_users": 0,
+                "total_emails_sent": 0,
+                "successful": 0,
+                "failed": 0
+            }
+
+        # Group by user
+        notifications_by_user = {}
+        for notif in pending_notifications:
+            if notif.user_id not in notifications_by_user:
+                notifications_by_user[notif.user_id] = []
+            notifications_by_user[notif.user_id].append(notif)
+
+        total_users = len(notifications_by_user)
+        total_emails_sent = 0
+        successful = 0
+        failed = 0
+
+        telegram_bot = TelegramBotClient()
+        await telegram_bot.initialize()
+
+        # Process each user's batch
+        for user_id, notifications in notifications_by_user.items():
+            try:
+                # Send summary message
+                summary = _create_digest_summary(notifications)
+                first_notif = notifications[0]
+
+                await telegram_bot.send_message(
+                    telegram_id=first_notif.telegram_id,
+                    text=summary
+                )
+
+                # Send individual notifications
+                for notif in notifications:
+                    try:
+                        # Deserialize buttons
+                        buttons = json.loads(notif.buttons_json) if notif.buttons_json else []
+
+                        # Send message with buttons
+                        telegram_message_id = await telegram_bot.send_message_with_buttons(
+                            telegram_id=notif.telegram_id,
+                            text=notif.message_text,
+                            buttons=buttons
+                        )
+
+                        # Update WorkflowMapping with telegram_message_id
+                        stmt = select(WorkflowMapping).where(WorkflowMapping.email_id == notif.email_id)
+                        result = await db.execute(stmt)
+                        workflow_mapping = result.scalar_one_or_none()
+
+                        if workflow_mapping:
+                            workflow_mapping.telegram_message_id = telegram_message_id
+                            workflow_mapping.workflow_state = "awaiting_approval"
+
+                        # Mark notification as sent
+                        notif.status = BatchNotificationStatus.SENT.value
+                        notif.sent_at = datetime.now()
+
+                        successful += 1
+                        total_emails_sent += 1
+
+                        # Rate limiting
+                        await asyncio.sleep(0.1)
+
+                    except Exception as e:
+                        logger.error(
+                            "batch_notification_send_failed",
+                            email_id=notif.email_id,
+                            error=str(e)
+                        )
+                        notif.status = BatchNotificationStatus.FAILED.value
+                        failed += 1
+
+                await db.commit()
+
+                logger.info(
+                    "user_digest_sent",
+                    user_id=user_id,
+                    emails_sent=len(notifications)
+                )
+
+            except Exception as e:
+                logger.error(
+                    "user_digest_failed",
+                    user_id=user_id,
+                    error=str(e)
+                )
+                failed += len(notifications)
+
+        return {
+            "total_users": total_users,
+            "total_emails_sent": total_emails_sent,
+            "successful": successful,
+            "failed": failed
+        }
+
+
+def _create_digest_summary(notifications: List) -> str:
+    """Create summary message for daily digest (Story 2.3).
+
+    Args:
+        notifications: List of BatchNotificationQueue entries for a user
+
+    Returns:
+        Formatted summary message
+    """
+    total_count = len(notifications)
+
+    summary = f"📬 **Daily Email Summary**\n\n"
+    summary += f"You have **{total_count}** non-priority email{'s' if total_count != 1 else ''} needing review.\n\n"
+    summary += f"Individual proposals will follow below."
+
+    return summary

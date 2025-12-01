@@ -1,0 +1,146 @@
+# Mail Agent - Full Stack Docker Compose Configuration
+# Run with: docker-compose up -d
+# Stop with: docker-compose down
+# View logs: docker-compose logs -f [service_name]
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:18-alpine
+    container_name: mailagent-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-mailagent}
+      - POSTGRES_USER=${POSTGRES_USER:-mailagent}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mailagent_dev_password_2024}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mailagent} -d ${POSTGRES_DB:-mailagent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mailagent-network
+
+  # Redis - Message Broker for Celery
+  redis:
+    image: redis:7-alpine
+    container_name: mailagent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mailagent-network
+
+  # Backend API Service (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: ${APP_ENV:-development}
+    container_name: mailagent-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/logs:/app/logs
+    env_file:
+      - ./backend/.env
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-mailagent}:${POSTGRES_PASSWORD:-mailagent_dev_password_2024}@postgres:5432/${POSTGRES_DB:-mailagent}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mailagent-network
+
+  # Celery Worker - Background Tasks
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: ${APP_ENV:-development}
+    container_name: mailagent-celery-worker
+    command: ["/app/.venv/bin/celery", "-A", "app.celery", "worker", "--loglevel=info", "--concurrency=2"]
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/logs:/app/logs
+    env_file:
+      - ./backend/.env
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-mailagent}:${POSTGRES_PASSWORD:-mailagent_dev_password_2024}@postgres:5432/${POSTGRES_DB:-mailagent}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "/app/.venv/bin/celery -A app.celery inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mailagent-network
+
+  # Frontend Service (Next.js) - Optional for development
+  # Uncomment to run frontend via Docker
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #     target: development
+  #   container_name: mailagent-frontend
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #     - /app/.next
+  #   env_file:
+  #     - ./frontend/.env.local
+  #   environment:
+  #     - NODE_ENV=development
+  #     - NEXT_PUBLIC_API_URL=http://localhost:8000
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
+  #   networks:
+  #     - mailagent-network
+
+networks:
+  mailagent-network:
+    driver: bridge
+    name: mailagent-network
+
+volumes:
+  postgres-data:
+    name: mailagent-postgres-data
+  redis-data:
+    name: mailagent-redis-data

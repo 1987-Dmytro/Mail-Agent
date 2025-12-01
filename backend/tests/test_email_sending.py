@@ -26,7 +26,7 @@ def setup_mock_db_session(gmail_client, mock_user):
     from contextlib import asynccontextmanager
 
     @asynccontextmanager
-    async def mock_get_session():
+    async def mock_async_session():
         mock_session = AsyncMock()
 
         # Mock execute to return an awaitable that has scalar_one_or_none
@@ -38,7 +38,7 @@ def setup_mock_db_session(gmail_client, mock_user):
         mock_session.execute = mock_execute
         yield mock_session
 
-    gmail_client.db_service.get_session = mock_get_session
+    gmail_client.db_service.async_session = mock_async_session
 
 
 # Test Fixtures
@@ -51,11 +51,11 @@ def mock_db_service():
 
     # Create async context manager for session
     @asynccontextmanager
-    async def get_session():
+    async def async_session():
         mock_session = AsyncMock()
         yield mock_session
 
-    mock_service.get_session = get_session
+    mock_service.async_session = async_session
 
     return mock_service
 

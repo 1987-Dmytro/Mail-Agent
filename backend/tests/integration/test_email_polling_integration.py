@@ -69,7 +69,12 @@ async def test_email_polling_end_to_end(
         for i in range(1, 6)
     ]
 
-    with patch.object(GmailClient, "get_messages", new=AsyncMock(return_value=mock_emails)):
+    # Mock the workflow tracker to prevent workflow execution in tests
+    mock_workflow_tracker = Mock()
+    mock_workflow_tracker.start_workflow = AsyncMock(return_value="test_thread_id")
+
+    with patch.object(GmailClient, "get_messages", new=AsyncMock(return_value=mock_emails)), \
+         patch("app.tasks.email_tasks.WorkflowInstanceTracker", return_value=mock_workflow_tracker):
         # Execute polling task
         new_count, skip_count = await _poll_user_emails_async(test_user_with_tokens.id)
 
@@ -198,7 +203,12 @@ async def test_email_polling_metadata_extraction(
         },
     ]
 
-    with patch.object(GmailClient, "get_messages", new=AsyncMock(return_value=mock_emails)):
+    # Mock the workflow tracker to prevent workflow execution in tests
+    mock_workflow_tracker = Mock()
+    mock_workflow_tracker.start_workflow = AsyncMock(return_value="test_thread_id")
+
+    with patch.object(GmailClient, "get_messages", new=AsyncMock(return_value=mock_emails)), \
+         patch("app.tasks.email_tasks.WorkflowInstanceTracker", return_value=mock_workflow_tracker):
         new_count, skip_count = await _poll_user_emails_async(test_user_with_tokens.id)
 
     assert new_count == 2

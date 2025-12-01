@@ -240,7 +240,7 @@ async def test_should_not_generate_response_newsletter(
     )
 
     # Test classification
-    should_respond = service.should_generate_response(email)
+    should_respond = await service.should_generate_response(email)
 
     assert should_respond is False, "Newsletter should NOT trigger response generation"
     mock_context.retrieve_context.assert_not_called()

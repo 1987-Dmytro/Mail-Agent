@@ -44,13 +44,14 @@ from app.workflows.email_workflow import create_email_workflow
 from app.workflows.states import EmailWorkflowState
 from langgraph.checkpoint.memory import MemorySaver
 
-# Import mocks
+# Import mocks and utils
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../mocks'))
-from gemini_mock import MockGeminiClient
-from gmail_mock import MockGmailClient
-from telegram_mock import MockTelegramBot
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from mocks.gemini_mock import MockGeminiClient
+from mocks.gmail_mock import MockGmailClient
+from mocks.telegram_mock import MockTelegramBot
+from utils.lazy_async_session import LazyAsyncSession
 
 
 # ========================================
@@ -135,6 +136,7 @@ class TestCompleteEmailWorkflow:
     async def test_complete_email_sorting_workflow(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,  # AsyncSession factory for workflow nodes
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -171,7 +173,7 @@ class TestCompleteEmailWorkflow:
             user_id=test_user.id,
             gmail_message_id="test_msg_123",
             gmail_thread_id="test_thread_123",
-            sender="service@finanzamt.de",
+            sender="noreply@finanzamt.de",  # Changed to no-reply to ensure sort_only classification
             recipient=test_user.email,
             subject="Tax Deadline - Action Required",
             body_plain="Important tax information regarding your 2024 filing deadline.",
@@ -185,21 +187,24 @@ class TestCompleteEmailWorkflow:
 
         # Configure mocks
         mock_gmail.add_test_message("test_msg_123", {
-            "sender": "service@finanzamt.de",
+            "sender": "noreply@finanzamt.de",  # Changed to no-reply to ensure sort_only classification
             "subject": "Tax Deadline - Action Required",
             "body": "Important tax information regarding your 2024 filing deadline.",
             "received_at": datetime.now(UTC).isoformat(),
         })
 
         # Step 1: Create and execute workflow
+        # NOTE: Use workflow_db_session for the workflow - it's a LazyAsyncSession that works
+        # across asyncio contexts (required for LangGraph node execution)
         with patch("app.core.gmail_client.GmailClient", return_value=mock_gmail), \
              patch("app.core.llm_client.LLMClient", return_value=mock_gemini), \
              patch("app.core.telegram_bot.TelegramBotClient", return_value=mock_telegram):
 
             # Initialize workflow with MemorySaver and mock dependencies for tests
+            # Use session factory fixture (SQLAlchemy + LangGraph best practice)
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,  # Pass factory, nodes create their own sessions
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
@@ -258,9 +263,12 @@ class TestCompleteEmailWorkflow:
         assert email.is_priority is True
 
         # Step 4: Verify WorkflowMapping created
+        # Query fresh from database to see changes made by workflow nodes (session-per-node pattern)
         from sqlmodel import select
+        from sqlalchemy import select as sa_select
+        # Use populate_existing to bypass session cache and get fresh data from database
         workflow_mapping_result = await db_session.execute(
-            select(WorkflowMapping).where(WorkflowMapping.email_id == email.id)
+            sa_select(WorkflowMapping).where(WorkflowMapping.email_id == email.id).execution_options(populate_existing=True)
         )
         workflow_mapping = workflow_mapping_result.scalar_one_or_none()
 
@@ -274,7 +282,7 @@ class TestCompleteEmailWorkflow:
         last_message = mock_telegram.get_last_message(chat_id=test_user.telegram_id)
 
         assert last_message is not None
-        assert "service@finanzamt.de" in last_message["text"]
+        assert "noreply@finanzamt.de" in last_message["text"]  # Changed from service@ to noreply@
         assert "Tax Deadline - Action Required" in last_message["text"]
         assert last_message["reply_markup"] is not None  # Has buttons
 
@@ -308,8 +316,9 @@ class TestCompleteEmailWorkflow:
             # Execute execute_action and send_confirmation nodes
             from app.workflows.nodes import execute_action, send_confirmation
 
-            after_execute = await execute_action(resume_state, db_session, mock_gmail)
-            final_state = await send_confirmation(after_execute, db_session, mock_telegram)
+            # Pass session factory, not session (nodes create their own sessions)
+            after_execute = await execute_action(resume_state, workflow_db_session_factory, mock_gmail)
+            final_state = await send_confirmation(after_execute, workflow_db_session_factory, mock_telegram)
 
         # Step 8: Verify Gmail label applied
         assert len(mock_gmail.applied_labels) == 1
@@ -358,6 +367,7 @@ class TestRejectionAndFolderChange:
     async def test_email_rejection_workflow(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -384,7 +394,7 @@ class TestRejectionAndFolderChange:
             user_id=test_user.id,
             gmail_message_id="test_msg_reject_001",
             gmail_thread_id="test_thread_reject_001",
-            sender="service@finanzamt.de",  # Priority domain to trigger Telegram
+            sender="noreply@finanzamt.de",  # Priority domain to trigger Telegram
             recipient=test_user.email,
             subject="URGENT: Tax Office Notification",
             body_plain="Immediate action required for your tax filing.",
@@ -411,7 +421,7 @@ class TestRejectionAndFolderChange:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
@@ -472,8 +482,8 @@ class TestRejectionAndFolderChange:
              patch("app.core.telegram_bot.TelegramBotClient", return_value=mock_telegram):
 
             from app.workflows.nodes import execute_action, send_confirmation
-            after_execute = await execute_action(resume_state, db_session, mock_gmail)
-            final_state = await send_confirmation(after_execute, db_session, mock_telegram)
+            after_execute = await execute_action(resume_state, workflow_db_session_factory, mock_gmail)
+            final_state = await send_confirmation(after_execute, workflow_db_session_factory, mock_telegram)
 
         # Verify NO Gmail label applied
         assert len(mock_gmail.applied_labels) == 0, "No Gmail label should be applied for rejection"
@@ -503,6 +513,7 @@ class TestRejectionAndFolderChange:
     async def test_folder_change_workflow(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -532,7 +543,7 @@ class TestRejectionAndFolderChange:
             user_id=test_user.id,
             gmail_message_id="test_msg_change_001",
             gmail_thread_id="test_thread_change_001",
-            sender="service@finanzamt.de",  # Priority domain triggers Government classification
+            sender="noreply@finanzamt.de",  # Priority domain triggers Government classification
             recipient=test_user.email,
             subject="URGENT: Tax Filing Confirmation",  # URGENT triggers priority
             body_plain="Wichtig: Your tax filing has been processed successfully.",
@@ -559,7 +570,7 @@ class TestRejectionAndFolderChange:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
@@ -629,8 +640,8 @@ class TestRejectionAndFolderChange:
              patch("app.core.telegram_bot.TelegramBotClient", return_value=mock_telegram):
 
             from app.workflows.nodes import execute_action, send_confirmation
-            after_execute = await execute_action(resume_state, db_session, mock_gmail)
-            final_state = await send_confirmation(after_execute, db_session, mock_telegram)
+            after_execute = await execute_action(resume_state, workflow_db_session_factory, mock_gmail)
+            final_state = await send_confirmation(after_execute, workflow_db_session_factory, mock_telegram)
 
         # Verify Gmail label applied: Clients (not Government)
         assert len(mock_gmail.applied_labels) == 1
@@ -674,6 +685,7 @@ class TestBatchNotificationSystem:
     async def test_batch_notification_workflow(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
     ):
@@ -810,6 +822,7 @@ class TestBatchNotificationSystem:
     async def test_empty_batch_handling(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
     ):
         """Test empty batch handling: no pending emails → no Telegram messages sent.
@@ -860,6 +873,7 @@ class TestPriorityEmailNotifications:
     async def test_priority_email_bypass_batch(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -928,7 +942,7 @@ class TestPriorityEmailNotifications:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
@@ -995,6 +1009,7 @@ class TestPriorityEmailNotifications:
     async def test_priority_detection_government_domain(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
     ):
         """Test priority detection for government domain emails.
@@ -1058,6 +1073,7 @@ class TestPriorityEmailNotifications:
     async def test_priority_detection_urgent_keywords(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
     ):
         """Test priority detection for urgent keywords in subject.
@@ -1126,6 +1142,7 @@ class TestApprovalHistoryTracking:
     async def test_approval_history_rejection_recorded(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -1188,7 +1205,7 @@ class TestApprovalHistoryTracking:
         await db_session.commit()
 
         with patch("app.core.gmail_client.GmailClient", return_value=mock_gmail):
-            await execute_action(state, db_session, mock_gmail)
+            await execute_action(state, workflow_db_session_factory, mock_gmail)
 
         # Verify ApprovalHistory
         approval_result = await db_session.execute(
@@ -1208,6 +1225,7 @@ class TestApprovalHistoryTracking:
     async def test_approval_history_folder_change_recorded(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -1273,7 +1291,7 @@ class TestApprovalHistoryTracking:
         await db_session.commit()
 
         with patch("app.core.gmail_client.GmailClient", return_value=mock_gmail):
-            await execute_action(state, db_session, mock_gmail)
+            await execute_action(state, workflow_db_session_factory, mock_gmail)
 
         # Verify ApprovalHistory
         approval_result = await db_session.execute(
@@ -1294,6 +1312,7 @@ class TestApprovalHistoryTracking:
     async def test_approval_statistics_endpoint(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
     ):
@@ -1435,6 +1454,7 @@ class TestPerformance:
     async def test_email_processing_latency_under_2_minutes(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -1465,7 +1485,7 @@ class TestPerformance:
             user_id=test_user.id,
             gmail_message_id="perf_001",
             gmail_thread_id="thread_perf_001",
-            sender="service@finanzamt.de",  # Government domain = 50 points
+            sender="noreply@finanzamt.de",  # Government domain = 50 points
             recipient=test_user.email,
             subject="URGENT: Performance Test",  # Urgent keyword = 30 points, total = 80 (priority)
             body_plain="Testing latency",
@@ -1508,7 +1528,7 @@ class TestPerformance:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
@@ -1555,6 +1575,7 @@ class TestPerformance:
     async def test_workflow_resumption_latency_under_2_seconds(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gmail: MockGmailClient,
@@ -1636,7 +1657,7 @@ class TestPerformance:
         await db_session.commit()
 
         with patch("app.core.gmail_client.GmailClient", return_value=mock_gmail):
-            await execute_action(state, db_session, mock_gmail)
+            await execute_action(state, workflow_db_session_factory, mock_gmail)
 
         end_time = time.time()
         resumption_time = end_time - start_time
@@ -1651,6 +1672,7 @@ class TestPerformance:
     async def test_batch_processing_performance_20_emails(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
     ):
@@ -1732,6 +1754,7 @@ class TestErrorHandling:
     async def test_workflow_handles_gemini_api_failure(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -1759,7 +1782,7 @@ class TestErrorHandling:
             user_id=test_user.id,
             gmail_message_id="error_gemini_001",
             gmail_thread_id="thread_error_gemini_001",
-            sender="sender@example.com",
+            sender="noreply@example.com",
             recipient=test_user.email,
             subject="Error Test Email",
             body_plain="Testing error handling",
@@ -1772,7 +1795,7 @@ class TestErrorHandling:
         await db_session.refresh(email)
 
         mock_gmail.add_test_message("error_gemini_001", {
-            "sender": "sender@example.com",
+            "sender": "noreply@example.com",
             "subject": "Error Test Email",
             "body": "Testing error handling",
             "received_at": datetime.now(UTC).isoformat(),
@@ -1800,7 +1823,7 @@ class TestErrorHandling:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
@@ -1847,6 +1870,7 @@ class TestErrorHandling:
     async def test_workflow_handles_gmail_api_failure(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gmail: MockGmailClient,
@@ -1916,7 +1940,7 @@ class TestErrorHandling:
         await db_session.commit()
 
         # Execute action - should fail after retries
-        final_state = await execute_action(state, db_session, mock_gmail)
+        final_state = await execute_action(state, workflow_db_session_factory, mock_gmail)
 
         # Verify Gmail apply_label was called (mock tracks this in applied_labels list)
         assert len(mock_gmail.applied_labels) >= 1 or mock_gmail._current_call_count >= 1, \
@@ -1933,6 +1957,7 @@ class TestErrorHandling:
     async def test_workflow_handles_telegram_api_failure(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -1962,7 +1987,7 @@ class TestErrorHandling:
             user_id=test_user.id,
             gmail_message_id="error_telegram_001",
             gmail_thread_id="thread_error_telegram_001",
-            sender="service@finanzamt.de",  # Government domain = 50 points
+            sender="noreply@finanzamt.de",  # Government domain = 50 points
             recipient=test_user.email,
             subject="URGENT: Telegram Error Test",  # Urgent keyword = 30 points, total = 80
             body_plain="Testing Telegram API failure",
@@ -2003,7 +2028,7 @@ class TestErrorHandling:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
@@ -2049,6 +2074,7 @@ class TestErrorHandling:
     async def test_workflow_checkpoint_recovery_after_crash(
         self,
         db_session: AsyncSession,
+        workflow_db_session_factory,
         test_user: User,
         test_folders: list[FolderCategory],
         mock_gemini: MockGeminiClient,
@@ -2099,7 +2125,7 @@ class TestErrorHandling:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
@@ -2154,8 +2180,8 @@ class TestErrorHandling:
 
             from app.workflows.nodes import execute_action, send_confirmation
 
-            recovered_state = await execute_action(resume_state, db_session, mock_gmail)
-            final_state = await send_confirmation(recovered_state, db_session, mock_telegram)
+            recovered_state = await execute_action(resume_state, workflow_db_session_factory, mock_gmail)
+            final_state = await send_confirmation(recovered_state, workflow_db_session_factory, mock_telegram)
 
         # Step 5: Verify workflow completed successfully
         await db_session.refresh(email)

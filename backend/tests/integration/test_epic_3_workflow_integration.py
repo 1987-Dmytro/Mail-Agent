@@ -46,15 +46,22 @@ class TestWorkflowGraphStructure:
         the generate_response node for RAG integration.
         """
         # Arrange - Create minimal mocks
+        from contextlib import asynccontextmanager
+
         mock_db = AsyncMock()
         mock_gmail = AsyncMock()
         mock_llm = Mock()
         mock_telegram = AsyncMock()
 
+        @asynccontextmanager
+        async def mock_db_factory():
+            """Context manager factory that yields the db_session."""
+            yield mock_db
+
         # Act - Create workflow
         workflow = create_email_workflow(
             checkpointer=None,
-            db_session=mock_db,
+            db_session_factory=mock_db_factory,
             gmail_client=mock_gmail,
             llm_client=mock_llm,
             telegram_client=mock_telegram
@@ -74,15 +81,22 @@ class TestWorkflowGraphStructure:
         3. Routing targets include generate_response and send_telegram
         """
         # Arrange - Create minimal mocks
+        from contextlib import asynccontextmanager
+
         mock_db = AsyncMock()
         mock_gmail = AsyncMock()
         mock_llm = Mock()
         mock_telegram = AsyncMock()
 
+        @asynccontextmanager
+        async def mock_db_factory():
+            """Context manager factory that yields the db_session."""
+            yield mock_db
+
         # Act - Create workflow
         workflow = create_email_workflow(
             checkpointer=None,
-            db_session=mock_db,
+            db_session_factory=mock_db_factory,
             gmail_client=mock_gmail,
             llm_client=mock_llm,
             telegram_client=mock_telegram

@@ -17,6 +17,7 @@ from sqlmodel import select
 
 from app.core.gmail_client import GmailClient
 from app.core.llm_client import LLMClient
+from app.core.telegram_bot import TelegramBotClient
 from app.models.user import User
 from app.models.email import EmailProcessingQueue
 from app.services.database import database_service
@@ -190,12 +191,14 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
             try:
                 # Initialize workflow tracker with dependencies
                 llm_client = LLMClient()
+                telegram_bot_client = TelegramBotClient()
                 database_url = os.getenv("DATABASE_URL")
 
                 workflow_tracker = WorkflowInstanceTracker(
                     db=session,
                     gmail_client=gmail_client,
                     llm_client=llm_client,
+                    telegram_bot_client=telegram_bot_client,
                     database_url=database_url,
                 )
 

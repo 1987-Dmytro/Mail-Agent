@@ -85,6 +85,7 @@ class EmailIndexingService:
     # Error handling constants
     MAX_RETRIES = 3
     RETRY_DELAY_BASE = 2  # Exponential backoff: 2s, 4s, 8s
+    MAX_RETRY_COUNT = 3  # Maximum retry attempts for failed indexing jobs
 
     def __init__(
         self,
@@ -633,6 +634,29 @@ class EmailIndexingService:
             if not progress:
                 raise ValueError(f"No interrupted indexing job found for user {self.user_id}")
 
+            # Check retry_after timestamp for paused jobs
+            if progress.retry_after:
+                now = datetime.now(UTC)
+                self.logger.debug(
+                    "retry_after_check",
+                    user_id=self.user_id,
+                    retry_after=progress.retry_after.isoformat() if progress.retry_after else None,
+                    now=now.isoformat(),
+                    will_block=now < progress.retry_after,
+                )
+                if now < progress.retry_after:
+                    time_remaining = (progress.retry_after - now).total_seconds() / 60
+                    raise ValueError(
+                        f"Cannot resume indexing yet. Retry allowed after {progress.retry_after.isoformat()} "
+                        f"({time_remaining:.1f} minutes remaining)"
+                    )
+                self.logger.info(
+                    "retry_after_passed",
+                    user_id=self.user_id,
+                    retry_after=progress.retry_after.isoformat(),
+                    retry_count=progress.retry_count,
+                )
+
             # Check if already completed
             if progress.processed_count >= progress.total_emails:
                 self.logger.info(
@@ -716,14 +740,23 @@ class EmailIndexingService:
         self.logger.info("indexing_marked_complete", user_id=self.user_id)
 
     async def handle_error(self, error: Exception) -> None:
-        """Handle indexing errors and update progress status.
+        """Handle indexing errors and update progress status with retry logic.
 
-        Error handling strategy:
-        - Gmail API errors (429 rate limit): Retry with exponential backoff
-        - Gemini API errors: Retry with exponential backoff
-        - ChromaDB errors: Log and mark as failed
-        - Update IndexingProgress.status = failed
+        Error handling strategy with retry:
+        - Check retry_count < MAX_RETRY_COUNT (3)
+        - If retry available:
+          - Increment retry_count
+          - Set retry_after = now + (2 ^ retry_count) minutes (exponential backoff)
+          - Set status = PAUSED (will be auto-resumed after retry_after)
+        - If max retries exceeded:
+          - Set status = FAILED (permanent failure)
         - Preserve partial progress (do not rollback)
+
+        Exponential backoff schedule:
+        - Retry 1: 2 minutes
+        - Retry 2: 4 minutes
+        - Retry 3: 8 minutes
+        - After retry 3: FAILED
 
         Args:
             error: The exception that occurred
@@ -741,7 +774,7 @@ class EmailIndexingService:
             error_message=str(error),
         )
 
-        # Update progress status to failed
+        # Update progress with retry logic
         async with self.db_service.async_session() as session:
             result = await session.execute(
                 select(IndexingProgress).where(IndexingProgress.user_id == self.user_id)
@@ -749,8 +782,38 @@ class EmailIndexingService:
             progress = result.scalar_one_or_none()
 
             if progress:
-                progress.status = IndexingStatus.FAILED
-                progress.error_message = f"{type(error).__name__}: {str(error)}"
+                # Check if retries available
+                if progress.retry_count < self.MAX_RETRY_COUNT:
+                    # Increment retry count
+                    progress.retry_count += 1
+
+                    # Calculate exponential backoff: 2^retry_count minutes
+                    backoff_minutes = 2 ** progress.retry_count
+                    progress.retry_after = datetime.now(UTC) + timedelta(minutes=backoff_minutes)
+
+                    # Set status to PAUSED (will be resumed after retry_after)
+                    progress.status = IndexingStatus.PAUSED
+                    progress.error_message = f"{type(error).__name__}: {str(error)} (Retry {progress.retry_count}/{self.MAX_RETRY_COUNT})"
+
+                    self.logger.info(
+                        "indexing_paused_for_retry",
+                        user_id=self.user_id,
+                        retry_count=progress.retry_count,
+                        retry_after=progress.retry_after.isoformat(),
+                        backoff_minutes=backoff_minutes,
+                    )
+                else:
+                    # Max retries exceeded - mark as permanently failed
+                    progress.status = IndexingStatus.FAILED
+                    progress.error_message = f"{type(error).__name__}: {str(error)} (Max retries {self.MAX_RETRY_COUNT} exceeded)"
+
+                    self.logger.error(
+                        "indexing_failed_max_retries",
+                        user_id=self.user_id,
+                        retry_count=progress.retry_count,
+                        error_message=progress.error_message,
+                    )
+
                 await session.commit()
 
     async def index_new_email(self, message_id: str) -> bool:

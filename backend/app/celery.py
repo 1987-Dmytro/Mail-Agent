@@ -44,6 +44,11 @@ celery_app.conf.update(
             "schedule": crontab(hour=18, minute=0),  # Daily at 6 PM UTC
             "options": {"queue": "notifications"},
         },
+        "send-daily-digest": {
+            "task": "app.tasks.notification_tasks.send_daily_digest",
+            "schedule": crontab(hour=18, minute=30),  # Daily at 6:30 PM UTC (Story 2.3)
+            "options": {"queue": "notifications"},
+        },
     },
 )
 

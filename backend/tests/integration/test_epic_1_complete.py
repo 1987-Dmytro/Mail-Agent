@@ -1,5 +1,6 @@
 """Integration test for complete Epic 1 workflow (end-to-end)."""
 
+import os
 import pytest
 import pytest_asyncio
 from datetime import datetime, timedelta, timezone
@@ -87,14 +88,15 @@ async def test_epic_1_complete_workflow(db_session: AsyncSession):
 
         app.dependency_overrides.clear()
 
-    # Assert: User created with OAuth tokens
-    assert response.status_code == 200
-    user_id = response.json()["data"]["user_id"]
+    # Assert: OAuth callback returns redirect (302) to frontend
+    assert response.status_code == 302
+    assert response.headers["location"].startswith(os.getenv("FRONTEND_URL", "http://localhost:3000"))
 
-    # Verify: Tokens stored and encrypted
-    statement = select(User).where(User.id == user_id)
+    # Verify: User created with OAuth tokens by querying database
+    statement = select(User).where(User.email == "epic1_user@gmail.com")
     result = await db_session.execute(statement)
     user = result.scalar_one()
+    user_id = user.id
 
     assert user.gmail_oauth_token is not None
     assert user.gmail_refresh_token is not None
@@ -120,7 +122,12 @@ async def test_epic_1_complete_workflow(db_session: AsyncSession):
         },
     ]
 
-    with patch.object(GmailClient, "get_messages", new=AsyncMock(return_value=mock_emails)):
+    # Mock the workflow tracker to prevent workflow execution in tests
+    mock_workflow_tracker = Mock()
+    mock_workflow_tracker.start_workflow = AsyncMock(return_value="test_thread_id")
+
+    with patch.object(GmailClient, "get_messages", new=AsyncMock(return_value=mock_emails)), \
+         patch("app.tasks.email_tasks.WorkflowInstanceTracker", return_value=mock_workflow_tracker):
         # Execute email polling
         new_count, skip_count = await _poll_user_emails_async(user.id)
 

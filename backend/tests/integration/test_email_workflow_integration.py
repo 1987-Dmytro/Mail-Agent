@@ -20,10 +20,11 @@ Integration Test Setup:
 import os
 import uuid
 import pytest
-from datetime import datetime
+import pytest_asyncio
+from datetime import datetime, UTC
 from unittest.mock import AsyncMock, patch
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.services.workflow_tracker import WorkflowInstanceTracker
 from app.models.email import EmailProcessingQueue
@@ -32,8 +33,8 @@ from app.models.user import User
 from app.utils.errors import GeminiAPIError
 
 
-@pytest.fixture
-async def test_user(async_db_session):
+@pytest_asyncio.fixture
+async def test_user(db_session):
     """Create test user in database."""
     user = User(
         email="test@example.com",
@@ -41,14 +42,14 @@ async def test_user(async_db_session):
         is_active=True,
         onboarding_completed=True,
     )
-    async_db_session.add(user)
-    await async_db_session.commit()
-    await async_db_session.refresh(user)
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
 
 
-@pytest.fixture
-async def test_folders(async_db_session, test_user):
+@pytest_asyncio.fixture
+async def test_folders(db_session, test_user):
     """Create test folder categories in database."""
     folders = [
         FolderCategory(
@@ -71,13 +72,13 @@ async def test_folders(async_db_session, test_user):
         ),
     ]
     for folder in folders:
-        async_db_session.add(folder)
-    await async_db_session.commit()
+        db_session.add(folder)
+    await db_session.commit()
     return folders
 
 
-@pytest.fixture
-async def test_email(async_db_session, test_user):
+@pytest_asyncio.fixture
+async def test_email(db_session, test_user):
     """Create test email in EmailProcessingQueue."""
     email = EmailProcessingQueue(
         user_id=test_user.id,
@@ -85,19 +86,19 @@ async def test_email(async_db_session, test_user):
         gmail_thread_id="thread_test_123",
         sender="sender@example.com",
         subject="Test Email Subject",
-        received_at=datetime.utcnow(),
+        received_at=datetime.now(UTC),
         status="pending",
     )
-    async_db_session.add(email)
-    await async_db_session.commit()
-    await async_db_session.refresh(email)
+    db_session.add(email)
+    await db_session.commit()
+    await db_session.refresh(email)
     return email
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_workflow_state_transitions(
-    async_db_session, test_user, test_folders, test_email
+    db_session, test_user, test_folders, test_email
 ):
     """Test workflow executes nodes in correct order.
 
@@ -109,7 +110,8 @@ async def test_workflow_state_transitions(
     """
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
-         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm:
+         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response", new_callable=AsyncMock) as mock_should_respond:
 
         # Mock Gmail API response
         mock_gmail_instance = AsyncMock()
@@ -129,16 +131,22 @@ async def test_workflow_state_transitions(
             "confidence": 0.90,
         }
 
+        # Mock response generation service to return False (sort_only workflow)
+        # Using AsyncMock so await works correctly
+        mock_should_respond.return_value = False
+
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
         mock_gmail_client = mock_gmail_instance
         mock_llm_client = AsyncMock()
         mock_llm_client.receive_completion = mock_llm
+        mock_telegram_client = AsyncMock()
 
         tracker = WorkflowInstanceTracker(
-            db=async_db_session,
+            db=db_session,
             gmail_client=mock_gmail_client,
             llm_client=mock_llm_client,
+            telegram_bot_client=mock_telegram_client,
             database_url=database_url,
         )
 
@@ -152,7 +160,7 @@ async def test_workflow_state_transitions(
         assert thread_id.startswith(f"email_{test_email.id}_")
 
         # Verify workflow paused at await_approval (status updated)
-        await async_db_session.refresh(test_email)
+        await db_session.refresh(test_email)
         assert test_email.status == "awaiting_approval"
 
         # Verify classification results stored in database
@@ -169,7 +177,7 @@ async def test_workflow_state_transitions(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_workflow_checkpoint_persistence(
-    async_db_session, test_user, test_folders, test_email
+    db_session, test_user, test_folders, test_email
 ):
     """Test PostgreSQL checkpoint persistence after classification.
 
@@ -181,7 +189,8 @@ async def test_workflow_checkpoint_persistence(
     """
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
-         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm:
+         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response", new_callable=AsyncMock) as mock_should_respond:
 
         # Mock Gmail API
         mock_gmail_instance = AsyncMock()
@@ -201,12 +210,17 @@ async def test_workflow_checkpoint_persistence(
             "confidence": 0.85,
         }
 
+        # Mock response generation service (AsyncMock for await)
+        mock_should_respond.return_value = False
+
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
+        mock_telegram_client = AsyncMock()
         tracker = WorkflowInstanceTracker(
-            db=async_db_session,
+            db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
+            telegram_bot_client=mock_telegram_client,
             database_url=database_url,
         )
 
@@ -218,14 +232,14 @@ async def test_workflow_checkpoint_persistence(
 
         # Query PostgreSQL checkpoints table
         # Note: LangGraph creates checkpoints table automatically
-        checkpoint_query = f"""
+        checkpoint_query = text(f"""
             SELECT thread_id, checkpoint_ns, checkpoint
             FROM checkpoints
             WHERE thread_id = '{thread_id}'
             ORDER BY checkpoint_id DESC
             LIMIT 1
-        """
-        result = await async_db_session.execute(checkpoint_query)
+        """)
+        result = await db_session.execute(checkpoint_query)
         checkpoint_row = result.fetchone()
 
         # Verify checkpoint exists
@@ -242,7 +256,7 @@ async def test_workflow_checkpoint_persistence(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_classification_result_stored_in_database(
-    async_db_session, test_user, test_folders, test_email
+    db_session, test_user, test_folders, test_email
 ):
     """Test classification results are stored in EmailProcessingQueue.
 
@@ -255,7 +269,8 @@ async def test_classification_result_stored_in_database(
     """
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
-         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm:
+         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response", new_callable=AsyncMock) as mock_should_respond:
 
         # Mock Gmail API
         mock_gmail_instance = AsyncMock()
@@ -275,12 +290,17 @@ async def test_classification_result_stored_in_database(
             "confidence": 0.92,
         }
 
+        # Mock response generation service (AsyncMock for await)
+        mock_should_respond.return_value = False
+
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
+        mock_telegram_client = AsyncMock()
         tracker = WorkflowInstanceTracker(
-            db=async_db_session,
+            db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
+            telegram_bot_client=mock_telegram_client,
             database_url=database_url,
         )
 
@@ -291,7 +311,7 @@ async def test_classification_result_stored_in_database(
         )
 
         # Refresh email from database
-        await async_db_session.refresh(test_email)
+        await db_session.refresh(test_email)
 
         # Verify all classification fields updated correctly
         personal_folder = next(f for f in test_folders if f.name == "Personal")
@@ -305,7 +325,7 @@ async def test_classification_result_stored_in_database(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_workflow_error_handling(
-    async_db_session, test_user, test_folders, test_email
+    db_session, test_user, test_folders, test_email
 ):
     """Test workflow continues with fallback classification when Gemini fails.
 
@@ -317,7 +337,8 @@ async def test_workflow_error_handling(
     """
     # Setup mocked external APIs
     with patch("app.workflows.nodes.GmailClient") as MockGmail, \
-         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm:
+         patch("app.core.llm_client.LLMClient.receive_completion") as mock_llm, \
+         patch("app.services.response_generation.ResponseGenerationService.should_generate_response", new_callable=AsyncMock) as mock_should_respond:
 
         # Mock Gmail API (successful)
         mock_gmail_instance = AsyncMock()
@@ -332,12 +353,17 @@ async def test_workflow_error_handling(
         # Mock Gemini LLM to raise API error
         mock_llm.side_effect = GeminiAPIError("Rate limit exceeded")
 
+        # Mock response generation service (AsyncMock for await)
+        mock_should_respond.return_value = False
+
         # Initialize workflow tracker
         database_url = os.getenv("DATABASE_URL")
+        mock_telegram_client = AsyncMock()
         tracker = WorkflowInstanceTracker(
-            db=async_db_session,
+            db=db_session,
             gmail_client=mock_gmail_instance,
             llm_client=AsyncMock(receive_completion=mock_llm),
+            telegram_bot_client=mock_telegram_client,
             database_url=database_url,
         )
 
@@ -348,11 +374,12 @@ async def test_workflow_error_handling(
         )
 
         # Verify workflow completed with fallback classification
-        await async_db_session.refresh(test_email)
+        await db_session.refresh(test_email)
 
         # Verify fallback classification applied
-        unclassified_folder = next(f for f in test_folders if f.name == "Unclassified")
-        assert test_email.proposed_folder_id == unclassified_folder.id
+        # Fallback uses first user folder (Work), not hardcoded "Unclassified"
+        work_folder = next(f for f in test_folders if f.name == "Work")
+        assert test_email.proposed_folder_id == work_folder.id
         assert "GeminiAPIError" in test_email.classification_reasoning
         assert test_email.priority_score == 50  # Medium priority for manual review
         assert test_email.is_priority is False  # 50 < 70

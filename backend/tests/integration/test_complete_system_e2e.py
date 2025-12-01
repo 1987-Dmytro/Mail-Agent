@@ -22,6 +22,7 @@ import os
 from uuid import uuid4
 from datetime import datetime, UTC, timedelta
 from unittest.mock import patch
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -42,13 +43,38 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../mocks'))
 from gemini_mock import MockGeminiClient
 from gmail_mock import MockGmailClient
 from telegram_mock import MockTelegramBot
+from app.core.encryption import encrypt_token
 
 
 @pytest_asyncio.fixture
-async def test_folder(db_session: AsyncSession, test_user: User) -> FolderCategory:
+async def test_user_with_tokens(db_session: AsyncSession) -> User:
+    """Create a test user with Gmail OAuth tokens for e2e system tests."""
+    access_token = encrypt_token("test_access_token_complete_e2e")
+    refresh_token = encrypt_token("test_refresh_token_complete_e2e")
+
+    user = User(
+        email="complete_e2e_test@gmail.com",
+        is_active=True,
+        telegram_id="123456789",
+        telegram_username="testuser",
+        telegram_linked_at=datetime.now(UTC),
+        gmail_oauth_token=access_token,
+        gmail_refresh_token=refresh_token,
+        gmail_connected_at=datetime.now(UTC),
+        created_at=datetime.now(UTC),
+    )
+
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_folder(db_session: AsyncSession, test_user_with_tokens: User) -> FolderCategory:
     """Create test folder category."""
     folder = FolderCategory(
-        user_id=test_user.id,
+        user_id=test_user_with_tokens.id,
         name="Work",
         gmail_label_id="Label_Work_123",
         keywords=["project", "meeting", "deadline"],
@@ -63,13 +89,13 @@ async def test_folder(db_session: AsyncSession, test_user: User) -> FolderCatego
 
 
 @pytest_asyncio.fixture
-async def historical_emails(db_session: AsyncSession, test_user: User) -> list[EmailProcessingQueue]:
+async def historical_emails(db_session: AsyncSession, test_user_with_tokens: User) -> list[EmailProcessingQueue]:
     """Create historical emails about a project for context retrieval."""
     emails = []
 
     # Email 1: Project announcement (7 days ago)
     email1 = EmailProcessingQueue(
-        user_id=test_user.id,
+        user_id=test_user_with_tokens.id,
         gmail_message_id="msg_history_001",
         gmail_thread_id="thread_project_alpha",
         sender="manager@company.com",
@@ -83,7 +109,7 @@ async def historical_emails(db_session: AsyncSession, test_user: User) -> list[E
 
     # Email 2: Deadline confirmation (5 days ago)
     email2 = EmailProcessingQueue(
-        user_id=test_user.id,
+        user_id=test_user_with_tokens.id,
         gmail_message_id="msg_history_002",
         gmail_thread_id="thread_project_alpha",
         sender="manager@company.com",
@@ -97,7 +123,7 @@ async def historical_emails(db_session: AsyncSession, test_user: User) -> list[E
 
     # Email 3: Budget discussion (3 days ago)
     email3 = EmailProcessingQueue(
-        user_id=test_user.id,
+        user_id=test_user_with_tokens.id,
         gmail_message_id="msg_history_003",
         gmail_thread_id="thread_budget",
         sender="finance@company.com",
@@ -123,9 +149,12 @@ class TestCompleteSystemE2E:
     async def test_complete_email_to_response_workflow(
         self,
         db_session: AsyncSession,
-        test_user: User,
+        test_user_with_tokens: User,
         test_folder: FolderCategory,
-        historical_emails: list[EmailProcessingQueue]
+        historical_emails: list[EmailProcessingQueue],
+        mock_context_service,
+        mock_embedding_service,
+        mock_vector_db_client
     ):
         """Test complete system: Email → Vector Search → Context Retrieval → Response Generation.
 
@@ -159,7 +188,7 @@ class TestCompleteSystemE2E:
 
         # Create IndexingProgress record to allow incremental indexing
         indexing_progress = IndexingProgress(
-            user_id=test_user.id,
+            user_id=test_user_with_tokens.id,
             status=IndexingStatus.COMPLETED,  # Mark as completed to allow index_new_email()
             total_count=0,
             processed_count=0,
@@ -177,7 +206,7 @@ class TestCompleteSystemE2E:
         try:
             collection = vector_client.get_or_create_collection("email_embeddings")
             # Delete all existing embeddings for this user
-            collection.delete(where={"user_id": str(test_user.id)})
+            collection.delete(where={"user_id": str(test_user_with_tokens.id)})
             print("[E2E TEST] Cleared existing embeddings for clean test")
         except Exception as e:
             print(f"[E2E TEST] Note: Could not clear embeddings: {e}")
@@ -192,7 +221,7 @@ class TestCompleteSystemE2E:
             "body": "Dear team, we are launching Project Alpha, our new marketing campaign targeting Q4 customers. This is a high-priority initiative.",
             "headers": {
                 "From": "manager@company.com",
-                "To": test_user.email,
+                "To": test_user_with_tokens.email,
                 "Subject": "Project Alpha Launch - New Marketing Campaign",
             },
             "received_at": datetime.now(UTC) - timedelta(days=7),
@@ -207,7 +236,7 @@ class TestCompleteSystemE2E:
             "body": "Following up on our discussion - the final deadline for Project Alpha submission is December 15th, 2025 at 5 PM. Please ensure all deliverables are ready by then.",
             "headers": {
                 "From": "manager@company.com",
-                "To": test_user.email,
+                "To": test_user_with_tokens.email,
                 "Subject": "Re: Project Alpha - Deadline Confirmed December 15th",
             },
             "received_at": datetime.now(UTC) - timedelta(days=5),
@@ -222,7 +251,7 @@ class TestCompleteSystemE2E:
             "body": "Good news! The budget committee has approved $50,000 for Project Alpha. You can proceed with vendor contracts.",
             "headers": {
                 "From": "finance@company.com",
-                "To": test_user.email,
+                "To": test_user_with_tokens.email,
                 "Subject": "Project Alpha Budget Approved - $50,000 allocated",
             },
             "received_at": datetime.now(UTC) - timedelta(days=3),
@@ -232,7 +261,7 @@ class TestCompleteSystemE2E:
         # Initialize indexing service and index emails
         # Note: This will use real Gemini API for embeddings (or mock if configured)
         indexing_service = EmailIndexingService(
-            user_id=test_user.id,
+            user_id=test_user_with_tokens.id,
             gmail_client=mock_gmail
         )
 
@@ -263,7 +292,7 @@ class TestCompleteSystemE2E:
         print("\n[E2E TEST] Step 2: Creating new email with question about Project Alpha...")
 
         new_email = EmailProcessingQueue(
-            user_id=test_user.id,
+            user_id=test_user_with_tokens.id,
             gmail_message_id="msg_new_question",
             gmail_thread_id="thread_new_question",
             sender="colleague@company.com",
@@ -285,7 +314,7 @@ class TestCompleteSystemE2E:
             "body": "Hi! I'm new to the team and need to know - what is the final deadline for Project Alpha? Also, what budget do we have?",
             "headers": {
                 "From": "colleague@company.com",
-                "To": test_user.email,
+                "To": test_user_with_tokens.email,
                 "Subject": "Quick Question - What's the deadline for Project Alpha?",
             },
             "received_at": datetime.now(UTC),
@@ -316,21 +345,30 @@ class TestCompleteSystemE2E:
         memory_checkpointer = MemorySaver()
         thread_id = f"test_complete_e2e_{uuid4()}"
 
+        # Create db_factory async context manager
+        @asynccontextmanager
+        async def mock_db_factory():
+            """Context manager factory that yields the db_session."""
+            yield db_session
+
         with patch("app.core.gmail_client.GmailClient", return_value=mock_gmail), \
              patch("app.core.telegram_bot.TelegramBotClient", return_value=mock_telegram):
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=mock_db_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
+                context_service=mock_context_service,
+                embedding_service=mock_embedding_service,
+                vector_db_client=mock_vector_db_client,
             )
 
             # Create initial state
             initial_state: EmailWorkflowState = {
                 "email_id": str(new_email.id),
-                "user_id": str(test_user.id),
+                "user_id": str(test_user_with_tokens.id),
                 "thread_id": thread_id,
                 "email_content": new_email.subject or "",
                 "sender": new_email.sender,
@@ -425,7 +463,7 @@ class TestCompleteSystemE2E:
         from app.services.context_retrieval import ContextRetrievalService
 
         context_service = ContextRetrievalService(
-            user_id=test_user.id,
+            user_id=test_user_with_tokens.id,
             gmail_client=mock_gmail
         )
 

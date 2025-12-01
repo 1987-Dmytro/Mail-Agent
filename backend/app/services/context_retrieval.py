@@ -225,6 +225,7 @@ class ContextRetrievalService:
     async def _get_semantic_results(
         self,
         email_body: str,
+        sender: str,
         k: int,
         user_id: int
     ) -> List[EmailMessage]:
@@ -234,18 +235,24 @@ class ContextRetrievalService:
         content as query embedding. Top-k most relevant emails retrieved with adaptive
         k logic (k=3-7 based on thread length).
 
+        IMPORTANT: Filters results by sender email to retrieve conversation-specific context.
+        This ensures AI responses have proper context from the SAME correspondent, not unrelated
+        emails with similar topics from different senders.
+
         Args:
             email_body: Email body text to use as query
+            sender: Email address of sender (for filtering conversation context)
             k: Number of results to retrieve (adaptive: 0, 3, or 7)
             user_id: User ID for multi-tenant filtering
 
         Returns:
-            List of EmailMessage dicts (top k similar emails, unordered)
+            List of EmailMessage dicts (top k similar emails from SAME sender, unordered)
             Returns empty list if k=0 or no embeddings found or API error occurs.
 
         Example:
             semantic_emails = await service._get_semantic_results(
                 email_body="Tax return deadline reminder...",
+                sender="colleague@company.com",
                 k=3,
                 user_id=123
             )
@@ -265,12 +272,18 @@ class ContextRetrievalService:
             query_embedding = self.embedding_service.embed_text(email_body)
 
             # Query ChromaDB for top k most similar emails
-            # Filter by user_id for multi-tenant isolation (security requirement)
+            # Filter by user_id AND sender for conversation-specific context
+            # ChromaDB requires $and operator for multiple filter conditions
             results = self.vector_db_client.query_embeddings(
                 collection_name="email_embeddings",
                 query_embedding=query_embedding,
                 n_results=k,
-                filter={"user_id": str(user_id)}  # ChromaDB expects string values in filters
+                filter={
+                    "$and": [
+                        {"user_id": str(user_id)},  # Multi-tenant isolation
+                        {"sender": sender}  # Conversation-specific context (same correspondent)
+                    ]
+                }
             )
 
             # Handle empty results
@@ -685,6 +698,7 @@ class ContextRetrievalService:
             if k > 0:
                 semantic_results = await self._get_semantic_results(
                     email_body=email_body,
+                    sender=email.sender,  # Filter by sender for conversation context
                     k=k,
                     user_id=self.user_id
                 )

@@ -9,6 +9,7 @@ Tests cover end-to-end flows:
 import pytest
 from datetime import datetime, UTC, timedelta
 from unittest.mock import AsyncMock, Mock, patch
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text as sa_text
@@ -68,29 +69,45 @@ async def test_approval_recording_in_workflow_approve(db_session: AsyncSession, 
     mock_gmail.apply_label.return_value = True
 
     # Act - Execute workflow node (this should record approval history)
-    with patch('app.api.deps.Session') as MockSession:
-        # Create mock sync session for execute_action
-        mock_session = Mock()
-        mock_session.get = Mock(side_effect=lambda model, id: {
-            EmailProcessingQueue: email,
-            FolderCategory: test_folder,
-        }.get(model))
-        mock_session.add = Mock()
-        mock_session.commit = AsyncMock()  # Make commit async-compatible
-        MockSession.return_value.__enter__.return_value = mock_session
+    # Create mock AsyncSession for execute_action
+    mock_db = AsyncMock(spec=AsyncSession)
 
-        # Patch the service to use our real async db_session
-        with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
-            # Create a real service with our async session
-            real_service = ApprovalHistoryService(db_session)
-            MockService.return_value = real_service
+    # Mock db.execute() to return proper results for async select pattern
+    async def mock_execute(stmt):
+        """Mock execute that returns appropriate results based on query."""
+        mock_result = Mock()
+        # Check what model is being queried by inspecting the statement
+        stmt_str = str(stmt)
+        if "email_processing_queue" in stmt_str:
+            mock_result.scalar_one_or_none.return_value = email
+        elif "folder_categories" in stmt_str:
+            mock_result.scalar_one_or_none.return_value = test_folder
+        else:
+            mock_result.scalar_one_or_none.return_value = None
+        return mock_result
 
-            # Execute the workflow node
-            result_state = await execute_action(
-                state=state,
-                db=mock_session,
-                gmail_client=mock_gmail,
-            )
+    mock_db.execute = mock_execute
+    mock_db.add = Mock()
+    mock_db.commit = AsyncMock()
+
+    # Create db_factory for workflow nodes
+    @asynccontextmanager
+    async def mock_db_factory():
+        """Context manager factory that yields the mock db."""
+        yield mock_db
+
+    # Patch the service to use our real async db_session
+    with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
+        # Create a real service with our async session
+        real_service = ApprovalHistoryService(db_session)
+        MockService.return_value = real_service
+
+        # Execute the workflow node
+        result_state = await execute_action(
+            state=state,
+            db_factory=mock_db_factory,
+            gmail_client=mock_gmail,
+        )
 
     # Assert - Verify ApprovalHistory record was created
     stmt = select(ApprovalHistory).where(
@@ -149,26 +166,40 @@ async def test_approval_recording_in_workflow_reject(db_session: AsyncSession, t
         "proposed_folder_id": test_folder.id,
     }
 
-    # Act
-    with patch('app.api.deps.Session') as MockSession:
-        mock_session = Mock()
-        mock_session.get = Mock(side_effect=lambda model, id: {
-            EmailProcessingQueue: email,
-            FolderCategory: test_folder,
-        }.get(model))
-        mock_session.add = Mock()
-        mock_session.commit = AsyncMock()
-        MockSession.return_value.__enter__.return_value = mock_session
+    # Act - Create mock AsyncSession for execute_action
+    mock_db = AsyncMock(spec=AsyncSession)
 
-        with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
-            real_service = ApprovalHistoryService(db_session)
-            MockService.return_value = real_service
+    async def mock_execute(stmt):
+        """Mock execute that returns appropriate results based on query."""
+        mock_result = Mock()
+        stmt_str = str(stmt)
+        if "email_processing_queue" in stmt_str:
+            mock_result.scalar_one_or_none.return_value = email
+        elif "folder_categories" in stmt_str:
+            mock_result.scalar_one_or_none.return_value = test_folder
+        else:
+            mock_result.scalar_one_or_none.return_value = None
+        return mock_result
 
-            result_state = await execute_action(
-                state=state,
-                db=mock_session,
-                gmail_client=AsyncMock(),
-            )
+    mock_db.execute = mock_execute
+    mock_db.add = Mock()
+    mock_db.commit = AsyncMock()
+
+    # Create db_factory for workflow nodes
+    @asynccontextmanager
+    async def mock_db_factory():
+        """Context manager factory that yields the mock db."""
+        yield mock_db
+
+    with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
+        real_service = ApprovalHistoryService(db_session)
+        MockService.return_value = real_service
+
+        result_state = await execute_action(
+            state=state,
+            db_factory=mock_db_factory,
+            gmail_client=AsyncMock(),
+        )
 
     # Assert
     stmt = select(ApprovalHistory).where(
@@ -247,26 +278,44 @@ async def test_approval_recording_in_workflow_change_folder(db_session: AsyncSes
     mock_gmail = AsyncMock()
     mock_gmail.apply_label.return_value = True
 
-    # Act
-    with patch('app.api.deps.Session') as MockSession:
-        mock_session = Mock()
-        mock_session.get = Mock(side_effect=lambda model, id: {
-            EmailProcessingQueue: email,
-            FolderCategory: folder_personal if id == folder_personal.id else folder_gov,
-        }.get(model))
-        mock_session.add = Mock()
-        mock_session.commit = AsyncMock()
-        MockSession.return_value.__enter__.return_value = mock_session
+    # Act - Create mock AsyncSession for execute_action
+    mock_db = AsyncMock(spec=AsyncSession)
 
-        with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
-            real_service = ApprovalHistoryService(db_session)
-            MockService.return_value = real_service
+    # Track folder queries to return the correct folder
+    folder_query_count = [0]
 
-            result_state = await execute_action(
-                state=state,
-                db=mock_session,
-                gmail_client=mock_gmail,
-            )
+    async def mock_execute(stmt):
+        """Mock execute that returns appropriate results based on query."""
+        mock_result = Mock()
+        stmt_str = str(stmt)
+        if "email_processing_queue" in stmt_str:
+            mock_result.scalar_one_or_none.return_value = email
+        elif "folder_categories" in stmt_str:
+            # For change_folder, the workflow queries selected_folder_id (folder_personal)
+            mock_result.scalar_one_or_none.return_value = folder_personal
+        else:
+            mock_result.scalar_one_or_none.return_value = None
+        return mock_result
+
+    mock_db.execute = mock_execute
+    mock_db.add = Mock()
+    mock_db.commit = AsyncMock()
+
+    # Create db_factory for workflow nodes
+    @asynccontextmanager
+    async def mock_db_factory():
+        """Context manager factory that yields the mock db."""
+        yield mock_db
+
+    with patch('app.workflows.nodes.ApprovalHistoryService') as MockService:
+        real_service = ApprovalHistoryService(db_session)
+        MockService.return_value = real_service
+
+        result_state = await execute_action(
+            state=state,
+            db_factory=mock_db_factory,
+            gmail_client=mock_gmail,
+        )
 
     # Assert
     stmt = select(ApprovalHistory).where(

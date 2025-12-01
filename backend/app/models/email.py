@@ -40,6 +40,7 @@ class EmailProcessingQueue(BaseModel, table=True):
         language: Detected language of email (Epic 3)
         detected_language: Detected language code (ru/uk/en/de) from Story 3.5
         tone: Detected tone (formal/professional/casual) from Story 3.6
+        email_sent_at: Timestamp when response email was sent (Story 2.1, for idempotency)
         created_at: When record was created (inherited from BaseModel)
         updated_at: When record was last updated
         user: Relationship to User model
@@ -79,6 +80,9 @@ class EmailProcessingQueue(BaseModel, table=True):
     detected_language: Optional[str] = Field(default=None, sa_column=Column(String(5)))  # Story 3.5: Language detection (ru, uk, en, de)
     tone: Optional[str] = Field(default=None, sa_column=Column(String(20)))  # Story 3.6: Tone detection (formal, professional, casual)
 
+    # Story 2.1: Idempotency field for email responses
+    email_sent_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))  # Timestamp when response email was sent (for idempotency)
+
     # Story 2.11: Error handling and recovery fields
     error_type: Optional[str] = Field(default=None, sa_column=Column(String(100)))  # e.g., "gmail_api_failure", "telegram_send_failure"
     error_message: Optional[str] = Field(default=None, sa_column=Column(Text))  # Full error message from last failed attempt
@@ -91,7 +95,11 @@ class EmailProcessingQueue(BaseModel, table=True):
     # Relationships
     user: "User" = Relationship(back_populates="emails")
     proposed_folder: Optional["FolderCategory"] = Relationship()
-    workflow_mappings: Optional["WorkflowMapping"] = Relationship(back_populates="email")
+    workflow_mappings: Optional["WorkflowMapping"] = Relationship(
+        back_populates="email",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    dead_letter_entries: list["DeadLetterQueue"] = Relationship(back_populates="email_queue")
 
 
 # Avoid circular imports

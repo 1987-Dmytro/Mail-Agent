@@ -92,17 +92,20 @@ async def test_oauth_flow_end_to_end(db_session: AsyncSession):
                 response = await client.get(
                     "/api/v1/auth/gmail/callback",
                     params={"code": "test_authorization_code", "state": "test_state_123"},
+                    follow_redirects=False,  # Don't follow redirect to frontend
                 )
 
         # Clean up dependency overrides
         app.dependency_overrides.clear()
 
-        # Assert: Callback successful
-        assert response.status_code == 200
-        response_data = response.json()
-        assert response_data["success"] is True
-        assert "user_id" in response_data["data"]
-        assert response_data["data"]["email"] == "testuser@gmail.com"
+        # Assert: Callback successful with redirect to frontend
+        assert response.status_code == 302
+        assert "Location" in response.headers
+        redirect_url = response.headers["Location"]
+        # Verify redirect goes to frontend onboarding with token and email
+        assert redirect_url.startswith("http://localhost:3000/onboarding")
+        assert "token=" in redirect_url
+        assert "email=testuser%40gmail.com" in redirect_url or "email=testuser@gmail.com" in redirect_url
 
         # Step 3: Verify tokens stored in database (encrypted)
         user = await database_service.get_user_by_email("testuser@gmail.com")
@@ -148,7 +151,6 @@ async def test_oauth_token_refresh_on_401(db_session: AsyncSession):
         is_active=True,
         gmail_oauth_token=expired_token,
         gmail_refresh_token=valid_refresh_token,
-        gmail_connected_at=datetime.now(timezone.utc),
     )
 
     db_session.add(user)
@@ -308,13 +310,14 @@ async def test_oauth_state_validation_csrf_protection(db_session: AsyncSession):
                 response = await client.get(
                     "/api/v1/auth/gmail/callback",
                     params={"code": "test_code", "state": "valid_state_456"},
+                    follow_redirects=False,
                 )
 
         # Clean up dependency overrides
         app.dependency_overrides.clear()
 
-        # Assert: Valid state accepted
-        assert response.status_code == 200
+        # Assert: Valid state accepted with redirect
+        assert response.status_code == 302
 
         # Step 4: Attempt to replay same state (state already consumed)
         app.dependency_overrides[get_db_service] = override_get_db_service
@@ -410,15 +413,17 @@ async def test_oauth_existing_user_token_update(db_session: AsyncSession):
                 response = await client.get(
                     "/api/v1/auth/gmail/callback",
                     params={"code": "update_code", "state": "update_test_state"},
+                    follow_redirects=False,
                 )
 
         # Clean up dependency overrides
         app.dependency_overrides.clear()
 
-        # Assert: Callback successful
-        assert response.status_code == 200
-        response_data = response.json()
-        assert response_data["data"]["user_id"] == original_user_id  # Same user ID
+        # Assert: Callback successful with redirect
+        assert response.status_code == 302
+        assert "Location" in response.headers
+        redirect_url = response.headers["Location"]
+        assert "token=" in redirect_url
 
         # Verify tokens updated (not created new user)
         updated_user = await database_service.get_user_by_email("existing@gmail.com")

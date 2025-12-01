@@ -7,6 +7,9 @@ from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
 from app.models.context_models import EmailMessage, RAGContext
 from app.models.prompt_versions import PromptVersion
+from app.models.manual_notification import ManualNotification
+from app.models.dead_letter_queue import DeadLetterQueue
+from app.models.batch_notification_queue import BatchNotificationQueue
 
 __all__ = [
     "BaseModel",
@@ -17,4 +20,7 @@ __all__ = [
     "EmailMessage",
     "RAGContext",
     "PromptVersion",
+    "ManualNotification",
+    "DeadLetterQueue",
+    "BatchNotificationQueue",
 ]

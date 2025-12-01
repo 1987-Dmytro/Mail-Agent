@@ -73,10 +73,12 @@ async def context_test_email(db_session, context_test_user):
     yield email
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def test_vector_db():
-    """Create VectorDBClient with test ChromaDB instance."""
-    test_persist_dir = "./data/chroma_test_context_retrieval"
+    """Create VectorDBClient with test ChromaDB instance for each test."""
+    import uuid
+    # Use unique directory for each test to avoid database locking issues
+    test_persist_dir = f"./data/chroma_test_context_retrieval_{uuid.uuid4().hex[:8]}"
     os.makedirs(test_persist_dir, exist_ok=True)
 
     vector_db = VectorDBClient(persist_directory=test_persist_dir)
@@ -86,24 +88,36 @@ def test_vector_db():
 
     yield vector_db
 
-    # Cleanup: Delete test collection and directory
+    # Cleanup: Delete test data directory
     try:
-        vector_db.delete_collection("email_embeddings")
+        import shutil
+        # Close the ChromaDB client first
+        if hasattr(vector_db, 'client'):
+            try:
+                # ChromaDB client cleanup if needed
+                pass
+            except:
+                pass
+        shutil.rmtree(test_persist_dir, ignore_errors=True)
     except Exception:
         pass
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def indexed_emails(test_vector_db, context_test_user):
     """Create sample indexed emails in ChromaDB for semantic search."""
     # Create 10 sample email embeddings with metadata
+    # First 7 emails from "sender@example.com" (to match context_test_email sender)
+    # Last 3 from different senders (to test filtering)
     sample_embeddings = []
     for i in range(1, 11):
         embedding = [0.1 + (i * 0.01)] * 768  # Vary embeddings slightly
+        # Use "sender@example.com" for first 7, different senders for last 3
+        sender_email = "sender@example.com" if i <= 7 else f"other_sender{i}@example.com"
         metadata = {
             "message_id": f"indexed_msg_{i}",
             "thread_id": f"thread_{i}",
-            "sender": f"sender{i}@example.com",
+            "sender": sender_email,
             "date": f"2025-11-0{i % 9 + 1}",
             "subject": f"Indexed Email {i}",
             "language": "en",

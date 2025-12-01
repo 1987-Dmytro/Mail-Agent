@@ -20,6 +20,8 @@ import {
   XCircle,
   AlertCircle,
   X as XIcon,
+  Database,
+  Loader2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -75,7 +77,8 @@ export default function DashboardPage() {
   );
 
   // Extract stats from response
-  const stats = statsResponse?.data;
+  // NOTE: Backend returns data directly, not wrapped in {data: ...}
+  const stats = statsResponse;
 
   // Show error toast when stats fail to load
   useEffect(() => {
@@ -100,8 +103,8 @@ export default function DashboardPage() {
   }
 
   // Calculate system health
-  const gmailConnected = stats?.connections.gmail.connected ?? false;
-  const telegramConnected = stats?.connections.telegram.connected ?? false;
+  const gmailConnected = stats?.gmail_connected ?? false;
+  const telegramConnected = stats?.telegram_connected ?? false;
   const hasWarnings = !gmailConnected || !telegramConnected;
   const hasErrors = !gmailConnected && !telegramConnected;
 
@@ -217,11 +220,6 @@ export default function DashboardPage() {
                     </>
                   )}
                 </div>
-                {gmailConnected && stats?.connections.gmail.last_sync && (
-                  <p className="text-xs text-muted-foreground">
-                    Last sync: {formatDistanceToNow(new Date(stats.connections.gmail.last_sync), { addSuffix: true })}
-                  </p>
-                )}
                 {!gmailConnected && (
                   <Button
                     onClick={() => router.push('/onboarding?step=gmail')}
@@ -231,11 +229,6 @@ export default function DashboardPage() {
                   >
                     Reconnect Gmail
                   </Button>
-                )}
-                {stats?.connections.gmail.error && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {stats.connections.gmail.error}
-                  </p>
                 )}
               </div>
             </CardContent>
@@ -276,15 +269,103 @@ export default function DashboardPage() {
                     Reconnect Telegram
                   </Button>
                 )}
-                {stats?.connections.telegram.error && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {stats.connections.telegram.error}
-                  </p>
-                )}
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Vector Database & Email Indexing Widget - ALWAYS VISIBLE */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                <CardTitle>Vector Database & Indexing</CardTitle>
+              </div>
+              {stats?.indexing_in_progress && (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* ChromaDB Connection Status */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    stats?.vector_db_connected ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                />
+                <span className="text-sm font-medium">ChromaDB Vector Database</span>
+              </div>
+              <span className={`text-sm ${
+                stats?.vector_db_connected
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {stats?.vector_db_connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+
+            {/* Indexing Progress Section */}
+            {stats?.indexing_status ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {stats?.indexing_status === 'completed' ? 'Completed' : 'Indexing your emails for AI context...'}
+                  </span>
+                  <span className="font-medium">
+                    {stats?.indexing_processed_count ?? 0} / {stats?.indexing_total_emails ?? 0} emails
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      stats?.indexing_status === 'completed'
+                        ? 'bg-green-500'
+                        : stats?.indexing_status === 'failed'
+                        ? 'bg-red-500'
+                        : 'bg-primary'
+                    }`}
+                    style={{ width: `${stats?.indexing_progress_percent ?? 0}%` }}
+                  />
+                </div>
+
+                {/* Progress Percentage */}
+                <div className="text-right text-xs text-muted-foreground">
+                  {stats?.indexing_progress_percent ?? 0}% complete
+                </div>
+
+                {/* Status Messages */}
+                {stats?.indexing_status === 'completed' && (
+                  <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>All emails indexed! AI can now use context from your last 90 days of emails.</span>
+                  </div>
+                )}
+
+                {stats?.indexing_status === 'failed' && stats?.indexing_error && (
+                  <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Indexing failed: {stats.indexing_error}</span>
+                  </div>
+                )}
+
+                {stats?.indexing_in_progress && (
+                  <p className="text-xs text-muted-foreground">
+                    This process runs in the background and typically takes 5-10 minutes for 90 days of email history. You can continue using Mail Agent normally.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No indexing in progress. Email indexing starts automatically after onboarding completion.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Email Statistics */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -294,7 +375,7 @@ export default function DashboardPage() {
               <Mail className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.email_stats.total_processed ?? 0}</div>
+              <div className="text-2xl font-bold">{stats?.total_processed ?? 0}</div>
               <p className="text-xs text-muted-foreground">Emails processed today</p>
             </CardContent>
           </Card>
@@ -305,7 +386,7 @@ export default function DashboardPage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.email_stats.pending_approval ?? 0}</div>
+              <div className="text-2xl font-bold">{stats?.pending_approval ?? 0}</div>
               <p className="text-xs text-muted-foreground">Awaiting your decision</p>
             </CardContent>
           </Card>
@@ -316,7 +397,7 @@ export default function DashboardPage() {
               <FolderOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.email_stats.auto_sorted ?? 0}</div>
+              <div className="text-2xl font-bold">{stats?.auto_sorted ?? 0}</div>
               <p className="text-xs text-muted-foreground">Automatically organized</p>
             </CardContent>
           </Card>
@@ -327,7 +408,7 @@ export default function DashboardPage() {
               <Send className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.email_stats.responses_sent ?? 0}</div>
+              <div className="text-2xl font-bold">{stats?.responses_sent ?? 0}</div>
               <p className="text-xs text-muted-foreground">AI-generated replies</p>
             </CardContent>
           </Card>
@@ -344,16 +425,16 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Today</p>
                 <p className="text-2xl font-bold">
-                  {stats?.time_saved.today_minutes ?? 0} min
+                  {stats?.time_saved_today_minutes ?? 0} min
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-2xl font-bold">
-                  {stats?.time_saved.total_minutes
-                    ? stats.time_saved.total_minutes >= 60
-                      ? `${Math.floor(stats.time_saved.total_minutes / 60)}h ${stats.time_saved.total_minutes % 60}m`
-                      : `${stats.time_saved.total_minutes} min`
+                  {stats?.time_saved_total_minutes
+                    ? stats.time_saved_total_minutes >= 60
+                      ? `${Math.floor(stats.time_saved_total_minutes / 60)}h ${stats.time_saved_total_minutes % 60}m`
+                      : `${stats.time_saved_total_minutes} min`
                     : '0 min'}
                 </p>
               </div>

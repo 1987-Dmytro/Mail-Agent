@@ -74,8 +74,8 @@ export default function FolderSetupStep({ onStepComplete, currentState }: StepPr
         const response = await apiClient.getFolders();
         console.log('FolderSetupStep: Got response:', response);
 
-        // The response IS the array directly, not wrapped in {data: ...}
-        const foldersData = (response as unknown) as any[];
+        // Backend returns {data: [...]} format, so access response.data
+        const foldersData = response.data;
         console.log('FolderSetupStep: foldersData:', foldersData);
         console.log('FolderSetupStep: Is array?', Array.isArray(foldersData));
         console.log('FolderSetupStep: Length:', foldersData?.length);
@@ -131,34 +131,67 @@ export default function FolderSetupStep({ onStepComplete, currentState }: StepPr
   /**
    * Handle "Add These Defaults" button click
    * Creates all 3 default folders via API
+   * Skips folders that already exist
    */
   const handleAddDefaults = async () => {
     setIsCreatingDefaults(true);
 
     try {
       const newFolders: FolderCategory[] = [];
+      let skippedCount = 0;
 
       // Create each default folder sequentially
       for (const folder of DEFAULT_FOLDERS) {
-        const response = await apiClient.createFolder({
-          name: folder.name,
-          keywords: folder.keywords,
-          color: folder.color || '#6B7280',
-        });
+        // Check if folder with this name already exists
+        const folderExists = createdFolders.some(
+          (existingFolder) => existingFolder.name.toLowerCase() === folder.name.toLowerCase()
+        );
 
-        newFolders.push(response.data as FolderCategory);
+        if (folderExists) {
+          console.log(`Folder "${folder.name}" already exists, skipping`);
+          skippedCount++;
+          continue;
+        }
+
+        try {
+          const response = await apiClient.createFolder({
+            name: folder.name,
+            keywords: folder.keywords,
+            color: folder.color || '#6B7280',
+          });
+
+          newFolders.push(response.data as FolderCategory);
+        } catch (folderError: any) {
+          // If folder already exists (duplicate name error), skip it
+          if (folderError.status === 400 && folderError.message?.includes('already exists')) {
+            console.log(`Folder "${folder.name}" already exists (API error), skipping`);
+            skippedCount++;
+            continue;
+          }
+          // Re-throw other errors
+          throw folderError;
+        }
       }
 
-      // Update state
-      setCreatedFolders([...createdFolders, ...newFolders]);
+      // Update state with newly created folders
+      if (newFolders.length > 0) {
+        setCreatedFolders([...createdFolders, ...newFolders]);
 
-      // Notify wizard
-      onStepComplete({
-        ...currentState,
-        folders: [...createdFolders, ...newFolders],
-      });
+        // Notify wizard
+        onStepComplete({
+          ...currentState,
+          folders: [...createdFolders, ...newFolders],
+        });
+      }
 
-      toast.success(`Created ${newFolders.length} folder categories successfully!`);
+      // Show appropriate success message
+      if (newFolders.length > 0 && skippedCount > 0) {
+        toast.success(`Created ${newFolders.length} folder categories! (${skippedCount} already existed)`);
+      } else if (newFolders.length > 0) {
+        toast.success(`Created ${newFolders.length} folder categories successfully!`);
+      } else if (skippedCount > 0) {
+        toast.info('All suggested folders already exist!');
+      }
     } catch (error) {
       console.error('Failed to create default folders:', error);
       toast.error('Failed to create default folders. Please try again.');

@@ -74,7 +74,13 @@ class TelegramResponseDraftService:
         self.db_service = db_service or database_service
         self.logger = logger.bind(service="telegram_response_draft")
 
-    async def format_response_draft_message(self, email_id: int) -> str:
+    async def format_response_draft_message(
+        self,
+        email_id: int,
+        draft_response: Optional[str] = None,
+        detected_language: Optional[str] = None,
+        tone: Optional[str] = None
+    ) -> str:
         """Format response draft Telegram message with original email preview and draft (AC #1-4, #6-7, #9).
 
         Message structure:
@@ -88,6 +94,9 @@ class TelegramResponseDraftService:
 
         Args:
             email_id: Database ID of email with response draft
+            draft_response: AI-generated response text (from workflow state or database)
+            detected_language: Language code (from workflow state or database)
+            tone: Response tone (from workflow state or database)
 
         Returns:
             Formatted message string ready for Telegram delivery
@@ -95,7 +104,7 @@ class TelegramResponseDraftService:
         Raises:
             ValueError: If email not found or missing required fields
         """
-        # Load email with response draft
+        # Load email from database
         async with self.db_service.async_session() as session:
             result = await session.execute(
                 select(EmailProcessingQueue).where(EmailProcessingQueue.id == email_id)
@@ -104,8 +113,10 @@ class TelegramResponseDraftService:
             if not email:
                 raise ValueError(f"Email with id={email_id} not found")
 
-            if not email.draft_response:
-                raise ValueError(f"Email id={email_id} has no draft_response field")
+            # Use provided draft_response or fallback to database (for backward compatibility)
+            draft_text = draft_response or getattr(email, 'draft_response', None)
+            if not draft_text:
+                raise ValueError(f"Email id={email_id} has no draft_response")
 
             # Build message sections
             sections = []
@@ -135,21 +146,25 @@ class TelegramResponseDraftService:
             sections.append("")
 
             # Draft section with language/tone indication (AC #3, #6)
+            # Use provided detected_language or fallback to database
+            language_code = detected_language or getattr(email, 'detected_language', 'en')
             language_name = self.LANGUAGE_NAMES.get(
-                email.detected_language or "en",
-                email.detected_language or "Unknown"
+                language_code or "en",
+                language_code or "Unknown"
             )
 
             # Format response header with language and tone
+            # Use provided tone or fallback to database
+            tone_value = tone or getattr(email, 'tone', None)
             header_parts = [f"✍️ AI-Generated Response ({language_name}"]
-            if email.tone:
+            if tone_value:
                 # Capitalize tone for display (formal → Formal)
-                tone_display = email.tone.capitalize()
+                tone_display = tone_value.capitalize()
                 header_parts.append(f", {tone_display}")
             header_parts.append("):")
 
             sections.append("".join(header_parts))
-            sections.append(email.draft_response)
+            sections.append(draft_text)
             sections.append("")
 
             # Visual separator (AC #4)

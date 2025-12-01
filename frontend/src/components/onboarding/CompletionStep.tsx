@@ -45,15 +45,16 @@ export default function CompletionStep({ currentState }: StepProps) {
       // Show success toast
       toast.success('Setup complete! Your first email is probably already sorted 🎉');
 
-      // Navigate to dashboard
-      router.push('/dashboard');
+      // Force full page reload to refresh auth status
+      // This ensures OnboardingRedirect gets updated user data
+      window.location.href = '/dashboard';
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
       toast.error('Oops! Something went wrong. Let\'s try that again.');
 
       // Even if API fails, still redirect (user mostly done with onboarding)
-      // The OnboardingRedirect component will handle any incomplete state
-      router.push('/dashboard');
+      // Force full page reload to refresh auth status
+      window.location.href = '/dashboard';
     } finally {
       setIsCompleting(false);
     }

@@ -32,6 +32,14 @@ class MockTelegramBot:
         self._failure_count: int = 0
         self._current_call_count: int = 0
 
+    async def initialize(self):
+        """Mock initialize method to match TelegramBotClient interface.
+
+        The real TelegramBotClient.initialize() sets up the bot connection.
+        This mock does nothing but allows tests to call it without errors.
+        """
+        pass
+
     def enable_network_error(self):
         """Configure mock to simulate network errors on next API call."""
         self._simulate_network_error = True

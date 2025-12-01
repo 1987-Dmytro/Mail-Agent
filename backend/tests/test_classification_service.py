@@ -39,8 +39,12 @@ def mock_gmail_client():
 
 @pytest.fixture
 def mock_llm_client():
-    """Create mock Gemini LLM client."""
-    client = AsyncMock()
+    """Create mock Gemini LLM client.
+
+    Note: receive_completion() is synchronous (not async), so use Mock not AsyncMock.
+    """
+    from unittest.mock import Mock
+    client = Mock()
     return client
 
 
@@ -105,12 +109,23 @@ async def test_classify_email_success(
     - ClassificationResponse is parsed successfully
     """
     # Setup mock database responses
-    # Mock EmailProcessingQueue query
-    email_result = AsyncMock()
+    # Mock EmailProcessingQueue query (result.scalar_one_or_none() is sync, not async)
+    from unittest.mock import Mock
+    email_result = Mock()
     email_result.scalar_one_or_none.return_value = sample_email
+
+    # Mock User query (for user_email lookup)
+    user_result = Mock()
+    user_result.scalar_one_or_none.return_value = sample_email.user
+
+    # Mock FolderCategory query (result.scalars().all() is sync, not async)
+    folder_result = Mock()
+    folder_result.scalars.return_value.all.return_value = sample_folders
+
     mock_db_session.execute.side_effect = [
         email_result,  # First query: Load email
-        AsyncMock(scalars=lambda: AsyncMock(all=lambda: sample_folders)),  # Second query: Load folders
+        user_result,  # Second query: Load user for email
+        folder_result,  # Third query: Load folders
     ]
 
     # Setup mock Gmail API response
@@ -175,11 +190,20 @@ async def test_classify_email_gemini_api_error(
     - Workflow continues (no exception propagated)
     """
     # Setup mock database responses
-    email_result = AsyncMock()
+    from unittest.mock import Mock
+    email_result = Mock()
     email_result.scalar_one_or_none.return_value = sample_email
+
+    user_result = Mock()
+    user_result.scalar_one_or_none.return_value = sample_email.user
+
+    folder_result = Mock()
+    folder_result.scalars.return_value.all.return_value = sample_folders
+
     mock_db_session.execute.side_effect = [
         email_result,
-        AsyncMock(scalars=lambda: AsyncMock(all=lambda: sample_folders)),
+        user_result,
+        folder_result,
     ]
 
     # Setup mock Gmail API response (successful)
@@ -207,7 +231,8 @@ async def test_classify_email_gemini_api_error(
 
     # Verify fallback classification
     assert isinstance(result, ClassificationResponse)
-    assert result.suggested_folder == "Unclassified"
+    # Fallback uses first user folder ("Work" in test data), not "Unclassified"
+    assert result.suggested_folder == "Work"
     assert "GeminiAPIError" in result.reasoning
     assert result.priority_score == 50  # Medium priority for manual review
     assert result.confidence == 0.0  # No confidence in fallback
@@ -230,11 +255,20 @@ async def test_classify_email_invalid_json_response(
     - Workflow continues (no exception propagated)
     """
     # Setup mock database responses
-    email_result = AsyncMock()
+    from unittest.mock import Mock
+    email_result = Mock()
     email_result.scalar_one_or_none.return_value = sample_email
+
+    user_result = Mock()
+    user_result.scalar_one_or_none.return_value = sample_email.user
+
+    folder_result = Mock()
+    folder_result.scalars.return_value.all.return_value = sample_folders
+
     mock_db_session.execute.side_effect = [
         email_result,
-        AsyncMock(scalars=lambda: AsyncMock(all=lambda: sample_folders)),
+        user_result,
+        folder_result,
     ]
 
     # Setup mock Gmail API response (successful)
@@ -264,7 +298,8 @@ async def test_classify_email_invalid_json_response(
 
     # Verify fallback classification
     assert isinstance(result, ClassificationResponse)
-    assert result.suggested_folder == "Unclassified"
+    # Fallback uses first user folder ("Work" in test data), not "Unclassified"
+    assert result.suggested_folder == "Work"
     assert "Invalid response format" in result.reasoning
     assert result.priority_score == 50
     assert result.confidence == 0.0
@@ -286,7 +321,8 @@ async def test_classify_email_gmail_retrieval_failure(
     - EmailProcessingQueue status NOT updated to awaiting_approval
     """
     # Setup mock database response for email query
-    email_result = AsyncMock()
+    from unittest.mock import Mock
+    email_result = Mock()
     email_result.scalar_one_or_none.return_value = sample_email
     mock_db_session.execute.return_value = email_result
 

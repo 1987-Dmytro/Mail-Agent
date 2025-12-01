@@ -131,11 +131,14 @@ class MockGeminiClient:
             "confidence": 0.5
         }
 
-    async def receive_completion(self, prompt: str, operation: str = "general") -> Dict[str, Any]:
+    def receive_completion(self, prompt: str, operation: str = "general") -> Dict[str, Any]:
         """Mock receive_completion method to match LLMClient interface.
 
-        This method wraps classify_email to provide compatibility with
-        the real LLMClient API which uses receive_completion for structured responses.
+        IMPORTANT: This is a SYNCHRONOUS method to match the real LLMClient API.
+        The real LLMClient.receive_completion is sync, not async.
+
+        This method provides deterministic classification responses based on
+        email content patterns, without making real API calls.
 
         Args:
             prompt: Prompt to send to the LLM
@@ -144,8 +147,71 @@ class MockGeminiClient:
         Returns:
             dict: Classification response matching classify_email format
         """
-        # Call classify_email with await since we're in async context
-        return await self.classify_email(prompt)
+        # Track call for assertions
+        self.calls.append({
+            "method": "receive_completion",
+            "prompt": prompt,
+            "operation": operation
+        })
+
+        # Handle failure mode
+        self._current_call_count += 1
+        if self._failure_exception and self._current_call_count <= self._failure_count:
+            raise self._failure_exception
+
+        # Check for custom responses first
+        for pattern, response in self._custom_responses.items():
+            if pattern in prompt.lower():
+                return response
+
+        # Deterministic responses based on content patterns
+        if "finanzamt" in prompt.lower() or "tax" in prompt.lower():
+            return {
+                "suggested_folder": "Government",
+                "reasoning": "Email from tax office regarding official tax documents",
+                "priority_score": 85,
+                "confidence": 0.92
+            }
+
+        if "auslaenderbehoerde" in prompt.lower() or "immigration" in prompt.lower():
+            return {
+                "suggested_folder": "Government",
+                "reasoning": "Email from immigration office",
+                "priority_score": 80,
+                "confidence": 0.90
+            }
+
+        if "client" in prompt.lower() or "project" in prompt.lower():
+            return {
+                "suggested_folder": "Clients",
+                "reasoning": "Email related to client projects",
+                "priority_score": 70,
+                "confidence": 0.85
+            }
+
+        if "newsletter" in prompt.lower() or "unsubscribe" in prompt.lower():
+            return {
+                "suggested_folder": "Newsletters",
+                "reasoning": "Marketing or newsletter email",
+                "priority_score": 20,
+                "confidence": 0.75
+            }
+
+        if "urgent" in prompt.lower() or "wichtig" in prompt.lower():
+            return {
+                "suggested_folder": "Government",
+                "reasoning": "Urgent email requiring immediate attention",
+                "priority_score": 90,
+                "confidence": 0.88
+            }
+
+        # Default: unclassified
+        return {
+            "suggested_folder": "Unclassified",
+            "reasoning": "Unable to determine specific category",
+            "priority_score": 50,
+            "confidence": 0.5
+        }
 
     def get_call_count(self) -> int:
         """Return total number of API calls made."""

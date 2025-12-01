@@ -36,6 +36,8 @@ class IndexingProgress(BaseModel, table=True):
         status: Current indexing status (in_progress/completed/failed/paused)
         error_message: Error details if status is failed
         last_processed_message_id: Gmail message ID of last processed email (checkpoint)
+        retry_count: Number of retry attempts for failed indexing (0 initially)
+        retry_after: Timestamp when retry is allowed (exponential backoff)
         started_at: When indexing job started (inherited from BaseModel as created_at)
         completed_at: When indexing job completed (null if in progress)
         user: Relationship to User model
@@ -53,6 +55,10 @@ class IndexingProgress(BaseModel, table=True):
     status: IndexingStatus = Field(default=IndexingStatus.IN_PROGRESS, nullable=False)
     error_message: Optional[str] = Field(default=None, sa_column=Column(Text))
     last_processed_message_id: Optional[str] = Field(default=None, max_length=255)
+    retry_count: int = Field(default=0, nullable=False)
+    retry_after: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
     completed_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True))
     )

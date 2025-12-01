@@ -41,7 +41,6 @@ async def test_user(db_session: AsyncSession) -> User:
 
     user.gmail_oauth_token = access_token
     user.gmail_refresh_token = refresh_token
-    user.gmail_connected_at = datetime.utcnow()
 
     db_session.add(user)
     await db_session.commit()
@@ -79,7 +78,7 @@ async def authenticated_client(test_user: User) -> AsyncGenerator[AsyncClient, N
     app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_gmail_service():
     """Create a mock Gmail API service for testing.
 
@@ -90,7 +89,7 @@ def mock_gmail_service():
 
     # Mock messages().send() endpoint
     mock_send = Mock()
-    mock_send.execute = AsyncMock(
+    mock_send.execute = Mock(
         return_value={
             "id": "18abc123def456",
             "threadId": "thread_abc123",
@@ -100,7 +99,7 @@ def mock_gmail_service():
 
     # Mock threads().get() endpoint
     mock_thread = Mock()
-    mock_thread.execute = AsyncMock(
+    mock_thread.execute = Mock(
         return_value={
             "id": "thread_abc123",
             "messages": [
@@ -210,7 +209,7 @@ async def test_send_email_with_thread_reply(
 
     # Verify threads.get() was called to retrieve message IDs
     mock_gmail_service.users().threads().get.assert_called_once_with(
-        userId="me", id="thread_abc123"
+        userId="me", id="thread_abc123", format="metadata"
     )
 
     # Verify Gmail API send called with MIME message
@@ -281,7 +280,7 @@ async def test_send_email_invalid_recipient(
         resp=Mock(status=400),
         content=b'{"error": {"message": "Invalid recipient"}}',
     )
-    mock_send.execute = AsyncMock(side_effect=http_error)
+    mock_send.execute = Mock(side_effect=http_error)
     mock_service.users().messages().send.return_value = mock_send
 
     with patch.object(GmailClient, "_get_gmail_service", return_value=mock_service):
@@ -326,7 +325,7 @@ async def test_send_email_quota_exceeded(
         resp=Mock(status=429),
         content=b'{"error": {"message": "Quota exceeded"}}',
     )
-    mock_send.execute = AsyncMock(side_effect=http_error)
+    mock_send.execute = Mock(side_effect=http_error)
     mock_service.users().messages().send.return_value = mock_send
 
     with patch.object(GmailClient, "_get_gmail_service", return_value=mock_service):
@@ -370,7 +369,7 @@ async def test_send_email_message_too_large(
         resp=Mock(status=413),
         content=b'{"error": {"message": "Message too large"}}',
     )
-    mock_send.execute = AsyncMock(side_effect=http_error)
+    mock_send.execute = Mock(side_effect=http_error)
     mock_service.users().messages().send.return_value = mock_send
 
     with patch.object(GmailClient, "_get_gmail_service", return_value=mock_service):
@@ -421,7 +420,7 @@ async def test_send_email_invalid_body_type(
 
 
 @pytest.mark.asyncio
-async def test_send_email_unauthenticated(authenticated_client: AsyncClient):
+async def test_send_email_unauthenticated():
     """Integration test: Require JWT authentication.
 
     Tests:
@@ -430,6 +429,9 @@ async def test_send_email_unauthenticated(authenticated_client: AsyncClient):
 
     AC Coverage: AC#8 (security requirement)
     """
+    # Clear any dependency overrides from previous tests
+    app.dependency_overrides.clear()
+
     # Create client without authentication
     transport = ASGITransport(app=app)
     async with AsyncClient(
@@ -451,7 +453,7 @@ async def test_send_email_unauthenticated(authenticated_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-@patch("app.core.logging.logger")
+@patch("app.api.v1.test.logger")
 async def test_send_email_logging(
     mock_logger,
     authenticated_client: AsyncClient,

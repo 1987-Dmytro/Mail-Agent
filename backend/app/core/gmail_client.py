@@ -308,13 +308,16 @@ class GmailClient:
 
                 # Non-retryable error or retries exhausted
                 else:
-                    self.logger.error(
-                        "gmail_api_error",
-                        user_id=self.user_id,
-                        status=status,
-                        error=str(e),
-                        exc_info=True,
-                    )
+                    # 409 Conflict is handled gracefully by callers (e.g., create_label)
+                    # Don't log as ERROR since it's expected when labels already exist
+                    if status != 409:
+                        self.logger.error(
+                            "gmail_api_error",
+                            user_id=self.user_id,
+                            status=status,
+                            error=str(e),
+                            exc_info=True,
+                        )
                     raise
 
         # Should not reach here, but raise last exception if we do
@@ -1054,7 +1057,7 @@ class GmailClient:
 
         # Get user's email for From header
         # Load user from database to get email address
-        async with self.db_service.get_session() as session:
+        async with self.db_service.async_session() as session:
             from app.models.user import User
             from sqlmodel import select
 

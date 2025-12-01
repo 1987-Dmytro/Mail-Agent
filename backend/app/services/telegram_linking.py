@@ -7,6 +7,8 @@ from typing import Any
 
 import structlog
 from sqlmodel import Session, select
+from sqlalchemy import select as sa_select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.linking_codes import LinkingCode
 from app.models.user import User
@@ -151,16 +153,20 @@ def link_telegram_account(
         ).first()
 
         if existing_user and existing_user.id != code_record.user_id:
-            logger.warning(
-                "telegram_id_already_linked",
+            # Unlink Telegram from old user and link to new user
+            logger.info(
+                "telegram_relinking_from_old_user",
                 telegram_id=telegram_id,
-                existing_user_id=existing_user.id,
-                attempted_user_id=code_record.user_id
+                old_user_id=existing_user.id,
+                old_user_email=existing_user.email,
+                new_user_id=code_record.user_id
             )
-            return {
-                "success": False,
-                "error": "This Telegram account is already linked to another Mail Agent account."
-            }
+            # Unlink from old user
+            existing_user.telegram_id = None
+            existing_user.telegram_username = None
+            existing_user.telegram_linked_at = None
+            db.add(existing_user)
+            db.commit()
 
         # Link telegram_id to user (AC #5, #9)
         user = db.exec(
@@ -208,6 +214,157 @@ def link_telegram_account(
 
     except Exception as e:
         db.rollback()
+        logger.error(
+            "telegram_linking_failed",
+            telegram_id=telegram_id,
+            code=code,
+            error=str(e),
+            exc_info=True
+        )
+        return {
+            "success": False,
+            "error": "An error occurred during linking. Please try again."
+        }
+
+
+async def link_telegram_account_async(
+    telegram_id: str,
+    telegram_username: str | None,
+    code: str,
+    db: AsyncSession
+) -> dict[str, Any]:
+    """Async version: Validate linking code and associate telegram_id with user account.
+
+    Story 5-2: This async version is needed for Telegram handlers which run in async context.
+
+    Args:
+        telegram_id: Telegram user ID (from update.effective_user.id)
+        telegram_username: Telegram username (optional)
+        code: 6-character linking code to validate
+        db: AsyncSession database session
+
+    Returns:
+        dict: Result with 'success' (bool) and either 'message' or 'error' key
+    """
+    try:
+        # Normalize code to uppercase for case-insensitive matching
+        code = code.upper()
+
+        # Find linking code
+        result = await db.execute(
+            sa_select(LinkingCode).where(LinkingCode.code == code)
+        )
+        code_record = result.scalar_one_or_none()
+
+        # Validation: Code not found
+        if not code_record:
+            logger.warning(
+                "linking_code_not_found",
+                telegram_id=telegram_id,
+                code=code
+            )
+            return {
+                "success": False,
+                "error": "Invalid linking code. Please check and try again."
+            }
+
+        # Validation: Code already used
+        if code_record.used:
+            logger.warning(
+                "linking_code_already_used",
+                telegram_id=telegram_id,
+                code=code,
+                user_id=code_record.user_id
+            )
+            return {
+                "success": False,
+                "error": "This code has already been used. Generate a new code."
+            }
+
+        # Validation: Code expired
+        expires_at = code_record.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+
+        if datetime.now(UTC) > expires_at:
+            logger.warning(
+                "linking_code_expired",
+                telegram_id=telegram_id,
+                code=code,
+                expires_at=code_record.expires_at.isoformat()
+            )
+            return {
+                "success": False,
+                "error": "This code has expired. Generate a new code (codes expire after 15 minutes)."
+            }
+
+        # Check if telegram_id already linked to another user
+        result = await db.execute(
+            sa_select(User).where(User.telegram_id == telegram_id)
+        )
+        existing_user = result.scalar_one_or_none()
+
+        if existing_user and existing_user.id != code_record.user_id:
+            # Unlink Telegram from old user and link to new user
+            logger.info(
+                "telegram_relinking_from_old_user",
+                telegram_id=telegram_id,
+                old_user_id=existing_user.id,
+                old_user_email=existing_user.email,
+                new_user_id=code_record.user_id
+            )
+            # Unlink from old user
+            existing_user.telegram_id = None
+            existing_user.telegram_username = None
+            existing_user.telegram_linked_at = None
+            await db.commit()
+
+        # Get user to link
+        result = await db.execute(
+            sa_select(User).where(User.id == code_record.user_id)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            logger.error(
+                "user_not_found_for_linking_code",
+                user_id=code_record.user_id,
+                code=code
+            )
+            return {
+                "success": False,
+                "error": "An error occurred during linking. Please try again."
+            }
+
+        # Update user with Telegram information
+        user.telegram_id = telegram_id
+        user.telegram_username = telegram_username
+        user.telegram_linked_at = datetime.now(UTC)
+
+        # Mark code as used
+        code_record.used = True
+
+        await db.commit()
+
+        logger.info(
+            "telegram_account_linked",
+            user_id=user.id,
+            telegram_id=telegram_id,
+            telegram_username=telegram_username,
+            code=code
+        )
+
+        return {
+            "success": True,
+            "message": (
+                "✅ Your Telegram account has been linked successfully!\n\n"
+                "You'll receive email notifications here. "
+                "You can start approving sorting proposals and response drafts right from this chat."
+            )
+        }
+
+    except Exception as e:
+        await db.rollback()
         logger.error(
             "telegram_linking_failed",
             telegram_id=telegram_id,

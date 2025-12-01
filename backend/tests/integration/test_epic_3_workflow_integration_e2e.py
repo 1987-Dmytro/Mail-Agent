@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../mocks'))
 from gemini_mock import MockGeminiClient
 from gmail_mock import MockGmailClient
 from telegram_mock import MockTelegramBot
+from app.core.encryption import encrypt_token
 
 
 # ========================================
@@ -39,10 +40,34 @@ from telegram_mock import MockTelegramBot
 # ========================================
 
 @pytest_asyncio.fixture
-async def test_folder(db_session: AsyncSession, test_user: User) -> FolderCategory:
+async def test_user_with_tokens(db_session: AsyncSession) -> User:
+    """Create a test user with Gmail OAuth tokens for e2e workflow tests."""
+    access_token = encrypt_token("test_access_token_e2e")
+    refresh_token = encrypt_token("test_refresh_token_e2e")
+
+    user = User(
+        email="e2e_test@gmail.com",
+        is_active=True,
+        telegram_id="123456789",
+        telegram_username="testuser",
+        telegram_linked_at=datetime.now(UTC),
+        gmail_oauth_token=access_token,
+        gmail_refresh_token=refresh_token,
+        gmail_connected_at=datetime.now(UTC),
+        created_at=datetime.now(UTC),
+    )
+
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_folder(db_session: AsyncSession, test_user_with_tokens: User) -> FolderCategory:
     """Create test folder category."""
     folder = FolderCategory(
-        user_id=test_user.id,
+        user_id=test_user_with_tokens.id,
         name="Work",
         gmail_label_id="Label_Work_123",
         keywords=["project", "meeting"],
@@ -67,8 +92,12 @@ class TestConditionalWorkflowRouting:
     async def test_needs_response_workflow_path(
         self,
         db_session: AsyncSession,
-        test_user: User,
-        test_folder: FolderCategory
+        workflow_db_session_factory,
+        test_user_with_tokens: User,
+        test_folder: FolderCategory,
+        mock_context_service,
+        mock_embedding_service,
+        mock_vector_db_client
     ):
         """Test complete workflow execution for emails needing responses (AC #7).
 
@@ -87,7 +116,7 @@ class TestConditionalWorkflowRouting:
         """
         # Arrange - Create test email requiring response
         test_email = EmailProcessingQueue(
-            user_id=test_user.id,
+            user_id=test_user_with_tokens.id,
             gmail_message_id="msg_question_123",
             gmail_thread_id="thread_question_123",
             sender="colleague@example.com",
@@ -140,16 +169,19 @@ class TestConditionalWorkflowRouting:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
+                context_service=mock_context_service,
+                embedding_service=mock_embedding_service,
+                vector_db_client=mock_vector_db_client,
             )
 
             # Create initial state
             initial_state: EmailWorkflowState = {
                 "email_id": str(test_email.id),
-                "user_id": str(test_user.id),
+                "user_id": str(test_user_with_tokens.id),
                 "thread_id": thread_id,
                 "email_content": test_email.subject or "",  # Use subject as content
                 "sender": test_email.sender,
@@ -225,8 +257,12 @@ class TestConditionalWorkflowRouting:
     async def test_sort_only_workflow_path(
         self,
         db_session: AsyncSession,
-        test_user: User,
-        test_folder: FolderCategory
+        workflow_db_session_factory,
+        test_user_with_tokens: User,
+        test_folder: FolderCategory,
+        mock_context_service,
+        mock_embedding_service,
+        mock_vector_db_client
     ):
         """Test complete workflow execution for sort-only emails (AC #8).
 
@@ -244,7 +280,7 @@ class TestConditionalWorkflowRouting:
         """
         # Arrange - Create newsletter email (sort-only)
         test_email = EmailProcessingQueue(
-            user_id=test_user.id,
+            user_id=test_user_with_tokens.id,
             gmail_message_id="msg_newsletter_789",
             gmail_thread_id="thread_newsletter_789",
             sender="newsletter@company.com",
@@ -297,16 +333,19 @@ class TestConditionalWorkflowRouting:
 
             workflow = create_email_workflow(
                 checkpointer=memory_checkpointer,
-                db_session=db_session,
+                db_session_factory=workflow_db_session_factory,
                 gmail_client=mock_gmail,
                 llm_client=mock_gemini,
                 telegram_client=mock_telegram,
+                context_service=mock_context_service,
+                embedding_service=mock_embedding_service,
+                vector_db_client=mock_vector_db_client,
             )
 
             # Create initial state
             initial_state: EmailWorkflowState = {
                 "email_id": str(test_email.id),
-                "user_id": str(test_user.id),
+                "user_id": str(test_user_with_tokens.id),
                 "thread_id": thread_id,
                 "email_content": test_email.subject or "",  # Use subject as content
                 "sender": test_email.sender,

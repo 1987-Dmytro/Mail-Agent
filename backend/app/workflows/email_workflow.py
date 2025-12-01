@@ -5,10 +5,11 @@ checkpoint storage, enabling workflow pause/resume across service restarts
 and asynchronous user interactions.
 
 Key Features:
-    - StateGraph: Directed workflow with 7 nodes
+    - StateGraph: Directed workflow with 8 nodes
     - PostgreSQL Checkpointing: State persisted after every node execution
     - Pause/Resume: Workflow pauses at await_approval, resumes hours/days later
     - Thread Tracking: Each workflow instance identified by unique thread_id
+    - Unified Email Sending: Email responses integrated into main workflow
 
 Workflow Flow:
     START
@@ -19,11 +20,19 @@ Workflow Flow:
       ↓
     detect_priority (Priority detection - Story 2.9)
       ↓
+    {CONDITIONAL ROUTING based on classification}
+      ↓
+    needs_response: generate_response (Draft AI response with RAG context)
+      ↓
+    sort_only: (skip response generation)
+      ↓
     send_telegram (Send approval request or batch)
       ↓
     await_approval (⚠️ PAUSE - State saved to PostgreSQL)
       ↓
     (User responds via Telegram, workflow resumes from checkpoint - Story 2.7)
+      ↓
+    send_email_response (Send AI-generated email if needs_response + approved)
       ↓
     execute_action (Apply Gmail label)
       ↓
@@ -65,6 +74,7 @@ from app.workflows.nodes import (
     send_telegram,
     draft_response,
     await_approval,
+    send_email_response,  # New node for sending email responses
     execute_action,
     send_confirmation,
 )
@@ -125,12 +135,99 @@ def route_by_classification(state: EmailWorkflowState) -> str:
     return classification
 
 
+def route_after_approval(state: EmailWorkflowState) -> str:
+    """Conditional edge function to route workflow after user approval (Story 1.2).
+
+    Routes emails based on classification AND user approval decision:
+    - "needs_response" + "approve" → send_email_response (send AI response)
+    - "sort_only" + "approve" → execute_action (skip email sending)
+    - "reject" → send_confirmation (skip all actions, just confirm rejection)
+    - "change_folder" → execute_action (use selected_folder instead of proposed_folder)
+
+    This function fixes the critical business logic bug where ALL emails were being sent
+    email responses, even "sort_only" emails that should only be sorted.
+
+    Args:
+        state: Current EmailWorkflowState containing classification and user_decision
+
+    Returns:
+        str: Routing key for path_map - one of:
+            - "send_email" - Send email response then execute action
+            - "execute_only" - Execute action without sending email
+            - "reject" - Skip to confirmation
+
+    Example:
+        >>> state = EmailWorkflowState(
+        ...     classification="needs_response",
+        ...     user_decision="approve",
+        ...     ...
+        ... )
+        >>> route = route_after_approval(state)
+        >>> print(route)  # "send_email"
+
+        >>> state = EmailWorkflowState(
+        ...     classification="sort_only",
+        ...     user_decision="approve",
+        ...     ...
+        ... )
+        >>> route = route_after_approval(state)
+        >>> print(route)  # "execute_only"
+
+        >>> state = EmailWorkflowState(user_decision="reject", ...)
+        >>> route = route_after_approval(state)
+        >>> print(route)  # "reject"
+    """
+    classification = state.get("classification", "sort_only")
+    user_decision = state.get("user_decision", "approve")
+    email_id = state.get("email_id", "unknown")
+
+    # Handle rejection - skip all actions
+    if user_decision == "reject":
+        logger.info(
+            "workflow_routing_after_approval",
+            email_id=email_id,
+            classification=classification,
+            user_decision=user_decision,
+            next_node="send_confirmation",
+            reason="User rejected - skipping all actions"
+        )
+        return "reject"
+
+    # Handle folder change or approval
+    # For both "approve" and "change_folder", we need to apply the Gmail action
+    # But we only send email response if classification was "needs_response"
+    if classification == "needs_response":
+        logger.info(
+            "workflow_routing_after_approval",
+            email_id=email_id,
+            classification=classification,
+            user_decision=user_decision,
+            next_node="send_email_response",
+            reason="needs_response classification - will send email then execute action"
+        )
+        return "send_email"
+    else:
+        # sort_only - skip email sending, go straight to execute_action
+        logger.info(
+            "workflow_routing_after_approval",
+            email_id=email_id,
+            classification=classification,
+            user_decision=user_decision,
+            next_node="execute_action",
+            reason="sort_only classification - skipping email send"
+        )
+        return "execute_only"
+
+
 def create_email_workflow(
     checkpointer=None,
-    db_session=None,
+    db_session_factory=None,
     gmail_client=None,
     llm_client=None,
     telegram_client=None,
+    context_service=None,
+    embedding_service=None,
+    vector_db_client=None,
 ):
     """Create and compile the email classification workflow with PostgreSQL checkpointer.
 
@@ -139,17 +236,20 @@ def create_email_workflow(
     checkpointer to enable persistent state storage across service restarts.
 
     Workflow Architecture:
-        - Nodes: 7 workflow steps (extract, classify, detect_priority, telegram, await, execute, confirm)
-        - Edges: Sequential flow with pause at await_approval
+        - Nodes: 8 workflow steps (extract, classify, detect_priority, generate_response, telegram, await, send_email_response, execute, confirm)
+        - Edges: Sequential flow with conditional routing and pause at await_approval
         - Checkpointer: PostgreSQL storage for state persistence (or custom checkpointer for tests)
         - Thread ID: Unique identifier for each workflow instance
 
     Args:
         checkpointer: Optional checkpointer instance (MemorySaver for tests, None for production PostgreSQL)
-        db_session: Database session for node operations (required for tests, optional for production)
+        db_session_factory: AsyncSession factory for creating database sessions (required for tests, optional for production)
         gmail_client: Gmail API client instance (for tests/production)
         llm_client: LLM client instance for classification (for tests/production)
         telegram_client: Telegram bot client instance (for tests/production)
+        context_service: Optional ContextRetrievalService for response generation (for tests with mocks)
+        embedding_service: Optional EmbeddingService for context retrieval (for tests with mocks)
+        vector_db_client: Optional VectorDBClient for semantic search (for tests with mocks)
 
     Returns:
         CompiledGraph: Compiled LangGraph workflow ready for execution
@@ -164,9 +264,10 @@ def create_email_workflow(
         >>>
         >>> # Test usage with MemorySaver and mocks
         >>> from langgraph.checkpoint.memory import MemorySaver
+        >>> from sqlalchemy.ext.asyncio import async_sessionmaker
         >>> workflow = create_email_workflow(
         ...     checkpointer=MemorySaver(),
-        ...     db_session=mock_db,
+        ...     db_session_factory=async_sessionmaker(engine),
         ...     gmail_client=mock_gmail,
         ...     llm_client=mock_llm,
         ...     telegram_client=mock_telegram
@@ -217,17 +318,18 @@ def create_email_workflow(
     # For production: dependencies would be injected via DI container or created here
     # Note: Nodes are async functions, but LangGraph handles the async execution
 
-    if db_session and gmail_client and llm_client and telegram_client:
+    if db_session_factory and gmail_client and llm_client and telegram_client:
         # Test mode: bind mock dependencies
         logger.debug("binding_mock_dependencies_to_nodes")
-        workflow.add_node("extract_context", partial(extract_context, db=db_session, gmail_client=gmail_client))
-        workflow.add_node("classify", partial(classify, db=db_session, gmail_client=gmail_client, llm_client=llm_client))
-        workflow.add_node("detect_priority", partial(detect_priority, db=db_session))
-        workflow.add_node("generate_response", partial(draft_response, db=db_session))  # Story 3.11 - AC #3
-        workflow.add_node("send_telegram", partial(send_telegram, db=db_session, telegram_bot_client=telegram_client))
+        workflow.add_node("extract_context", partial(extract_context, db_factory=db_session_factory, gmail_client=gmail_client))
+        workflow.add_node("classify", partial(classify, db_factory=db_session_factory, gmail_client=gmail_client, llm_client=llm_client))
+        workflow.add_node("detect_priority", partial(detect_priority, db_factory=db_session_factory))
+        workflow.add_node("generate_response", partial(draft_response, db_factory=db_session_factory, context_service=context_service, embedding_service=embedding_service, vector_db_client=vector_db_client, gmail_client=gmail_client))  # Story 3.11 - AC #3
+        workflow.add_node("send_telegram", partial(send_telegram, db_factory=db_session_factory, telegram_bot_client=telegram_client))
         workflow.add_node("await_approval", await_approval)  # No dependencies needed
-        workflow.add_node("execute_action", partial(execute_action, db=db_session, gmail_client=gmail_client))
-        workflow.add_node("send_confirmation", partial(send_confirmation, db=db_session, telegram_bot_client=telegram_client))
+        workflow.add_node("send_email_response", partial(send_email_response, db_factory=db_session_factory, gmail_client=gmail_client))
+        workflow.add_node("execute_action", partial(execute_action, db_factory=db_session_factory, gmail_client=gmail_client))
+        workflow.add_node("send_confirmation", partial(send_confirmation, db_factory=db_session_factory, telegram_bot_client=telegram_client))
     else:
         # Production mode: nodes will get dependencies from global/DI container
         # TODO: Implement proper dependency injection for production
@@ -238,6 +340,7 @@ def create_email_workflow(
         workflow.add_node("generate_response", draft_response)  # Story 3.11 - AC #3
         workflow.add_node("send_telegram", send_telegram)
         workflow.add_node("await_approval", await_approval)
+        workflow.add_node("send_email_response", send_email_response)
         workflow.add_node("execute_action", execute_action)
         workflow.add_node("send_confirmation", send_confirmation)
 
@@ -247,11 +350,12 @@ def create_email_workflow(
 
     # Sequential edges up to conditional routing
     workflow.add_edge("extract_context", "classify")
+    workflow.add_edge("classify", "detect_priority")  # Story 5-3: Add detect_priority to workflow
 
     # Conditional routing based on classification (Story 3.11 - AC #4, #5)
-    # classify → route_by_classification → {needs_response: generate_response, sort_only: send_telegram}
+    # detect_priority → route_by_classification → {needs_response: generate_response, sort_only: send_telegram}
     workflow.add_conditional_edges(
-        "classify",
+        "detect_priority",  # Story 5-3: Route from detect_priority (was: classify)
         route_by_classification,
         {
             "needs_response": "generate_response",
@@ -265,13 +369,25 @@ def create_email_workflow(
     # Continue to await_approval (workflow pauses here)
     workflow.add_edge("send_telegram", "await_approval")
 
-    # CRITICAL: await_approval node does NOT add edges
-    # This causes the workflow to pause and save state to PostgreSQL
-    # Resumption will be handled in Story 2.7 via Telegram callback
+    # Conditional routing after user approval (Story 1.2)
+    # Route based on classification AND user decision
+    workflow.add_conditional_edges(
+        "await_approval",
+        route_after_approval,
+        {
+            "send_email": "send_email_response",  # needs_response + approved → send email
+            "execute_only": "execute_action",     # sort_only + approved → skip email
+            "reject": "send_confirmation",         # rejected → skip all actions
+        }
+    )
 
-    # Edges after resumption (Story 2.7 will trigger execute_action)
-    # These edges will be traversed when workflow resumes from checkpoint
+    # send_email_response → execute_action (for needs_response emails)
+    workflow.add_edge("send_email_response", "execute_action")
+
+    # execute_action → send_confirmation (for all approved emails)
     workflow.add_edge("execute_action", "send_confirmation")
+
+    # send_confirmation → END (workflow complete)
     workflow.add_edge("send_confirmation", END)
 
     # Compile workflow with checkpointer
@@ -281,7 +397,7 @@ def create_email_workflow(
 
     logger.info(
         "workflow_compiled_successfully",
-        node_count=7,
+        node_count=8,
         checkpointer="PostgreSQL",
         pause_point="await_approval",
     )

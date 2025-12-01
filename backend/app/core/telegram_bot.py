@@ -7,7 +7,7 @@ and command/callback handling.
 
 import structlog
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.error import Forbidden, NetworkError, TelegramError, TimedOut
+from telegram.error import BadRequest, Forbidden, NetworkError, TelegramError, TimedOut
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler
 
 from app.core.config import settings
@@ -210,9 +210,11 @@ class TelegramBotClient:
         Does NOT retry for permanent errors (403 Forbidden - user blocked bot).
         Auto-truncates messages exceeding 4000 characters.
 
+        Epic 1 - Story 1.1: Implements markdown escaping with fallback to plain text.
+
         Args:
             telegram_id: Telegram user ID (chat_id)
-            text: Message text (supports Markdown formatting)
+            text: Message text (will be escaped for MarkdownV2)
             buttons: 2D list of InlineKeyboardButton objects
                     Each inner list represents a row of buttons
             user_id: Optional database user_id for enhanced logging
@@ -233,6 +235,8 @@ class TelegramBotClient:
             raise ValueError(f"Invalid telegram_id format: '{telegram_id}'. Must contain only digits.")
 
         # Auto-truncate long messages (Story 2.11 - AC #2)
+        from app.utils.telegram_markdown import escape_markdown, strip_markdown
+
         original_length = len(text)
         if len(text) > 4096:
             # Truncate to 4000 chars with "..." indicator (leave buffer)
@@ -244,20 +248,24 @@ class TelegramBotClient:
                 truncated_length=len(text),
             )
 
-        async def _send():
-            reply_markup = InlineKeyboardMarkup(buttons)
-            return await self.bot.send_message(
-                chat_id=telegram_id,
-                text=text,
-                reply_markup=reply_markup,
-                parse_mode="Markdown",
-                disable_web_page_preview=True,
-            )
+        # Story 1.1: Try MarkdownV2 with proper escaping first, fallback to plain text
+        reply_markup = InlineKeyboardMarkup(buttons)
 
+        # FALLBACK LEVEL 1: Try with escaped MarkdownV2
         try:
-            # Check for user blocked scenario first (permanent error, no retry)
+            escaped_text = escape_markdown(text, version=2)
+
+            async def _send_markdown():
+                return await self.bot.send_message(
+                    chat_id=telegram_id,
+                    text=escaped_text,
+                    reply_markup=reply_markup,
+                    parse_mode="MarkdownV2",
+                    disable_web_page_preview=True,
+                )
+
             try:
-                message = await execute_with_retry(_send)
+                message = await execute_with_retry(_send_markdown)
 
                 logger.info(
                     "telegram_message_with_buttons_sent",
@@ -265,6 +273,7 @@ class TelegramBotClient:
                     user_id=user_id,
                     message_id=message.message_id,
                     button_count=sum(len(row) for row in buttons),
+                    parse_mode="MarkdownV2",
                     operation="send_message_with_buttons",
                 )
 
@@ -273,14 +282,6 @@ class TelegramBotClient:
             except Forbidden as e:
                 # User blocked bot - permanent error, do NOT retry
                 logger.error(
-                    "telegram_api_error",
-                    telegram_id=telegram_id,
-                    user_id=user_id,
-                    error_type="forbidden",
-                    error_message=str(e),
-                    operation="send_message_with_buttons",
-                )
-                logger.error(
                     "telegram_user_blocked_bot",
                     telegram_id=telegram_id,
                     user_id=user_id,
@@ -288,10 +289,62 @@ class TelegramBotClient:
                 )
                 raise TelegramUserBlockedError(f"User {telegram_id} has blocked the bot") from e
 
-        except (NetworkError, TimedOut, TelegramSendError) as e:
+            except BadRequest as e:
+                # Markdown parsing error - try fallback to plain text
+                if "can't parse entities" in str(e).lower() or "can't find end" in str(e).lower():
+                    logger.warning(
+                        "telegram_markdown_parsing_failed_fallback_to_plain",
+                        telegram_id=telegram_id,
+                        user_id=user_id,
+                        error=str(e),
+                        fallback="plain_text",
+                    )
+                    # FALLBACK LEVEL 2: Plain text without markdown
+                    plain_text = strip_markdown(text)
+
+                    async def _send_plain():
+                        return await self.bot.send_message(
+                            chat_id=telegram_id,
+                            text=plain_text,
+                            reply_markup=reply_markup,
+                            parse_mode=None,  # No markdown
+                            disable_web_page_preview=True,
+                        )
+
+                    try:
+                        message = await execute_with_retry(_send_plain)
+
+                        logger.info(
+                            "telegram_message_with_buttons_sent_plain_text_fallback",
+                            telegram_id=telegram_id,
+                            user_id=user_id,
+                            message_id=message.message_id,
+                            button_count=sum(len(row) for row in buttons),
+                            parse_mode=None,
+                            operation="send_message_with_buttons",
+                        )
+
+                        return str(message.message_id)
+
+                    except Exception as plain_error:
+                        # Plain text also failed - propagate error
+                        logger.error(
+                            "telegram_plain_text_fallback_failed",
+                            telegram_id=telegram_id,
+                            user_id=user_id,
+                            error=str(plain_error),
+                        )
+                        raise TelegramSendError(
+                            f"Failed to send message to {telegram_id} (both MarkdownV2 and plain text failed)"
+                        ) from plain_error
+                else:
+                    # Other BadRequest error, not markdown related
+                    raise
+
+        except (NetworkError, TimedOut) as e:
             # Retries exhausted for transient errors
             logger.error(
-                "telegram_api_error",
+                "telegram_api_error_network_timeout",
                 telegram_id=telegram_id,
                 user_id=user_id,
                 error_type=type(e).__name__,
@@ -301,10 +354,18 @@ class TelegramBotClient:
             )
             raise TelegramSendError(f"Failed to send message to {telegram_id} after retries: {str(e)}") from e
 
+        except TelegramUserBlockedError:
+            # Re-raise user blocked error (already logged above)
+            raise
+
+        except TelegramSendError:
+            # Re-raise send errors (already logged above)
+            raise
+
         except TelegramError as e:
             # Other Telegram errors
             logger.error(
-                "telegram_api_error",
+                "telegram_api_error_other",
                 telegram_id=telegram_id,
                 user_id=user_id,
                 error_type=type(e).__name__,
@@ -352,7 +413,8 @@ class TelegramBotClient:
                 chat_id=telegram_id,
                 message_id=int(message_id),
                 text=text,
-                parse_mode="Markdown",
+                # NOTE: No parse_mode - using plain text to avoid parsing errors
+                # with special characters in sender/subject fields
                 disable_web_page_preview=True,
             )
 

@@ -139,38 +139,22 @@ function GmailConnectContent({ onSuccess, onError, onNavigate, onSkip }: GmailCo
    * If authenticated, skip OAuth flow and show success state immediately (AC: 6)
    */
   useEffect(() => {
-    // CRITICAL FIX: Check token directly from localStorage FIRST
-    const token = localStorage.getItem('auth_token');
-    if (token && state === 'initial') {
-      console.log('Token found in localStorage, showing success state');
-      setState('success');
-
-      // Try to get email from API or fallback to localStorage
-      if (isAuthenticated && authUser?.gmail_connected) {
-        setUserEmail(authUser.email);
-      }
-
-      // Call onSuccess to update wizard state
-      if (onSuccess) {
-        onSuccess();
-      }
-      return;
-    }
-
     if (authLoading) return;
 
+    // Check if user is authenticated AND has Gmail OAuth tokens
     if (isAuthenticated && authUser?.gmail_connected && state === 'initial') {
+      console.log('Gmail already connected, showing success state');
       setUserEmail(authUser.email);
       setState('success');
 
-      // CRITICAL FIX: Call onSuccess to update wizard state and allow step advancement
+      // Call onSuccess to update wizard state and allow step advancement
       if (onSuccess) {
         onSuccess();
       }
 
       return;
     }
-  }, [isAuthenticated, authLoading, authUser, state]);
+  }, [isAuthenticated, authLoading, authUser, state, onSuccess]);
 
   /**
    * Check for OAuth callback params on component mount

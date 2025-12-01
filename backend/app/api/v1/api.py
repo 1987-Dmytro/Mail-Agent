@@ -14,6 +14,7 @@ from app.api.v1.test import router as test_router
 from app.api.v1.stats import router as stats_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.users import router as users_router
+from app.api.v1.dashboard import router as dashboard_router
 # NOTE: Chatbot router includes LangGraph components, deferred to Epic 2
 # from app.api.v1.chatbot import router as chatbot_router
 from app.core.logging import logger
@@ -29,6 +30,7 @@ api_router.include_router(telegram_router, prefix="/telegram", tags=["telegram"]
 api_router.include_router(test_router, prefix="/test", tags=["test"])
 api_router.include_router(stats_router, prefix="/stats", tags=["stats"])
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
+api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 # NOTE: Chatbot router deferred to Epic 2 (LangGraph workflows for AI email classification)
 # api_router.include_router(chatbot_router, prefix="/chatbot", tags=["chatbot"])
 

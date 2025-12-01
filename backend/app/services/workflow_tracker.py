@@ -19,7 +19,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from app.workflows.states import EmailWorkflowState
 from app.workflows import nodes
@@ -75,51 +75,58 @@ class WorkflowInstanceTracker:
         self.llm_client = llm_client
         self.telegram_bot_client = telegram_bot_client
 
-        # Initialize PostgreSQL checkpointer for workflow state persistence
+        # Store checkpoint URL for later use with async context manager
         # Convert psycopg:// to postgresql:// for PostgresSaver compatibility
         if database_url.startswith("postgresql+psycopg://"):
-            checkpoint_url = database_url.replace("postgresql+psycopg://", "postgresql://")
+            self.checkpoint_url = database_url.replace("postgresql+psycopg://", "postgresql://")
         else:
-            checkpoint_url = database_url
-
-        self.checkpointer = PostgresSaver.from_conn_string(
-            conn_string=checkpoint_url,
-            sync=False,  # Async mode for FastAPI
-        )
+            self.checkpoint_url = database_url
 
         logger.debug("workflow_tracker_initialized", checkpointer="PostgreSQL")
 
-    def _build_workflow(self) -> StateGraph:
+    def _build_workflow(self, checkpointer) -> StateGraph:
         """Build LangGraph workflow with dependency-injected nodes.
 
         This method creates a StateGraph with nodes that have dependencies bound
-        using functools.partial. This allows nodes to access db, gmail_client,
+        using functools.partial. This allows nodes to access db_factory, gmail_client,
         and llm_client without violating LangGraph's state-only parameter model.
+
+        Args:
+            checkpointer: AsyncPostgresSaver instance for checkpoint persistence
 
         Returns:
             Compiled StateGraph ready for execution with checkpointing
 
         Example:
-            >>> tracker = WorkflowInstanceTracker(db, gmail, llm, db_url)
-            >>> workflow = tracker._build_workflow()
-            >>> result = await workflow.ainvoke(initial_state, config)
+            >>> async with AsyncPostgresSaver.from_conn_string(url) as checkpointer:
+            >>>     workflow = tracker._build_workflow(checkpointer)
+            >>>     result = await workflow.ainvoke(initial_state, config)
         """
         logger.debug("building_workflow_with_injected_dependencies")
 
         # Create workflow graph
         workflow = StateGraph(EmailWorkflowState)
 
+        # Create a db_factory that returns the same session wrapped in context manager
+        # Nodes expect: async with db_factory() as db:
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def db_factory():
+            """Context manager factory that yields the existing session."""
+            yield self.db
+
         # Bind dependencies to node functions using functools.partial
-        # This creates new functions with db, gmail_client, llm_client pre-filled
+        # This creates new functions with db_factory, gmail_client, llm_client pre-filled
         extract_context_with_deps = partial(
             nodes.extract_context,
-            db=self.db,
+            db_factory=db_factory,
             gmail_client=self.gmail_client,
         )
 
         classify_with_deps = partial(
             nodes.classify,
-            db=self.db,
+            db_factory=db_factory,
             gmail_client=self.gmail_client,
             llm_client=self.llm_client,
         )
@@ -127,21 +134,21 @@ class WorkflowInstanceTracker:
         # Bind dependencies for send_telegram node (Story 2.6)
         send_telegram_with_deps = partial(
             nodes.send_telegram,
-            db=self.db,
+            db_factory=db_factory,
             telegram_bot_client=self.telegram_bot_client,
         )
 
         # Bind dependencies for execute_action node (Story 2.7)
         execute_action_with_deps = partial(
             nodes.execute_action,
-            db=self.db,
+            db_factory=db_factory,
             gmail_client=self.gmail_client,
         )
 
         # Bind dependencies for send_confirmation node (Story 2.7)
         send_confirmation_with_deps = partial(
             nodes.send_confirmation,
-            db=self.db,
+            db_factory=db_factory,
             telegram_bot_client=self.telegram_bot_client,
         )
 
@@ -167,9 +174,14 @@ class WorkflowInstanceTracker:
         workflow.add_edge("send_confirmation", END)
 
         # Compile workflow with PostgreSQL checkpointer
-        app = workflow.compile(checkpointer=self.checkpointer)
+        # interrupt_before=["execute_action"] pauses workflow AFTER await_approval
+        # and BEFORE execute_action - waiting for user approval via Telegram callback
+        app = workflow.compile(
+            checkpointer=checkpointer,
+            interrupt_before=["execute_action"],
+        )
 
-        logger.debug("workflow_compiled_with_dependencies")
+        logger.debug("workflow_compiled_with_dependencies", interrupt_before=["execute_action"])
 
         return app
 
@@ -244,10 +256,7 @@ class WorkflowInstanceTracker:
             "error_message": None,
         }
 
-        # Step 3: Build workflow with dependency injection
-        workflow = self._build_workflow()
-
-        # Step 4: Invoke workflow asynchronously
+        # Step 3 & 4: Build and invoke workflow within async checkpointer context
         # Config specifies thread_id for checkpoint tracking
         config = {"configurable": {"thread_id": thread_id}}
 
@@ -258,28 +267,36 @@ class WorkflowInstanceTracker:
             note="Workflow will pause at await_approval node",
         )
 
-        try:
-            # Invoke workflow - runs until await_approval pauses execution
-            result_state = await workflow.ainvoke(initial_state, config=config)
+        # Use async context manager for PostgresSaver
+        async with AsyncPostgresSaver.from_conn_string(self.checkpoint_url) as checkpointer:
+            # Setup checkpoint tables if not exists (idempotent)
+            await checkpointer.setup()
 
-            logger.info(
-                "workflow_paused_at_await_approval",
-                email_id=email_id,
-                thread_id=thread_id,
-                proposed_folder=result_state.get("proposed_folder"),
-                priority_score=result_state.get("priority_score"),
-            )
+            # Build workflow with dependency injection and checkpointer
+            workflow = self._build_workflow(checkpointer)
 
-        except Exception as e:
-            logger.error(
-                "workflow_execution_failed",
-                email_id=email_id,
-                thread_id=thread_id,
-                error=str(e),
-            )
-            # Update EmailProcessingQueue status to "error"
-            await self._update_email_status(email_id, "error", error_message=str(e))
-            raise
+            try:
+                # Invoke workflow - runs until await_approval pauses execution
+                result_state = await workflow.ainvoke(initial_state, config=config)
+
+                logger.info(
+                    "workflow_paused_at_await_approval",
+                    email_id=email_id,
+                    thread_id=thread_id,
+                    proposed_folder=result_state.get("proposed_folder"),
+                    priority_score=result_state.get("priority_score"),
+                )
+
+            except Exception as e:
+                logger.error(
+                    "workflow_execution_failed",
+                    email_id=email_id,
+                    thread_id=thread_id,
+                    error=str(e),
+                )
+                # Update EmailProcessingQueue status to "error"
+                await self._update_email_status(email_id, "error", error_message=str(e))
+                raise
 
         # Step 5: Update EmailProcessingQueue with classification results
         await self._save_classification_results(email_id, result_state)

@@ -144,6 +144,39 @@ async def complete_onboarding(
             email=current_user.email,
         )
 
+        # Trigger backend automation tasks (Story 5-1)
+        # Import inside function to avoid circular imports
+        try:
+            from app.tasks.indexing_tasks import index_user_emails
+            index_user_emails.delay(user_id=current_user.id, days_back=90)
+            logger.info(
+                "indexing_task_triggered",
+                user_id=current_user.id,
+                days_back=90,
+            )
+        except Exception as task_error:
+            # Log but don't fail onboarding if task queue unavailable
+            logger.warning(
+                "indexing_task_trigger_failed",
+                user_id=current_user.id,
+                error=str(task_error),
+            )
+
+        try:
+            from app.tasks.email_tasks import poll_user_emails
+            poll_user_emails.delay(user_id=current_user.id)
+            logger.info(
+                "polling_task_triggered",
+                user_id=current_user.id,
+            )
+        except Exception as task_error:
+            # Log but don't fail onboarding if task queue unavailable
+            logger.warning(
+                "polling_task_trigger_failed",
+                user_id=current_user.id,
+                error=str(task_error),
+            )
+
         return {
             "success": True,
             "message": "Onboarding completed successfully",

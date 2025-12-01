@@ -541,31 +541,25 @@ class ApiClient {
    * Get dashboard statistics
    * Returns connection status, email processing stats, time saved metrics, and recent activity
    * Auto-refreshes every 30 seconds when used with SWR
+   *
+   * NOTE: Backend returns flat structure, not nested
    */
   async getDashboardStats() {
     return this.get<{
-      connections: {
-        gmail: {
-          connected: boolean;
-          last_sync?: string;
-          error?: string;
-        };
-        telegram: {
-          connected: boolean;
-          last_sync?: string;
-          error?: string;
-        };
-      };
-      email_stats: {
-        total_processed: number;
-        pending_approval: number;
-        auto_sorted: number;
-        responses_sent: number;
-      };
-      time_saved: {
-        today_minutes: number;
-        total_minutes: number;
-      };
+      // Flat structure - connection status at root level
+      gmail_connected: boolean;
+      telegram_connected: boolean;
+      // Vector database status
+      vector_db_connected: boolean;
+      // Flat structure - email stats at root level
+      total_processed: number;
+      pending_approval: number;
+      auto_sorted: number;
+      responses_sent: number;
+      // Time saved metrics
+      time_saved_today_minutes: number;
+      time_saved_total_minutes: number;
+      // Recent activity
       recent_activity: {
         id: number;
         type: 'sorted' | 'response_sent' | 'rejected';
@@ -573,8 +567,13 @@ class ApiClient {
         timestamp: string;
         folder_name?: string;
       }[];
-      rag_indexing_in_progress?: boolean;
-      rag_indexing_progress?: number;
+      // RAG indexing progress (email history indexing)
+      indexing_in_progress: boolean;
+      indexing_total_emails: number;
+      indexing_processed_count: number;
+      indexing_progress_percent: number;
+      indexing_status: string | null;
+      indexing_error: string | null;
     }>('/api/v1/dashboard/stats');
   }
 

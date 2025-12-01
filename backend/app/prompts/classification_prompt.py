@@ -79,7 +79,7 @@ def _format_folder_categories(user_folders: List[Dict]) -> str:
         Formatted string with folder categories (one per line with description)
     """
     if not user_folders:
-        return "- Unclassified: Emails that don't fit other categories"
+        return "- Important: Default folder for all emails"
 
     formatted = []
     for folder in user_folders:
@@ -87,8 +87,7 @@ def _format_folder_categories(user_folders: List[Dict]) -> str:
         description = folder.get('description', 'No description')
         formatted.append(f"- {name}: {description}")
 
-    # Always include Unclassified as fallback
-    formatted.append("- Unclassified: Emails that don't fit other categories")
+    # Note: No "Unclassified" fallback - LLM must always pick from user's actual folders
 
     return "\n".join(formatted)
 
@@ -111,9 +110,10 @@ Classify the email below into one of the user's predefined folder categories. Co
 - Time-sensitivity indicators
 
 **If the email doesn't clearly fit any category:**
-- Use "Unclassified" and explain why it's ambiguous
+- Choose the CLOSEST MATCHING folder from the user's categories above
 - Lower your confidence score (<0.7)
-- Mention what information would help classify it
+- Explain in reasoning why this was the best available option
+- NEVER use "Unclassified" - always pick one of the user's actual folders
 
 ---
 
@@ -158,7 +158,7 @@ Output:
   "confidence": 0.90
 }}
 
-Example 3: Newsletter (English)
+Example 3: Marketing Email (English)
 Input:
 From: newsletter@techcrunch.com
 Subject: TechCrunch Daily: Top tech news
@@ -166,10 +166,10 @@ Body: Welcome to TechCrunch Daily! Here are today's top stories...
 
 Output:
 {{
-  "suggested_folder": "Newsletters",
-  "reasoning": "Automated newsletter from TechCrunch with daily tech news digest",
+  "suggested_folder": "Important",
+  "reasoning": "Automated newsletter/marketing email. Classified as Important (lowest priority) since no dedicated newsletter folder exists",
   "priority_score": 10,
-  "confidence": 0.98
+  "confidence": 0.60
 }}
 
 Example 4: Unclear Email (Russian)
@@ -180,10 +180,10 @@ Body: Здравствуйте, мы бы хотели обсудить возм
 
 Output:
 {{
-  "suggested_folder": "Unclassified",
-  "reasoning": "Unknown sender proposing collaboration, requires user review to determine appropriate category",
+  "suggested_folder": "Clients",
+  "reasoning": "Unknown sender proposing business collaboration - best fits Clients folder as potential business inquiry. Low confidence due to unclear sender",
   "priority_score": 40,
-  "confidence": 0.50
+  "confidence": 0.45
 }}
 
 Example 5: Priority Government Email (German)
@@ -222,7 +222,8 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 - confidence (float): 0.0-1.0 scale (how certain you are about this classification)
 
 **Important:**
-- Ensure suggested_folder exactly matches one of the folder names provided
+- Ensure suggested_folder exactly matches one of the folder names provided above
+- NEVER use "Unclassified" or any folder name not in the user's list - always pick the best matching folder
 - Keep reasoning under 300 characters (for Telegram message limit)
 - Always provide reasoning in English, regardless of email language
 - Use proper JSON escaping for special characters

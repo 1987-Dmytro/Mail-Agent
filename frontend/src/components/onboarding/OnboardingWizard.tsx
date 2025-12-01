@@ -327,48 +327,82 @@ export default function OnboardingWizard() {
    * If user is on Step 3+ but has no valid token, force back to Step 2 (Gmail)
    */
   useEffect(() => {
-    try {
-      const savedProgress = localStorage.getItem('onboarding_progress');
-      if (savedProgress) {
-        const state: OnboardingState = JSON.parse(savedProgress);
+    const loadAndValidateProgress = async () => {
+      try {
+        const savedProgress = localStorage.getItem('onboarding_progress');
+        if (savedProgress) {
+          const state: OnboardingState = JSON.parse(savedProgress);
 
-        // Check if progress is stale (>7 days old)
-        const lastUpdated = new Date(state.lastUpdated);
-        const daysSinceUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24);
+          // Check if progress is stale (>7 days old)
+          const lastUpdated = new Date(state.lastUpdated);
+          const daysSinceUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24);
 
-        if (daysSinceUpdate > 7) {
-          console.warn('Onboarding progress is stale (>7 days old). Starting fresh.');
-          // TODO: Show warning toast to user
-          return;
+          if (daysSinceUpdate > 7) {
+            console.warn('Onboarding progress is stale (>7 days old). Starting fresh.');
+            localStorage.removeItem('onboarding_progress');
+            localStorage.removeItem('auth_token');
+            return;
+          }
+
+          // CRITICAL: Validate token before restoring state
+          const token = localStorage.getItem('auth_token');
+
+          // If on Step 3+ but no token exists, force back to Step 2 (Gmail)
+          if (state.currentStep >= 3 && !token) {
+            console.warn('No auth token found - forcing back to Gmail connection (Step 2)');
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- Security validation requires state reset
+            setCurrentStep(2);
+            setGmailConnected(false);
+            setTelegramConnected(false);
+            localStorage.removeItem('onboarding_progress');
+            return;
+          }
+
+          // CRITICAL: Validate token is actually valid by calling auth status API
+          if (state.currentStep >= 3 && token) {
+            try {
+              const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/status`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              const data = await response.json();
+
+              // If token is invalid (user doesn't exist), clear localStorage and restart
+              if (!data.authenticated) {
+                console.warn('Auth token is invalid - user does not exist. Clearing localStorage and restarting onboarding.');
+                localStorage.removeItem('onboarding_progress');
+                localStorage.removeItem('auth_token');
+                setCurrentStep(1);
+                setGmailConnected(false);
+                setTelegramConnected(false);
+                setFolders([]);
+                return;
+              }
+            } catch (error) {
+              console.error('Failed to validate auth token:', error);
+              // Network error - proceed with caution, don't block user
+            }
+          }
+
+          // Restore state (initial load from localStorage is acceptable)
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- Loading initial wizard state from localStorage on mount is a valid use case
+          setCurrentStep(state.currentStep);
+          setGmailConnected(state.gmailConnected);
+          setTelegramConnected(state.telegramConnected);
+          setFolders(state.folders || []);
+          setGmailEmail(state.gmailEmail);
+          setTelegramUsername(state.telegramUsername);
         }
-
-        // CRITICAL: Validate token before restoring state
-        const token = localStorage.getItem('auth_token');
-
-        // If on Step 3+ but no token exists, force back to Step 2 (Gmail)
-        if (state.currentStep >= 3 && !token) {
-          console.warn('No auth token found - forcing back to Gmail connection (Step 2)');
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- Security validation requires state reset
-          setCurrentStep(2);
-          setGmailConnected(false);
-          setTelegramConnected(false);
-          return;
-        }
-
-        // Restore state (initial load from localStorage is acceptable)
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- Loading initial wizard state from localStorage on mount is a valid use case
-        setCurrentStep(state.currentStep);
-        setGmailConnected(state.gmailConnected);
-        setTelegramConnected(state.telegramConnected);
-        setFolders(state.folders || []);
-        setGmailEmail(state.gmailEmail);
-        setTelegramUsername(state.telegramUsername);
+      } catch (error) {
+        console.error('Failed to load onboarding progress from localStorage:', error);
+        // Corrupted localStorage data - reset to step 1
+        localStorage.removeItem('onboarding_progress');
+        localStorage.removeItem('auth_token');
       }
-    } catch (error) {
-      console.error('Failed to load onboarding progress from localStorage:', error);
-      // Corrupted localStorage data - reset to step 1
-      localStorage.removeItem('onboarding_progress');
-    }
+    };
+
+    loadAndValidateProgress();
   }, []); // Only run on mount
 
   // ============================================

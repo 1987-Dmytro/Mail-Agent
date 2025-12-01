@@ -135,7 +135,7 @@ class ResponseGenerationService:
             target_generation_time=self.TARGET_GENERATION_TIME
         )
 
-    def should_generate_response(self, email: EmailProcessingQueue) -> bool:
+    async def should_generate_response(self, email: EmailProcessingQueue, db_session=None) -> bool:
         """Determine if email requires a response draft (AC #2).
 
         Classification logic:
@@ -147,13 +147,14 @@ class ResponseGenerationService:
 
         Args:
             email: Email object to classify
+            db_session: Optional AsyncSession for database queries (required for thread count check)
 
         Returns:
             True if response should be generated, False to skip
 
         Example:
             >>> service = ResponseGenerationService(user_id=1)
-            >>> needs_response = service.should_generate_response(email)
+            >>> needs_response = await service.should_generate_response(email, db_session)
             >>> print(needs_response)  # True or False
         """
         sender_lower = email.sender.lower()
@@ -186,23 +187,23 @@ class ResponseGenerationService:
 
         # Check if part of active conversation (>2 emails in thread)
         # This would require querying thread length - for now, check if thread_id exists
-        if email.gmail_thread_id:
-            # Count emails in same thread
-            with Session(self.db_service.engine) as session:
-                thread_count = session.exec(
-                    select(EmailProcessingQueue)
-                    .where(EmailProcessingQueue.gmail_thread_id == email.gmail_thread_id)
-                    .where(EmailProcessingQueue.user_id == self.user_id)
-                ).all()
+        if email.gmail_thread_id and db_session:
+            # Count emails in same thread using provided async session
+            thread_result = await db_session.execute(
+                select(EmailProcessingQueue)
+                .where(EmailProcessingQueue.gmail_thread_id == email.gmail_thread_id)
+                .where(EmailProcessingQueue.user_id == self.user_id)
+            )
+            thread_count = thread_result.scalars().all()
 
-                if len(thread_count) > 2:
-                    self.logger.info(
-                        "response_classification_active_thread",
-                        email_id=email.id,
-                        thread_length=len(thread_count),
-                        reason="ongoing_conversation"
-                    )
-                    return True
+            if len(thread_count) > 2:
+                self.logger.info(
+                    "response_classification_active_thread",
+                    email_id=email.id,
+                    thread_length=len(thread_count),
+                    reason="ongoing_conversation"
+                )
+                return True
 
         # Default: generate response for unclear cases (AC #2)
         # Better to offer a response than miss an important email
@@ -252,7 +253,7 @@ class ResponseGenerationService:
                 raise ValueError(f"Email with id={email_id} not found")
 
             # Check if response needed (AC #2)
-            if not self.should_generate_response(email):
+            if not await self.should_generate_response(email, db_session=session):
                 self.logger.info(
                     "response_generation_skipped",
                     email_id=email_id,

@@ -79,6 +79,10 @@ class FolderService:
         # Initialize Gmail client for this user
         gmail_client = GmailClient(user_id=user_id, db_service=self.db_service)
 
+        # Attempt to create Gmail label
+        # If this fails (e.g., missing OAuth tokens), we still create the folder in DB
+        # The label can be synced later when credentials are available
+        gmail_label_id = None
         try:
             # Create Gmail label (idempotent - returns existing label_id if exists)
             gmail_label_id = await gmail_client.create_label(name=name, color=color)
@@ -91,14 +95,16 @@ class FolderService:
             )
 
         except Exception as e:
-            logger.error(
-                "gmail_label_creation_failed",
+            logger.warning(
+                "gmail_label_creation_failed_continuing_anyway",
                 user_id=user_id,
                 folder_name=name,
                 error=str(e),
+                note="Folder will be created in database without Gmail label. "
+                     "Label can be synced later when Gmail credentials are available.",
                 exc_info=True,
             )
-            raise
+            # Don't raise - continue with folder creation without Gmail label
 
         # Store FolderCategory record in database
         try:

@@ -211,3 +211,156 @@ async def get_telegram_status(
             linked_at=current_user.telegram_linked_at.isoformat() if current_user.telegram_linked_at else None
         )
     )
+
+
+class VerificationData(BaseModel):
+    """Data payload for code verification response."""
+
+    verified: bool = Field(..., description="Whether the linking code has been used")
+    linked: bool = Field(..., description="Whether Telegram account is now linked")
+    telegram_username: str | None = Field(None, description="Telegram username if linked")
+
+
+class VerificationResponse(BaseModel):
+    """Response schema for linking code verification."""
+
+    success: bool = Field(..., description="Whether verification check succeeded")
+    data: VerificationData
+
+
+@router.get("/verify/{code}", response_model=VerificationResponse)
+async def verify_linking_code(
+    code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Verify if a linking code has been used to complete Telegram account linking.
+
+    This endpoint checks if the provided linking code has been successfully used
+    by the Telegram bot to link the user's account. The frontend polls this endpoint
+    to detect when the user has completed the Telegram linking process.
+
+    Args:
+        code: The 6-digit linking code to verify
+        current_user: Authenticated user from JWT token
+        db: Database session
+
+    Returns:
+        VerificationResponse: Verification status and linking details
+
+    Example:
+        GET /api/v1/telegram/verify/A3B7X9
+        Authorization: Bearer <jwt_token>
+
+        Response (not yet verified):
+        {
+            "success": true,
+            "data": {
+                "verified": false,
+                "linked": false,
+                "telegram_username": null
+            }
+        }
+
+        Response (verified and linked):
+        {
+            "success": true,
+            "data": {
+                "verified": true,
+                "linked": true,
+                "telegram_username": "john_doe"
+            }
+        }
+    """
+    try:
+        # Find the linking code in database
+        code_record = db.exec(
+            select(LinkingCode).where(
+                LinkingCode.code == code.upper(),
+                LinkingCode.user_id == current_user.id
+            )
+        ).first()
+
+        if not code_record:
+            logger.warning(
+                "verification_code_not_found",
+                user_id=current_user.id,
+                code=code
+            )
+            # Return not verified instead of error to avoid breaking polling
+            return VerificationResponse(
+                success=True,
+                data=VerificationData(
+                    verified=False,
+                    linked=False,
+                    telegram_username=None
+                )
+            )
+
+        # Check if code has expired
+        if code_record.expires_at < datetime.now(code_record.expires_at.tzinfo):
+            logger.info(
+                "verification_code_expired",
+                user_id=current_user.id,
+                code=code,
+                expired_at=code_record.expires_at.isoformat()
+            )
+            return VerificationResponse(
+                success=True,
+                data=VerificationData(
+                    verified=False,
+                    linked=False,
+                    telegram_username=None
+                )
+            )
+
+        # Query user from database to get latest telegram_id
+        # Note: current_user from auth dependency is not attached to this session,
+        # so we need to query it fresh from the database
+        user = db.exec(
+            select(User).where(User.id == current_user.id)
+        ).first()
+
+        if not user:
+            logger.error(
+                "user_not_found_during_verification",
+                user_id=current_user.id,
+                code=code
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="User not found. Please try again."
+            )
+
+        # Check if user now has telegram_id (meaning they completed linking)
+        verified = bool(user.telegram_id)
+
+        logger.info(
+            "linking_code_verified",
+            user_id=current_user.id,
+            code=code,
+            verified=verified,
+            linked=verified
+        )
+
+        return VerificationResponse(
+            success=True,
+            data=VerificationData(
+                verified=verified,
+                linked=verified,
+                telegram_username=user.telegram_username if verified else None
+            )
+        )
+
+    except Exception as e:
+        logger.error(
+            "verification_check_failed",
+            user_id=current_user.id,
+            code=code,
+            error=str(e),
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while verifying linking code. Please try again."
+        )

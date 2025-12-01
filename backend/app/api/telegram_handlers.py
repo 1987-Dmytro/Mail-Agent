@@ -8,43 +8,47 @@ This module contains handlers for:
 import structlog
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
-from sqlmodel import Session, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from functools import partial
+import os
 
 from app.api.deps import AsyncSessionLocal, engine
 from app.core.gmail_client import GmailClient
+from app.core.llm_client import LLMClient
 from app.core.telegram_bot import TelegramBotClient
 from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
 from app.models.user import User
 from app.models.workflow_mapping import WorkflowMapping
-from app.services.telegram_linking import link_telegram_account
+from app.services.telegram_linking import link_telegram_account, link_telegram_account_async
 from app.workflows import nodes
 from app.workflows.email_workflow import create_email_workflow
 
 logger = structlog.get_logger(__name__)
 
 
-def _create_workflow_for_resumption(db: Session, gmail_client: GmailClient, telegram_bot: TelegramBotClient):
-    """Create workflow with dependency injection for callback resumption.
+from contextlib import asynccontextmanager
 
-    This helper builds a workflow instance with proper dependency injection,
-    allowing callback handlers to resume workflows with access to required services.
+@asynccontextmanager
+async def create_workflow_for_resumption(db: AsyncSession, gmail_client: GmailClient, telegram_bot: TelegramBotClient):
+    """Async context manager for creating workflow with checkpointer for callback resumption.
+
+    This helper builds a workflow instance with proper dependency injection and
+    AsyncPostgresSaver checkpointer within an async context manager.
 
     Args:
-        db: Database session
+        db: AsyncSession database session
         gmail_client: Gmail API client for the user
         telegram_bot: Telegram bot client
 
-    Returns:
+    Yields:
         Compiled workflow ready for resumption via ainvoke()
     """
     from langgraph.graph import StateGraph, END
-    from langgraph.checkpoint.postgres import PostgresSaver
     from app.workflows.states import EmailWorkflowState
-    import os
 
     # Get database URL for checkpointer
     database_url = os.getenv("DATABASE_URL")
@@ -53,40 +57,46 @@ def _create_workflow_for_resumption(db: Session, gmail_client: GmailClient, tele
     else:
         checkpoint_url = database_url
 
-    checkpointer = PostgresSaver.from_conn_string(
-        conn_string=checkpoint_url,
-        sync=False,
-    )
+    async with AsyncPostgresSaver.from_conn_string(checkpoint_url) as checkpointer:
+        # Setup checkpoint tables if not exists (idempotent)
+        await checkpointer.setup()
 
-    # Build workflow with dependency-injected nodes
-    workflow = StateGraph(EmailWorkflowState)
+        # Build workflow with dependency-injected nodes
+        workflow = StateGraph(EmailWorkflowState)
 
-    # Bind dependencies to node functions
-    extract_context_with_deps = partial(nodes.extract_context, db=db, gmail_client=gmail_client)
-    classify_with_deps = partial(nodes.classify, db=db, gmail_client=gmail_client, llm_client=None)  # llm not needed for resumption
-    send_telegram_with_deps = partial(nodes.send_telegram, db=db, telegram_bot_client=telegram_bot)
-    execute_action_with_deps = partial(nodes.execute_action, db=db, gmail_client=gmail_client)
-    send_confirmation_with_deps = partial(nodes.send_confirmation, db=db, telegram_bot_client=telegram_bot)
+        # Bind dependencies to node functions
+        # LLMClient IS needed for resumption - workflow re-runs all nodes including classify
+        llm_client = LLMClient()
+        extract_context_with_deps = partial(nodes.extract_context, db=db, gmail_client=gmail_client)
+        classify_with_deps = partial(nodes.classify, db=db, gmail_client=gmail_client, llm_client=llm_client)
+        send_telegram_with_deps = partial(nodes.send_telegram, db=db, telegram_bot_client=telegram_bot)
+        execute_action_with_deps = partial(nodes.execute_action, db=db, gmail_client=gmail_client)
+        send_confirmation_with_deps = partial(nodes.send_confirmation, db=db, telegram_bot_client=telegram_bot)
 
-    # Add nodes
-    workflow.add_node("extract_context", extract_context_with_deps)
-    workflow.add_node("classify", classify_with_deps)
-    workflow.add_node("send_telegram", send_telegram_with_deps)
-    workflow.add_node("await_approval", nodes.await_approval)
-    workflow.add_node("execute_action", execute_action_with_deps)
-    workflow.add_node("send_confirmation", send_confirmation_with_deps)
+        # Add nodes
+        workflow.add_node("extract_context", extract_context_with_deps)
+        workflow.add_node("classify", classify_with_deps)
+        workflow.add_node("send_telegram", send_telegram_with_deps)
+        workflow.add_node("await_approval", nodes.await_approval)
+        workflow.add_node("execute_action", execute_action_with_deps)
+        workflow.add_node("send_confirmation", send_confirmation_with_deps)
 
-    # Define edges
-    workflow.set_entry_point("extract_context")
-    workflow.add_edge("extract_context", "classify")
-    workflow.add_edge("classify", "send_telegram")
-    workflow.add_edge("send_telegram", "await_approval")
-    workflow.add_edge("await_approval", "execute_action")
-    workflow.add_edge("execute_action", "send_confirmation")
-    workflow.add_edge("send_confirmation", END)
+        # Define edges
+        workflow.set_entry_point("extract_context")
+        workflow.add_edge("extract_context", "classify")
+        workflow.add_edge("classify", "send_telegram")
+        workflow.add_edge("send_telegram", "await_approval")
+        workflow.add_edge("await_approval", "execute_action")
+        workflow.add_edge("execute_action", "send_confirmation")
+        workflow.add_edge("send_confirmation", END)
 
-    # Compile with checkpointer
-    return workflow.compile(checkpointer=checkpointer)
+        # Compile with checkpointer and interrupt_before for human-in-the-loop
+        # interrupt_before=["execute_action"] pauses workflow AFTER await_approval
+        # This is CRITICAL for human approval workflow to work correctly
+        yield workflow.compile(
+            checkpointer=checkpointer,
+            interrupt_before=["execute_action"],
+        )
 
 
 async def handle_start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,9 +132,9 @@ async def handle_start_command(update: Update, context: ContextTypes.DEFAULT_TYP
             username=telegram_username,
         )
 
-        # Validate and link account using database session
-        with Session(engine) as db:
-            result = link_telegram_account(
+        # Validate and link account using async database session (Story 5-2)
+        async with AsyncSessionLocal() as db:
+            result = await link_telegram_account_async(
                 telegram_id=telegram_id_str,
                 telegram_username=telegram_username,
                 code=code,
@@ -599,7 +609,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             await handle_reject_response(update, context, email_id, db)
 
 
-async def handle_approve(query, email_id: int, db: Session):
+async def handle_approve(query, email_id: int, db: AsyncSession):
     """Handle Approve button click (AC #2, #6, #9).
 
     Resumes LangGraph workflow with user_decision="approve", which triggers:
@@ -609,7 +619,7 @@ async def handle_approve(query, email_id: int, db: Session):
     Args:
         query: Telegram CallbackQuery object
         email_id: Email ID from callback data
-        db: Database session
+        db: AsyncSession database session
     """
     await query.answer()
 
@@ -620,9 +630,10 @@ async def handle_approve(query, email_id: int, db: Session):
     )
 
     # Get WorkflowMapping and Email to find thread_id and user
-    workflow_mapping = db.exec(
+    result = await db.execute(
         select(WorkflowMapping).where(WorkflowMapping.email_id == email_id)
-    ).first()
+    )
+    workflow_mapping = result.scalars().first()
 
     if not workflow_mapping:
         logger.error(
@@ -633,64 +644,70 @@ async def handle_approve(query, email_id: int, db: Session):
         return
 
     # Get email to get user for Gmail client
-    email = db.get(EmailProcessingQueue, email_id)
+    result = await db.execute(
+        select(EmailProcessingQueue).where(EmailProcessingQueue.id == email_id)
+    )
+    email = result.scalar_one_or_none()
     if not email:
         logger.error("callback_email_not_found", email_id=email_id)
         await query.answer("❌ Email not found", show_alert=True)
         return
 
     # Get user for Gmail and Telegram clients
-    user = db.get(User, email.user_id)
+    result = await db.execute(
+        select(User).where(User.id == email.user_id)
+    )
+    user = result.scalar_one_or_none()
     if not user:
         logger.error("callback_user_not_found", user_id=email.user_id)
         await query.answer("❌ User not found", show_alert=True)
         return
 
     # Initialize services for workflow resumption
-    gmail_client = GmailClient(user_id=user.id, db_session=db)
+    gmail_client = GmailClient(user_id=user.id)
     telegram_bot = TelegramBotClient()
     await telegram_bot.initialize()
 
-    # Create workflow with dependency injection
-    workflow = _create_workflow_for_resumption(db, gmail_client, telegram_bot)
-    config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
+    # Create workflow with dependency injection using async context manager
+    async with create_workflow_for_resumption(db, gmail_client, telegram_bot) as workflow:
+        config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
-    try:
-        # Get current state from PostgreSQL checkpoint
-        state_snapshot = await workflow.aget_state(config)
-        state = dict(state_snapshot.values)
+        try:
+            # Get current state from PostgreSQL checkpoint
+            state_snapshot = await workflow.aget_state(config)
+            state = dict(state_snapshot.values)
 
-        # Update state with user decision
-        state["user_decision"] = "approve"
+            # Update state with user decision
+            state["user_decision"] = "approve"
 
-        logger.info(
-            "callback_resuming_workflow",
-            email_id=email_id,
-            thread_id=workflow_mapping.thread_id,
-            user_decision="approve",
-        )
+            logger.info(
+                "callback_resuming_workflow",
+                email_id=email_id,
+                thread_id=workflow_mapping.thread_id,
+                user_decision="approve",
+            )
 
-        # Resume workflow from await_approval node
-        # Workflow will execute: await_approval → execute_action → send_confirmation → END
-        await workflow.ainvoke(state, config=config)
+            # Resume workflow from await_approval node
+            # Workflow will execute: await_approval → execute_action → send_confirmation → END
+            await workflow.ainvoke(state, config=config)
 
-        logger.info(
-            "callback_workflow_resumed",
-            email_id=email_id,
-            action="approve",
-        )
+            logger.info(
+                "callback_workflow_resumed",
+                email_id=email_id,
+                action="approve",
+            )
 
-    except Exception as e:
-        logger.error(
-            "callback_workflow_resume_failed",
-            email_id=email_id,
-            error=str(e),
-            error_type=type(e).__name__,
-        )
-        await query.answer("❌ Error processing approval", show_alert=True)
+        except Exception as e:
+            logger.error(
+                "callback_workflow_resume_failed",
+                email_id=email_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            await query.answer("❌ Error processing approval", show_alert=True)
 
 
-async def handle_reject(query, email_id: int, db: Session):
+async def handle_reject(query, email_id: int, db: AsyncSession):
     """Handle Reject button click (AC #3, #6).
 
     Resumes LangGraph workflow with user_decision="reject", which triggers:
@@ -700,7 +717,7 @@ async def handle_reject(query, email_id: int, db: Session):
     Args:
         query: Telegram CallbackQuery object
         email_id: Email ID from callback data
-        db: Database session
+        db: AsyncSession database session
     """
     await query.answer()
 
@@ -711,9 +728,10 @@ async def handle_reject(query, email_id: int, db: Session):
     )
 
     # Get WorkflowMapping and Email
-    workflow_mapping = db.exec(
+    result = await db.execute(
         select(WorkflowMapping).where(WorkflowMapping.email_id == email_id)
-    ).first()
+    )
+    workflow_mapping = result.scalars().first()
 
     if not workflow_mapping:
         logger.error(
@@ -724,63 +742,69 @@ async def handle_reject(query, email_id: int, db: Session):
         return
 
     # Get email to get user
-    email = db.get(EmailProcessingQueue, email_id)
+    result = await db.execute(
+        select(EmailProcessingQueue).where(EmailProcessingQueue.id == email_id)
+    )
+    email = result.scalar_one_or_none()
     if not email:
         logger.error("callback_email_not_found", email_id=email_id)
         await query.answer("❌ Email not found", show_alert=True)
         return
 
     # Get user for services
-    user = db.get(User, email.user_id)
+    result = await db.execute(
+        select(User).where(User.id == email.user_id)
+    )
+    user = result.scalar_one_or_none()
     if not user:
         logger.error("callback_user_not_found", user_id=email.user_id)
         await query.answer("❌ User not found", show_alert=True)
         return
 
     # Initialize services
-    gmail_client = GmailClient(user_id=user.id, db_session=db)
+    gmail_client = GmailClient(user_id=user.id)
     telegram_bot = TelegramBotClient()
     await telegram_bot.initialize()
 
-    # Create workflow with dependency injection
-    workflow = _create_workflow_for_resumption(db, gmail_client, telegram_bot)
-    config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
+    # Create workflow with dependency injection using async context manager
+    async with create_workflow_for_resumption(db, gmail_client, telegram_bot) as workflow:
+        config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
-    try:
-        # Get current state from PostgreSQL checkpoint
-        state_snapshot = await workflow.aget_state(config)
-        state = dict(state_snapshot.values)
+        try:
+            # Get current state from PostgreSQL checkpoint
+            state_snapshot = await workflow.aget_state(config)
+            state = dict(state_snapshot.values)
 
-        # Update state with user decision
-        state["user_decision"] = "reject"
+            # Update state with user decision
+            state["user_decision"] = "reject"
 
-        logger.info(
-            "callback_resuming_workflow",
-            email_id=email_id,
-            thread_id=workflow_mapping.thread_id,
-            user_decision="reject",
-        )
+            logger.info(
+                "callback_resuming_workflow",
+                email_id=email_id,
+                thread_id=workflow_mapping.thread_id,
+                user_decision="reject",
+            )
 
-        # Resume workflow
-        await workflow.ainvoke(state, config=config)
+            # Resume workflow
+            await workflow.ainvoke(state, config=config)
 
-        logger.info(
-            "callback_workflow_resumed",
-            email_id=email_id,
-            action="reject",
-        )
+            logger.info(
+                "callback_workflow_resumed",
+                email_id=email_id,
+                action="reject",
+            )
 
-    except Exception as e:
-        logger.error(
-            "callback_workflow_resume_failed",
-            email_id=email_id,
-            error=str(e),
-            error_type=type(e).__name__,
-        )
-        await query.answer("❌ Error processing rejection", show_alert=True)
+        except Exception as e:
+            logger.error(
+                "callback_workflow_resume_failed",
+                email_id=email_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            await query.answer("❌ Error processing rejection", show_alert=True)
 
 
-async def handle_change_folder(query, email_id: int, db: Session):
+async def handle_change_folder(query, email_id: int, db: AsyncSession):
     """Handle Change Folder button click (AC #4).
 
     Displays folder selection menu with user's folder categories.
@@ -788,7 +812,7 @@ async def handle_change_folder(query, email_id: int, db: Session):
     Args:
         query: Telegram CallbackQuery object
         email_id: Email ID from callback data
-        db: Database session
+        db: AsyncSession database session
     """
     await query.answer()
 
@@ -799,9 +823,10 @@ async def handle_change_folder(query, email_id: int, db: Session):
     )
 
     # Get user by telegram_id
-    user = db.exec(
+    result = await db.execute(
         select(User).where(User.telegram_id == str(query.from_user.id))
-    ).first()
+    )
+    user = result.scalars().first()
 
     if not user:
         logger.error("callback_user_not_found", telegram_user_id=query.from_user.id)
@@ -809,9 +834,10 @@ async def handle_change_folder(query, email_id: int, db: Session):
         return
 
     # Get user's folder categories
-    folders = db.exec(
+    result = await db.execute(
         select(FolderCategory).where(FolderCategory.user_id == user.id)
-    ).all()
+    )
+    folders = result.scalars().all()
 
     if not folders:
         logger.warning("callback_no_folders_found", user_id=user.id)
@@ -852,7 +878,7 @@ async def handle_change_folder(query, email_id: int, db: Session):
         await query.answer("❌ Error displaying folders", show_alert=True)
 
 
-async def handle_folder_selection(query, email_id: int, folder_id: int, db: Session):
+async def handle_folder_selection(query, email_id: int, folder_id: int, db: AsyncSession):
     """Handle folder selection from change folder menu (AC #5, #6).
 
     Resumes LangGraph workflow with user_decision="change_folder" and selected_folder_id.
@@ -861,7 +887,7 @@ async def handle_folder_selection(query, email_id: int, folder_id: int, db: Sess
         query: Telegram CallbackQuery object
         email_id: Email ID from callback data
         folder_id: Selected folder ID from callback data
-        db: Database session
+        db: AsyncSession database session
     """
     await query.answer()
 
@@ -873,9 +899,10 @@ async def handle_folder_selection(query, email_id: int, folder_id: int, db: Sess
     )
 
     # Get WorkflowMapping and Email
-    workflow_mapping = db.exec(
+    result = await db.execute(
         select(WorkflowMapping).where(WorkflowMapping.email_id == email_id)
-    ).first()
+    )
+    workflow_mapping = result.scalars().first()
 
     if not workflow_mapping:
         logger.error(
@@ -886,7 +913,10 @@ async def handle_folder_selection(query, email_id: int, folder_id: int, db: Sess
         return
 
     # Verify folder exists and belongs to user
-    folder = db.get(FolderCategory, folder_id)
+    result = await db.execute(
+        select(FolderCategory).where(FolderCategory.id == folder_id)
+    )
+    folder = result.scalar_one_or_none()
     if not folder:
         logger.error(
             "callback_folder_not_found",
@@ -897,64 +927,70 @@ async def handle_folder_selection(query, email_id: int, folder_id: int, db: Sess
         return
 
     # Get email to get user
-    email = db.get(EmailProcessingQueue, email_id)
+    result = await db.execute(
+        select(EmailProcessingQueue).where(EmailProcessingQueue.id == email_id)
+    )
+    email = result.scalar_one_or_none()
     if not email:
         logger.error("callback_email_not_found", email_id=email_id)
         await query.answer("❌ Email not found", show_alert=True)
         return
 
     # Get user for services
-    user = db.get(User, email.user_id)
+    result = await db.execute(
+        select(User).where(User.id == email.user_id)
+    )
+    user = result.scalar_one_or_none()
     if not user:
         logger.error("callback_user_not_found", user_id=email.user_id)
         await query.answer("❌ User not found", show_alert=True)
         return
 
     # Initialize services
-    gmail_client = GmailClient(user_id=user.id, db_session=db)
+    gmail_client = GmailClient(user_id=user.id)
     telegram_bot = TelegramBotClient()
     await telegram_bot.initialize()
 
-    # Create workflow with dependency injection
-    workflow = _create_workflow_for_resumption(db, gmail_client, telegram_bot)
-    config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
+    # Create workflow with dependency injection using async context manager
+    async with create_workflow_for_resumption(db, gmail_client, telegram_bot) as workflow:
+        config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
-    try:
-        # Get current state from PostgreSQL checkpoint
-        state_snapshot = await workflow.aget_state(config)
-        state = dict(state_snapshot.values)
+        try:
+            # Get current state from PostgreSQL checkpoint
+            state_snapshot = await workflow.aget_state(config)
+            state = dict(state_snapshot.values)
 
-        # Update state with user decision and selected folder
-        state["user_decision"] = "change_folder"
-        state["selected_folder_id"] = folder_id
-        state["selected_folder"] = folder.name
+            # Update state with user decision and selected folder
+            state["user_decision"] = "change_folder"
+            state["selected_folder_id"] = folder_id
+            state["selected_folder"] = folder.name
 
-        logger.info(
-            "callback_resuming_workflow",
-            email_id=email_id,
-            thread_id=workflow_mapping.thread_id,
-            user_decision="change_folder",
-            selected_folder_id=folder_id,
-        )
+            logger.info(
+                "callback_resuming_workflow",
+                email_id=email_id,
+                thread_id=workflow_mapping.thread_id,
+                user_decision="change_folder",
+                selected_folder_id=folder_id,
+            )
 
-        # Resume workflow
-        await workflow.ainvoke(state, config=config)
+            # Resume workflow
+            await workflow.ainvoke(state, config=config)
 
-        logger.info(
-            "callback_workflow_resumed",
-            email_id=email_id,
-            action="change_folder",
-            folder_id=folder_id,
-        )
+            logger.info(
+                "callback_workflow_resumed",
+                email_id=email_id,
+                action="change_folder",
+                folder_id=folder_id,
+            )
 
-    except Exception as e:
-        logger.error(
-            "callback_workflow_resume_failed",
-            email_id=email_id,
-            error=str(e),
-            error_type=type(e).__name__,
-        )
-        await query.answer("❌ Error processing folder selection", show_alert=True)
+        except Exception as e:
+            logger.error(
+                "callback_workflow_resume_failed",
+                email_id=email_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            await query.answer("❌ Error processing folder selection", show_alert=True)
 
 
 # ============================================================================
@@ -962,7 +998,7 @@ async def handle_folder_selection(query, email_id: int, folder_id: int, db: Sess
 # ============================================================================
 
 
-async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: Session):
+async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: AsyncSession):
     """Handle Send button click for response drafts (Story 3.9 - AC #4-9).
 
     Sends AI-generated response via Gmail API with proper threading,
@@ -1015,7 +1051,7 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 
-async def handle_edit_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: Session):
+async def handle_edit_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: AsyncSession):
     """Handle Edit button click for response drafts (Story 3.9 - AC #1-3).
 
     Prompts user to reply with edited text, captures reply,
@@ -1064,7 +1100,7 @@ async def handle_edit_response(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 
-async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: Session):
+async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_TYPE, email_id: int, db: AsyncSession):
     """Handle Reject button click for response drafts (Story 3.9).
 
     Updates status to rejected and sends Telegram confirmation.

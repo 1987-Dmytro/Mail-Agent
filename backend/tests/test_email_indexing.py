@@ -55,7 +55,8 @@ class TestEmailIndexingService:
 
         # Mock database session context
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock checking for existing progress (should return None)
         mock_check_result = MagicMock()
@@ -306,7 +307,8 @@ class TestEmailIndexingService:
 
         # Mock database session
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock existing interrupted progress
         mock_progress = IndexingProgress(
@@ -373,7 +375,8 @@ class TestEmailIndexingService:
 
         # Mock database session
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock existing progress
         mock_progress = IndexingProgress(
@@ -392,9 +395,11 @@ class TestEmailIndexingService:
         test_error = ValueError("Test error message")
         await service.handle_error(test_error)
 
-        # Verify status updated
-        assert mock_progress.status == IndexingStatus.FAILED
+        # Verify status updated to PAUSED (not FAILED) for first error with retry logic
+        assert mock_progress.status == IndexingStatus.PAUSED
         assert "ValueError: Test error message" in mock_progress.error_message
+        assert mock_progress.retry_count == 1  # Incremented from 0 to 1
+        assert mock_progress.retry_after is not None  # Should have retry_after set
         assert mock_session.commit.called
 
     @pytest.mark.asyncio
@@ -411,7 +416,8 @@ class TestEmailIndexingService:
 
         # Mock database session
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock existing progress
         mock_progress = IndexingProgress(
@@ -455,7 +461,8 @@ class TestEmailIndexingService:
 
         # Mock database session
         mock_session = AsyncMock()
-        mock_db_service.get_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aenter__.return_value = mock_session
+        mock_db_service.async_session.return_value.__aexit__.return_value = AsyncMock()
 
         # Mock initial indexing complete
         mock_progress = IndexingProgress(

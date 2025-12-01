@@ -211,7 +211,6 @@ class TestBotStartCommandLinking:
     async def test_bot_start_command_with_valid_code(self):
         """Test /start [code] successfully links Telegram account."""
         from app.api.telegram_handlers import handle_start_command
-        from app.services.telegram_linking import link_telegram_account
         from telegram import Update, User as TelegramUser, Message
         from telegram.ext import ContextTypes
 
@@ -230,22 +229,30 @@ class TestBotStartCommandLinking:
         mock_context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
         mock_context.args = ["ABC123"]  # Code as argument
 
-        # Mock link_telegram_account to return success
-        with patch('app.api.telegram_handlers.link_telegram_account') as mock_link:
+        # Mock link_telegram_account_async (async version used in handler) and AsyncSessionLocal
+        with patch('app.api.telegram_handlers.link_telegram_account_async') as mock_link, \
+             patch('app.api.telegram_handlers.AsyncSessionLocal') as mock_session_local:
+
             mock_link.return_value = {
                 "success": True,
                 "message": "✅ Your Telegram account has been linked successfully!"
             }
 
+            # Mock the database session context manager
+            mock_session_instance = MagicMock()
+            mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
+            mock_session_local.return_value.__aexit__ = AsyncMock()
+
             # Call handler
             await handle_start_command(mock_update, mock_context)
 
-            # Verify link_telegram_account was called (checking keyword arguments)
+            # Verify link_telegram_account_async was called (checking keyword arguments)
             assert mock_link.call_count == 1
             call_kwargs = mock_link.call_args.kwargs
             assert call_kwargs["telegram_id"] == "987654321"
             assert call_kwargs["telegram_username"] == "testuser"
             assert call_kwargs["code"] == "ABC123"
+            assert call_kwargs["db"] == mock_session_instance
 
             # Verify success message sent
             mock_message.reply_text.assert_called_once()

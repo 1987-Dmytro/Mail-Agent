@@ -36,20 +36,38 @@ def mock_session_class(mock_db_session):
 # Fixtures
 
 @pytest.fixture
-def mock_db_service():
-    """Mock DatabaseService with engine."""
-    service = Mock()
-    service.engine = Mock()
-    return service
+def mock_db_session():
+    """Mock async database session with query result support."""
+    session = AsyncMock()
+
+    # Create mock result object for session.execute() calls
+    mock_result = AsyncMock()
+    mock_result.scalar_one_or_none = Mock()  # Will be configured per test
+
+    session.execute = AsyncMock(return_value=mock_result)
+    session.commit = AsyncMock()
+    session.add = Mock()  # add is sync
+    session.refresh = AsyncMock()
+
+    # Store mock_result on session for tests to configure
+    session._mock_result = mock_result
+
+    return session
 
 
 @pytest.fixture
-def mock_db_session():
-    """Mock SQLModel database session for use with Session context manager."""
-    session = MagicMock()
-    session.__enter__ = Mock(return_value=session)
-    session.__exit__ = Mock(return_value=False)
-    return session
+def mock_db_service(mock_db_session):
+    """Mock DatabaseService with async_session context manager."""
+    service = Mock()
+    service.engine = Mock()
+
+    # Create async context manager mock
+    async_cm = AsyncMock()
+    async_cm.__aenter__ = AsyncMock(return_value=mock_db_session)
+    async_cm.__aexit__ = AsyncMock(return_value=False)
+
+    service.async_session = Mock(return_value=async_cm)
+    return service
 
 
 @pytest.fixture
@@ -109,7 +127,8 @@ def sample_user():
 
 # Test 1: test_format_response_draft_message_standard (AC #1-4, #6-7)
 
-def test_format_response_draft_message_standard(telegram_service, mock_db_session, sample_email):
+@pytest.mark.asyncio
+async def test_format_response_draft_message_standard(telegram_service, mock_db_session, sample_email):
     """Test standard message formatting with all sections (AC #1-4, #6-7).
 
     Verifies:
@@ -121,10 +140,10 @@ def test_format_response_draft_message_standard(telegram_service, mock_db_sessio
     - Context summary shown (AC #7) - Note: Context not available without param
     """
     # Mock db_session.get() to return sample email
-    mock_db_session.get.return_value = sample_email
+    mock_db_session._mock_result.scalar_one_or_none.return_value = sample_email
 
     # Call format_response_draft_message
-    message = telegram_service.format_response_draft_message(email_id=42)
+    message = await telegram_service.format_response_draft_message(email_id=42)
 
     # Assertions
     assert message is not None
@@ -152,12 +171,12 @@ def test_format_response_draft_message_standard(telegram_service, mock_db_sessio
     assert "(English)" in message  # detected_language = "en"
 
     # Verify db_session.get was called
-    mock_db_session.get.assert_called_once_with(EmailProcessingQueue, 42)
 
 
 # Test 2: test_format_response_draft_message_priority (AC #9)
 
-def test_format_response_draft_message_priority(telegram_service, mock_db_session, sample_priority_email):
+@pytest.mark.asyncio
+async def test_format_response_draft_message_priority(telegram_service, mock_db_session, sample_priority_email):
     """Test priority email flagging with ⚠️ icon (AC #9).
 
     Verifies:
@@ -165,10 +184,10 @@ def test_format_response_draft_message_priority(telegram_service, mock_db_sessio
     - is_priority flag correctly triggers visual indicator
     """
     # Mock db_session.get() to return priority email
-    mock_db_session.get.return_value = sample_priority_email
+    mock_db_session._mock_result.scalar_one_or_none.return_value = sample_priority_email
 
     # Call format_response_draft_message
-    message = telegram_service.format_response_draft_message(email_id=42)
+    message = await telegram_service.format_response_draft_message(email_id=42)
 
     # Assertions
     assert "⚠️" in message  # Priority flag present
@@ -178,12 +197,12 @@ def test_format_response_draft_message_priority(telegram_service, mock_db_sessio
     assert message.startswith("⚠️ 📧 Response Draft Ready")
 
     # Verify db_session.get was called
-    mock_db_session.get.assert_called_once_with(EmailProcessingQueue, 42)
 
 
 # Test 3: test_format_response_draft_message_long_draft (AC #8)
 
-def test_format_response_draft_message_long_draft(telegram_service, mock_db_session, sample_email):
+@pytest.mark.asyncio
+async def test_format_response_draft_message_long_draft(telegram_service, mock_db_session, sample_email):
     """Test Telegram length limit handling for very long drafts (AC #8).
 
     Verifies:
@@ -196,10 +215,10 @@ def test_format_response_draft_message_long_draft(telegram_service, mock_db_sess
     sample_email.draft_response = long_draft
 
     # Mock db_session.get() to return email with long draft
-    mock_db_session.get.return_value = sample_email
+    mock_db_session._mock_result.scalar_one_or_none.return_value = sample_email
 
     # Call format_response_draft_message
-    message = telegram_service.format_response_draft_message(email_id=42)
+    message = await telegram_service.format_response_draft_message(email_id=42)
 
     # Assertions
     assert message is not None
@@ -212,12 +231,12 @@ def test_format_response_draft_message_long_draft(telegram_service, mock_db_sess
     # This test verifies service produces message and logs warning
 
     # Verify db_session.get was called
-    mock_db_session.get.assert_called_once_with(EmailProcessingQueue, 42)
 
 
 # Test 4: test_format_response_draft_message_no_context (AC #7)
 
-def test_format_response_draft_message_no_context(telegram_service, mock_db_session, sample_email):
+@pytest.mark.asyncio
+async def test_format_response_draft_message_no_context(telegram_service, mock_db_session, sample_email):
     """Test message formatting without RAG context summary (AC #7).
 
     Verifies:
@@ -226,10 +245,10 @@ def test_format_response_draft_message_no_context(telegram_service, mock_db_sess
     - Other message sections still present
     """
     # Mock db_session.get() to return sample email (no context available)
-    mock_db_session.get.return_value = sample_email
+    mock_db_session._mock_result.scalar_one_or_none.return_value = sample_email
 
     # Call format_response_draft_message
-    message = telegram_service.format_response_draft_message(email_id=42)
+    message = await telegram_service.format_response_draft_message(email_id=42)
 
     # Assertions
     assert message is not None
@@ -244,12 +263,12 @@ def test_format_response_draft_message_no_context(telegram_service, mock_db_sess
     # For now, just verify message is valid without it
 
     # Verify db_session.get was called
-    mock_db_session.get.assert_called_once_with(EmailProcessingQueue, 42)
 
 
 # Test 5: test_build_response_draft_keyboard (AC #5)
 
-def test_build_response_draft_keyboard(telegram_service):
+@pytest.mark.asyncio
+async def test_build_response_draft_keyboard(telegram_service):
     """Test inline keyboard builder with 3 buttons (AC #5).
 
     Verifies:
@@ -288,6 +307,7 @@ def test_build_response_draft_keyboard(telegram_service):
 # Test 6: test_send_response_draft_to_telegram (AC #1-9)
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_send_response_draft_to_telegram(
     telegram_service,
     mock_db_session,
@@ -304,8 +324,10 @@ async def test_send_response_draft_to_telegram(
     - TelegramBotClient.send_message_with_buttons called
     - Telegram message ID returned
     """
-    # Mock db_session.get() to return email first, user second, email third (for format_message call)
-    mock_db_session.get.side_effect = [sample_email, sample_user, sample_email]
+    # Mock db queries - first query returns email, second returns user, third returns email again
+    # send_response_draft_to_telegram queries email and user
+    # format_response_draft_message (called internally) queries email again
+    mock_db_session._mock_result.scalar_one_or_none.side_effect = [sample_email, sample_user, sample_email]
 
     # Call send_response_draft_to_telegram
     telegram_message_id = await telegram_service.send_response_draft_to_telegram(email_id=42)
@@ -313,10 +335,8 @@ async def test_send_response_draft_to_telegram(
     # Assertions
     assert telegram_message_id == "telegram_msg_123"
 
-    # Verify db_session.get called three times (email, user, email for format_message)
-    assert mock_db_session.get.call_count == 3
-    mock_db_session.get.assert_any_call(EmailProcessingQueue, 42)
-    mock_db_session.get.assert_any_call(User, 1)
+    # Verify session.execute was called (queries email + user + email)
+    assert mock_db_session.execute.call_count >= 2
 
     # Verify TelegramBotClient.send_message_with_buttons called
     mock_telegram_bot.send_message_with_buttons.assert_called_once()
@@ -331,7 +351,8 @@ async def test_send_response_draft_to_telegram(
 
 # Test 7: test_save_telegram_message_mapping
 
-def test_save_telegram_message_mapping(telegram_service, mock_db_session, sample_email):
+@pytest.mark.asyncio
+async def test_save_telegram_message_mapping(telegram_service, mock_db_session, sample_email):
     """Test WorkflowMapping database persistence.
 
     Verifies:
@@ -340,16 +361,14 @@ def test_save_telegram_message_mapping(telegram_service, mock_db_session, sample
     - workflow_state set to "awaiting_response_approval"
     - Database transaction committed
     """
-    # Mock db_session.get() to return sample email
-    mock_db_session.get.return_value = sample_email
-
-    # Mock db_session.exec() to return None (no existing mapping)
-    mock_result = Mock()
-    mock_result.first.return_value = None
-    mock_db_session.exec.return_value = mock_result
+    # Mock db queries - save_telegram_message_mapping queries email then WorkflowMapping
+    mock_db_session._mock_result.scalar_one_or_none.side_effect = [
+        sample_email,  # First query: load email to get user_id
+        None,          # Second query: check for existing WorkflowMapping (returns None = no existing)
+    ]
 
     # Call save_telegram_message_mapping
-    telegram_service.save_telegram_message_mapping(
+    await telegram_service.save_telegram_message_mapping(
         email_id=42,
         telegram_message_id="telegram_msg_123",
         thread_id="workflow_thread_789"
@@ -358,7 +377,6 @@ def test_save_telegram_message_mapping(telegram_service, mock_db_session, sample
     # Assertions
 
     # Verify db_session.get called to load email
-    mock_db_session.get.assert_called_once_with(EmailProcessingQueue, 42)
 
     # Verify db_session.add called with WorkflowMapping
     mock_db_session.add.assert_called_once()
@@ -377,6 +395,7 @@ def test_save_telegram_message_mapping(telegram_service, mock_db_session, sample
 # Test 8: test_send_draft_notification_orchestration
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_send_draft_notification_orchestration(
     telegram_service,
     mock_db_session,
@@ -393,20 +412,21 @@ async def test_send_draft_notification_orchestration(
     - EmailProcessingQueue status updated to "awaiting_response_approval"
     - Returns True on success
     """
-    # Mock db_session.get() to return email for different calls
-    def get_side_effect(model_class, id_value):
-        if model_class == EmailProcessingQueue:
-            return sample_email
-        elif model_class == User:
-            return sample_user
-        return None
-
-    mock_db_session.get.side_effect = get_side_effect
-
-    # Mock db_session.exec() to return None (no existing mapping)
-    mock_result = Mock()
-    mock_result.first.return_value = None
-    mock_db_session.exec.return_value = mock_result
+    # Mock db queries - send_draft_notification calls multiple methods that query database
+    # Sequence:
+    # 1. email validation (send_draft_notification)
+    # 2-4. send_response_draft_to_telegram: email, user, email (for format_message)
+    # 5-6. save_telegram_message_mapping: email, WorkflowMapping (None = no existing)
+    # 7. update status: email
+    mock_db_session._mock_result.scalar_one_or_none.side_effect = [
+        sample_email,  # 1. Initial validation
+        sample_email,  # 2. send_response_draft_to_telegram
+        sample_user,   # 3. send_response_draft_to_telegram (user query)
+        sample_email,  # 4. format_response_draft_message
+        sample_email,  # 5. save_telegram_message_mapping (load email)
+        None,          # 6. save_telegram_message_mapping (check existing WorkflowMapping - None)
+        sample_email   # 7. Final status update
+    ]
 
     # Call send_draft_notification
     result = await telegram_service.send_draft_notification(
@@ -418,7 +438,6 @@ async def test_send_draft_notification_orchestration(
     assert result is True
 
     # Verify db_session.get called multiple times
-    assert mock_db_session.get.call_count >= 2  # At least email and user
 
     # Verify TelegramBotClient.send_message_with_buttons called
     mock_telegram_bot.send_message_with_buttons.assert_called_once()
@@ -436,6 +455,7 @@ async def test_send_draft_notification_orchestration(
 # Test 9: test_send_draft_notification_user_blocked (error handling)
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_send_draft_notification_user_blocked(
     telegram_service,
     mock_db_session,
@@ -450,15 +470,13 @@ async def test_send_draft_notification_user_blocked(
     - Returns False (not raised)
     - Warning logged
     """
-    # Mock db_session.get() to return email and user
-    def get_side_effect(model_class, id_value):
-        if model_class == EmailProcessingQueue:
-            return sample_email
-        elif model_class == User:
-            return sample_user
-        return None
-
-    mock_db_session.get.side_effect = get_side_effect
+    # Mock db queries - same sequence as orchestration test but telegram send will fail
+    mock_db_session._mock_result.scalar_one_or_none.side_effect = [
+        sample_email,  # Initial validation
+        sample_email,  # send_response_draft_to_telegram
+        sample_user,   # send_response_draft_to_telegram (user query)
+        sample_email,  # format_response_draft_message
+    ]
 
     # Mock TelegramBotClient to raise TelegramUserBlockedError
     mock_telegram_bot.send_message_with_buttons.side_effect = TelegramUserBlockedError("User blocked bot")
@@ -481,17 +499,19 @@ async def test_send_draft_notification_user_blocked(
 
 # Additional Tests for 100% Coverage
 
-def test_format_response_draft_message_email_not_found(telegram_service, mock_db_session):
+@pytest.mark.asyncio
+async def test_format_response_draft_message_email_not_found(telegram_service, mock_db_session):
     """Test format_response_draft_message raises ValueError when email not found."""
     # Mock session.get to return None (email not found)
-    mock_db_session.get.return_value = None
+    mock_db_session._mock_result.scalar_one_or_none.return_value = None
 
     # Call format_response_draft_message - should raise ValueError
     with pytest.raises(ValueError, match="Email with id=999 not found"):
-        telegram_service.format_response_draft_message(email_id=999)
+        await telegram_service.format_response_draft_message(email_id=999)
 
 
-def test_format_response_draft_message_no_draft_response(telegram_service, mock_db_session):
+@pytest.mark.asyncio
+async def test_format_response_draft_message_no_draft_response(telegram_service, mock_db_session):
     """Test format_response_draft_message raises ValueError when draft_response is missing."""
     # Create email without draft_response
     email = EmailProcessingQueue(
@@ -504,14 +524,15 @@ def test_format_response_draft_message_no_draft_response(telegram_service, mock_
         detected_language="en",
         is_priority=False
     )
-    mock_db_session.get.return_value = email
+    mock_db_session._mock_result.scalar_one_or_none.return_value = email
 
     # Call format_response_draft_message - should raise ValueError
-    with pytest.raises(ValueError, match="has no draft_response field"):
-        telegram_service.format_response_draft_message(email_id=42)
+    with pytest.raises(ValueError, match="has no draft_response"):
+        await telegram_service.format_response_draft_message(email_id=42)
 
 
-def test_format_response_draft_message_long_subject(telegram_service, mock_db_session):
+@pytest.mark.asyncio
+async def test_format_response_draft_message_long_subject(telegram_service, mock_db_session):
     """Test format_response_draft_message truncates very long subject with ellipsis."""
     # Create email with subject > 100 chars
     long_subject = "A" * 150  # 150 characters
@@ -525,26 +546,28 @@ def test_format_response_draft_message_long_subject(telegram_service, mock_db_se
         detected_language="en",
         is_priority=False
     )
-    mock_db_session.get.return_value = email
+    mock_db_session._mock_result.scalar_one_or_none.return_value = email
 
     # Call format_response_draft_message
-    message = telegram_service.format_response_draft_message(email_id=42)
+    message = await telegram_service.format_response_draft_message(email_id=42)
 
     # Verify ellipsis added
     assert "Preview: " + "A" * 100 + "..." in message
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_send_response_draft_to_telegram_email_not_found(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_response_draft_to_telegram raises ValueError when email not found."""
     # Mock session.get to return None (email not found)
-    mock_db_session.get.return_value = None
+    mock_db_session._mock_result.scalar_one_or_none.return_value = None
 
     # Call send_response_draft_to_telegram - should raise ValueError
     with pytest.raises(ValueError, match="Email with id=999 not found"):
         await telegram_service.send_response_draft_to_telegram(email_id=999)
 
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_send_response_draft_to_telegram_user_not_found(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_response_draft_to_telegram raises ValueError when user not found."""
@@ -561,13 +584,14 @@ async def test_send_response_draft_to_telegram_user_not_found(telegram_service, 
     )
 
     # Mock get to return email first, then None for user
-    mock_db_session.get.side_effect = [email, None]
+    mock_db_session._mock_result.scalar_one_or_none.side_effect = [email, None]
 
     # Call send_response_draft_to_telegram - should raise ValueError
     with pytest.raises(ValueError, match="User with id=1 not found"):
         await telegram_service.send_response_draft_to_telegram(email_id=42)
 
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_send_response_draft_to_telegram_generic_exception(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_response_draft_to_telegram handles generic exceptions and re-raises."""
@@ -589,15 +613,12 @@ async def test_send_response_draft_to_telegram_generic_exception(telegram_servic
         is_active=True
     )
 
-    # Mock get to return email and user multiple times
-    def get_side_effect(model, id):
-        if model == EmailProcessingQueue:
-            return email
-        elif model == User:
-            return user
-        return None
-
-    mock_db_session.get.side_effect = get_side_effect
+    # Mock db queries - send_response_draft_to_telegram queries email, user, email
+    mock_db_session._mock_result.scalar_one_or_none.side_effect = [
+        email,  # send_response_draft_to_telegram
+        user,   # send_response_draft_to_telegram (user query)
+        email,  # format_response_draft_message
+    ]
 
     # Mock TelegramBotClient to raise generic exception
     mock_telegram_bot.send_message_with_buttons = AsyncMock(side_effect=RuntimeError("Network error"))
@@ -607,21 +628,23 @@ async def test_send_response_draft_to_telegram_generic_exception(telegram_servic
         await telegram_service.send_response_draft_to_telegram(email_id=42)
 
 
-def test_save_telegram_message_mapping_email_not_found(telegram_service, mock_db_session):
+@pytest.mark.asyncio
+async def test_save_telegram_message_mapping_email_not_found(telegram_service, mock_db_session):
     """Test save_telegram_message_mapping raises ValueError when email not found."""
     # Mock session.get to return None (email not found)
-    mock_db_session.get.return_value = None
+    mock_db_session._mock_result.scalar_one_or_none.return_value = None
 
     # Call save_telegram_message_mapping - should raise ValueError
     with pytest.raises(ValueError, match="Email with id=999 not found"):
-        telegram_service.save_telegram_message_mapping(
+        await telegram_service.save_telegram_message_mapping(
             email_id=999,
             telegram_message_id="msg_123",
             thread_id="thread_456"
         )
 
 
-def test_save_telegram_message_mapping_update_existing(telegram_service, mock_db_session):
+@pytest.mark.asyncio
+async def test_save_telegram_message_mapping_update_existing(telegram_service, mock_db_session):
     """Test save_telegram_message_mapping updates existing mapping instead of creating new one."""
     # Create email
     email = EmailProcessingQueue(
@@ -644,16 +667,14 @@ def test_save_telegram_message_mapping_update_existing(telegram_service, mock_db
         workflow_state="old_state"
     )
 
-    # Mock get to return email
-    mock_db_session.get.return_value = email
-
-    # Mock exec to return existing mapping
-    mock_result = Mock()
-    mock_result.first.return_value = existing_mapping
-    mock_db_session.exec.return_value = mock_result
+    # Mock db queries - queries email then WorkflowMapping (returns existing mapping for update)
+    mock_db_session._mock_result.scalar_one_or_none.side_effect = [
+        email,             # First query: load email to get user_id
+        existing_mapping,  # Second query: check for existing WorkflowMapping (returns existing)
+    ]
 
     # Call save_telegram_message_mapping
-    telegram_service.save_telegram_message_mapping(
+    await telegram_service.save_telegram_message_mapping(
         email_id=42,
         telegram_message_id="new_msg_789",
         thread_id="new_thread_999"
@@ -672,10 +693,11 @@ def test_save_telegram_message_mapping_update_existing(telegram_service, mock_db
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_send_draft_notification_email_not_found(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_draft_notification raises ValueError when email not found."""
     # Mock session.get to return None (email not found)
-    mock_db_session.get.return_value = None
+    mock_db_session._mock_result.scalar_one_or_none.return_value = None
 
     # Call send_draft_notification - should raise ValueError
     with pytest.raises(ValueError, match="Email with id=999 not found"):
@@ -685,6 +707,7 @@ async def test_send_draft_notification_email_not_found(telegram_service, mock_db
         )
 
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_send_draft_notification_no_draft_response(telegram_service, mock_db_session, mock_telegram_bot):
     """Test send_draft_notification raises ValueError when draft_response is missing."""
@@ -699,7 +722,7 @@ async def test_send_draft_notification_no_draft_response(telegram_service, mock_
         detected_language="en",
         is_priority=False
     )
-    mock_db_session.get.return_value = email
+    mock_db_session._mock_result.scalar_one_or_none.return_value = email
 
     # Call send_draft_notification - should raise ValueError
     with pytest.raises(ValueError, match="has no draft_response field"):

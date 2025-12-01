@@ -276,24 +276,27 @@ class DatabaseService:
         """
         return self.async_session
 
-    async def health_check(self) -> bool:
-        """Check database connection health.
+    async def health_check(self) -> dict:
+        """Check database connection health (Story 3.5).
 
         Returns:
-            bool: True if database is healthy, False otherwise
+            dict: Status dict with 'status' key:
+                - 'healthy': Database connection working
+                - 'unhealthy': Database configured but connection failed
+                - 'not_configured': Database not initialized
         """
         if self.engine is None or self.async_session is None:
-            return False
+            return {"status": "not_configured", "message": "Database not initialized"}
 
         try:
             async with self.async_session() as session:
                 # Execute a simple query to check connection
                 result = await session.execute(select(1))
                 result.scalar()
-                return True
+                return {"status": "healthy", "message": "Database connection successful"}
         except Exception as e:
             logger.error("database_health_check_failed", error=str(e))
-            return False
+            return {"status": "unhealthy", "message": f"Database connection failed: {str(e)}"}
 
 
 # Create a singleton instance

@@ -21,6 +21,7 @@ from app.core.llm_client import LLMClient
 from app.models.classification_response import ClassificationResponse
 from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
+from app.models.user import User
 from app.prompts.classification_prompt import build_classification_prompt
 from app.utils.errors import (
     GeminiAPIError,
@@ -145,12 +146,19 @@ class EmailClassificationService:
             )
             raise
 
+        # Load user email separately to avoid lazy-loading in async context
+        user_result = await self.db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = user_result.scalar_one_or_none()
+        user_email = user.email if user else ""
+
         # Extract email data for prompt construction
         email_data = {
             "sender": email_detail["sender"],
             "subject": email_detail["subject"],
             "body": email_detail["body"],
-            "user_email": email.user.email if hasattr(email, "user") else "",
+            "user_email": user_email,
         }
 
         # Step 3: Load user's folder categories from database
@@ -199,7 +207,8 @@ class EmailClassificationService:
         logger.debug("calling_gemini_llm", operation="classification")
 
         try:
-            llm_response = await self.llm_client.receive_completion(
+            # receive_completion is synchronous - do NOT await
+            llm_response = self.llm_client.receive_completion(
                 prompt=prompt, operation="classification"
             )
 
@@ -209,32 +218,38 @@ class EmailClassificationService:
                 classification = ClassificationResponse(**llm_response)
             except ValidationError as e:
                 # Invalid JSON response from Gemini - use fallback classification
+                # Use first user folder as fallback
+                fallback_folder = user_folders[0]["name"] if user_folders else "Important"
                 logger.warning(
                     "classification_fallback",
                     email_id=email_id,
                     user_id=user_id,
                     error_type="ValidationError",
                     error=str(e),
-                    fallback_folder="Unclassified",
+                    fallback_folder=fallback_folder,
                     note="Pydantic validation failed on LLM response",
                 )
                 return self._create_fallback_classification(
-                    "Classification failed: Invalid response format from AI"
+                    "Classification failed: Invalid response format from AI",
+                    fallback_folder=fallback_folder,
                 )
 
         except (GeminiAPIError, GeminiRateLimitError, GeminiTimeoutError) as e:
             # Gemini API errors (rate limits, timeouts, API errors) - use fallback
+            # Use first user folder as fallback
+            fallback_folder = user_folders[0]["name"] if user_folders else "Important"
             logger.warning(
                 "classification_fallback",
                 email_id=email_id,
                 user_id=user_id,
                 error_type=type(e).__name__,
                 error=str(e),
-                fallback_folder="Unclassified",
+                fallback_folder=fallback_folder,
                 note="Gemini API error, workflow continues with fallback",
             )
             return self._create_fallback_classification(
-                f"Classification failed due to {type(e).__name__}"
+                f"Classification failed due to {type(e).__name__}",
+                fallback_folder=fallback_folder,
             )
 
         logger.info(
@@ -246,24 +261,28 @@ class EmailClassificationService:
 
         return classification
 
-    def _create_fallback_classification(self, reason: str) -> ClassificationResponse:
+    def _create_fallback_classification(
+        self, reason: str, fallback_folder: str = "Important"
+    ) -> ClassificationResponse:
         """Create fallback classification response when AI classification fails.
 
         This fallback ensures the workflow can continue even when Gemini API fails.
-        The email is marked as "Unclassified" with medium priority for manual review.
+        The email is marked with the first available user folder (or "Important")
+        with medium priority for manual review.
 
         Args:
             reason: Human-readable reason for fallback (e.g., "API timeout")
+            fallback_folder: Folder name to use as fallback (from user's folders)
 
         Returns:
             ClassificationResponse with fallback values:
-                - suggested_folder: "Unclassified"
+                - suggested_folder: First user folder or "Important"
                 - reasoning: Reason for fallback
                 - priority_score: 50 (medium priority for manual review)
                 - confidence: 0.0 (no confidence in fallback classification)
         """
         return ClassificationResponse(
-            suggested_folder="Unclassified",
+            suggested_folder=fallback_folder,
             reasoning=reason[:300],  # Truncate to max 300 chars
             priority_score=50,  # Medium priority for manual review
             confidence=0.0,  # No confidence in fallback classification
