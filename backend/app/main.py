@@ -28,7 +28,7 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import logger
 from app.core.metrics import setup_metrics
-from app.core.middleware import MetricsMiddleware
+from app.core.middleware import MetricsMiddleware, ErrorAlertingMiddleware
 from app.core.telegram_bot import TelegramBotClient
 from app.core.vector_db import VectorDBClient
 from app.services.database import database_service
@@ -159,6 +159,21 @@ setup_metrics(app)
 # Add custom metrics middleware
 app.add_middleware(MetricsMiddleware)
 
+# Add error alerting middleware (Story 3.2)
+app.add_middleware(ErrorAlertingMiddleware)
+
+# Add CORS middleware - MUST BE LAST (executes first due to FastAPI middleware order)
+# CRITICAL for frontend-backend communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
+)
+
 # Set up rate limiter exception handler
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -196,15 +211,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-# Set up CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
@@ -228,30 +234,72 @@ async def root(request: Request):
 @app.get("/health")
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["health"][0])
 async def health_check(request: Request) -> Dict[str, Any]:
-    """Health check endpoint with environment-specific information.
+    """Health check endpoint with environment-specific information (Story 3.2).
 
     Returns:
-        Dict[str, Any]: Health status information
+        Dict[str, Any]: Health status information with component checks
     """
     logger.info("health_check_called")
 
-    # Check database connectivity (handle case where DB may not be set up yet)
+    components = {"api": "healthy"}
+
+    # Check database connectivity (Story 3.5 - improved status reporting)
     try:
-        db_healthy = await database_service.health_check()
+        db_status = await database_service.health_check()
+        components["database"] = db_status["status"]
+        db_healthy = db_status["status"] == "healthy"
     except Exception as e:
-        logger.warning("database_not_configured", error=str(e))
+        logger.warning("database_health_check_exception", error=str(e))
+        components["database"] = "unhealthy"
         db_healthy = False
 
+    # Check Redis connectivity (Story 3.2)
+    try:
+        import redis.asyncio as redis
+        redis_client = redis.from_url(
+            os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
+            encoding="utf-8",
+            decode_responses=True
+        )
+        await redis_client.ping()
+        await redis_client.close()
+        components["redis"] = "healthy"
+        redis_healthy = True
+    except Exception as e:
+        logger.warning("redis_connection_failed", error=str(e))
+        components["redis"] = "unhealthy"
+        redis_healthy = False
+
+    # Check Celery worker (Story 3.2)
+    try:
+        from app.celery import celery_app
+        # Check if workers are active
+        inspect = celery_app.control.inspect()
+        active_workers = inspect.active()
+        if active_workers and len(active_workers) > 0:
+            components["celery"] = "healthy"
+            celery_healthy = True
+        else:
+            components["celery"] = "no_workers"
+            celery_healthy = False
+    except Exception as e:
+        logger.warning("celery_check_failed", error=str(e))
+        components["celery"] = "unhealthy"
+        celery_healthy = False
+
+    # Overall status (Story 3.2)
+    all_healthy = db_healthy and redis_healthy and celery_healthy
+    overall_status = "healthy" if all_healthy else "degraded"
+
     response = {
-        "status": "healthy" if db_healthy else "degraded",
+        "status": overall_status,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT.value,
-        "components": {"api": "healthy", "database": "healthy" if db_healthy else "not_configured"},
+        "components": components,
         "timestamp": datetime.now().isoformat(),
     }
 
-    # API is healthy even if DB isn't configured yet (for Story 1.2)
-    # DB will be set up in Story 1.3
+    # Return 200 OK even if degraded (for Docker health check)
     status_code = status.HTTP_200_OK
 
     return JSONResponse(content=response, status_code=status_code)
