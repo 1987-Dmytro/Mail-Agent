@@ -739,7 +739,10 @@ async def send_telegram(
                 )
 
                 # Serialize buttons to JSON for storage
-                buttons_json = json.dumps(buttons)
+                buttons_json = json.dumps([
+                    [{"text": btn.text, "callback_data": btn.callback_data} for btn in row]
+                    for row in buttons
+                ])
 
                 # Queue email for daily batch notification
                 await queue_for_daily_batch(
@@ -785,7 +788,6 @@ async def send_telegram(
         # Story 1.1: Handle Telegram errors gracefully with manual notification fallback
         from app.models.manual_notification import ManualNotification, NotificationStatus
         from app.utils.errors import TelegramSendError, TelegramUserBlockedError
-        import json
 
         logger.error(
             "node_send_telegram_failed",
@@ -811,10 +813,13 @@ async def send_telegram(
                     telegram_id = user.telegram_id if user else "unknown"
 
                 # Serialize buttons to JSON for later retry
-                buttons_json = json.dumps([
-                    [{"text": btn.text, "callback_data": btn.callback_data} for btn in row]
-                    for row in buttons
-                ]) if "buttons" in locals() else None
+                if "buttons" in locals() and buttons:
+                    buttons_json = json.dumps([
+                        [{"text": btn.text, "callback_data": btn.callback_data} for btn in row]
+                        for row in buttons
+                    ])
+                else:
+                    buttons_json = None
 
                 # Create manual notification record
                 manual_notification = ManualNotification(
@@ -1110,7 +1115,29 @@ async def execute_action(
                 # Update email status to completed (AC #2)
                 email.status = "completed"
                 db.add(email)
-    
+
+                # Mark email as read in Gmail by removing UNREAD label
+                try:
+                    await gmail_client.remove_label(
+                        message_id=email.gmail_message_id,
+                        label_id="UNREAD"
+                    )
+                    logger.info(
+                        "email_marked_as_read",
+                        email_id=email_id,
+                        gmail_message_id=email.gmail_message_id,
+                        action="approve"
+                    )
+                except Exception as mark_read_error:
+                    # Log error but don't fail workflow - email is already sorted
+                    logger.warning(
+                        "mark_as_read_failed",
+                        email_id=email_id,
+                        gmail_message_id=email.gmail_message_id,
+                        error=str(mark_read_error),
+                        note="Email successfully sorted, but failed to mark as read"
+                    )
+
                 # Record approval decision to history (Story 2.10)
                 try:
                     approval_service = ApprovalHistoryService(db)
@@ -1269,7 +1296,29 @@ async def execute_action(
             # Update status to rejected, no Gmail API call (AC #3)
             email.status = "rejected"
             db.add(email)
-    
+
+            # Mark email as read in Gmail - user has made a decision to reject
+            try:
+                await gmail_client.remove_label(
+                    message_id=email.gmail_message_id,
+                    label_id="UNREAD"
+                )
+                logger.info(
+                    "email_marked_as_read",
+                    email_id=email_id,
+                    gmail_message_id=email.gmail_message_id,
+                    action="reject"
+                )
+            except Exception as mark_read_error:
+                # Log error but don't fail workflow
+                logger.warning(
+                    "mark_as_read_failed",
+                    email_id=email_id,
+                    gmail_message_id=email.gmail_message_id,
+                    error=str(mark_read_error),
+                    note="Email rejected, but failed to mark as read"
+                )
+
             # Record rejection decision to history (Story 2.10)
             try:
                 approval_service = ApprovalHistoryService(db)
@@ -1347,7 +1396,29 @@ async def execute_action(
                 # Update email status to completed with selected folder
                 email.status = "completed"
                 db.add(email)
-    
+
+                # Mark email as read in Gmail by removing UNREAD label
+                try:
+                    await gmail_client.remove_label(
+                        message_id=email.gmail_message_id,
+                        label_id="UNREAD"
+                    )
+                    logger.info(
+                        "email_marked_as_read",
+                        email_id=email_id,
+                        gmail_message_id=email.gmail_message_id,
+                        action="change_folder"
+                    )
+                except Exception as mark_read_error:
+                    # Log error but don't fail workflow - email is already sorted
+                    logger.warning(
+                        "mark_as_read_failed",
+                        email_id=email_id,
+                        gmail_message_id=email.gmail_message_id,
+                        error=str(mark_read_error),
+                        note="Email successfully sorted to new folder, but failed to mark as read"
+                    )
+
                 # Record folder change decision to history (Story 2.10)
                 try:
                     approval_service = ApprovalHistoryService(db)

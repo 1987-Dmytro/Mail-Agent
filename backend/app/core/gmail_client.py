@@ -394,7 +394,17 @@ class GmailClient:
 
         result = await self._execute_with_retry(_list_messages)
 
-        self.logger.info("gmail_messages_fetched", user_id=self.user_id, query=query, count=len(result))
+        # Sort emails by received_at DESC (newest first) to ensure correct processing order
+        # This ensures the email queue processes newest emails first, matching user expectations
+        result.sort(key=lambda x: x["received_at"], reverse=True)
+
+        self.logger.info(
+            "gmail_messages_fetched",
+            user_id=self.user_id,
+            query=query,
+            count=len(result),
+            newest_first=True
+        )
 
         return result
 

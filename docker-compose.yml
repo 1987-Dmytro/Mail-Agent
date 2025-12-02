@@ -55,6 +55,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/logs:/app/logs
+      - chroma-data:/app/data/chroma
     env_file:
       - ./backend/.env
     environment:
@@ -88,6 +89,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/logs:/app/logs
+      - chroma-data:/app/data/chroma
     env_file:
       - ./backend/.env
     environment:
@@ -105,6 +107,36 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mailagent-network
+
+  # Celery Beat - Task Scheduler
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: ${APP_ENV:-development}
+    container_name: mailagent-celery-beat
+    command: ["/app/.venv/bin/celery", "-A", "app.celery", "beat", "--loglevel=info"]
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/logs:/app/logs
+      - chroma-data:/app/data/chroma
+    env_file:
+      - ./backend/.env
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-mailagent}:${POSTGRES_PASSWORD:-mailagent_dev_password_2024}@postgres:5432/${POSTGRES_DB:-mailagent}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - mailagent-network
@@ -144,3 +176,5 @@ volumes:
     name: mailagent-postgres-data
   redis-data:
     name: mailagent-redis-data
+  chroma-data:
+    name: mailagent-chroma-data

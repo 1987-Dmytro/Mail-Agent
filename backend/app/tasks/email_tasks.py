@@ -111,8 +111,8 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
     # Initialize Gmail client
     gmail_client = GmailClient(user_id)
 
-    # Fetch unread emails
-    emails = await gmail_client.get_messages(query="is:unread", max_results=50)
+    # Fetch unread emails from Inbox only
+    emails = await gmail_client.get_messages(query="is:unread in:inbox", max_results=50)
 
     logger.info("emails_fetched", user_id=user_id, count=len(emails))
 
