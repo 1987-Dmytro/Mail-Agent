@@ -21,11 +21,13 @@ Mail Agent helps you manage your inbox efficiently by:
 - ✅ Epic 3: Telegram Notifications & RAG Response Generation
 - ✅ Epic 4: Frontend Development (Next.js UI, Onboarding)
 
-**Recent Fixes (Dec 2025):**
-- Fixed API response format consistency
-- Fixed onboarding flow for existing users
-- Fixed dashboard statistics accuracy
-- Cleaned up repository structure (single monorepo, main branch)
+**Recent Updates (Dec 2025):**
+- ✅ **Unified LLM Classification**: Single Gemini API call with RAG context
+- ✅ **ChromaDB Integration**: Vector storage for semantic email search
+- ✅ **Immediate Notifications**: Removed batch queue, all emails sent instantly
+- ✅ **Bug Fixes**: State management, response draft handling
+- ✅ **Frontend Fixes**: API response format, onboarding flow, dashboard statistics
+- ✅ **Repository Cleanup**: Single monorepo, main branch only
 
 ## Prerequisites
 
@@ -157,6 +159,129 @@ Mail-Agent/
 └── README.md             # This file
 ```
 
+## Email Processing Workflow
+
+The system uses LangGraph for orchestrating the email processing workflow with the following automated steps:
+
+### Workflow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    AUTOMATED EMAIL WORKFLOW                         │
+└─────────────────────────────────────────────────────────────────────┘
+
+1. 📧 Gmail Polling (Every 2 minutes)
+   │
+   ├─→ Celery Beat triggers polling task
+   ├─→ Gmail API: Fetch new messages
+   └─→ Duplicate detection via gmail_message_id
+
+2. 🔍 Email Indexing & Vector Storage
+   │
+   ├─→ Extract email content (subject + body)
+   ├─→ Generate embeddings with Gemini
+   └─→ Store in ChromaDB for RAG retrieval
+
+3. 🤖 Unified LLM Classification (Single API Call)
+   │
+   ├─→ Retrieve RAG context:
+   │   ├─ Thread history (conversation context)
+   │   └─ Semantic search (similar emails)
+   │
+   ├─→ Build classification prompt with:
+   │   ├─ Email content (sender, subject, body preview)
+   │   ├─ User's folder categories
+   │   └─ RAG context for response generation
+   │
+   └─→ Gemini 2.5 Flash returns JSON:
+       {
+         "suggested_folder": "Government",
+         "reasoning": "Official tax office communication...",
+         "priority_score": 85,
+         "confidence": 0.95,
+         "needs_response": false,
+         "response_draft": null
+       }
+
+4. 📱 Immediate Telegram Notification (All Emails)
+   │
+   ├─→ Format approval message:
+   │   ├─ From: sender@example.com
+   │   ├─ Subject: "Email subject..."
+   │   ├─ AI Suggestion: "Government" folder
+   │   ├─ Reasoning: "Official tax office..."
+   │   └─ Priority indicator (⚠️ for score ≥ 70)
+   │
+   ├─→ Create inline keyboard:
+   │   ├─ [✅ Approve] [❌ Reject]
+   │   └─ [📁 Change Folder]
+   │
+   └─→ Send via Telegram Bot API
+       └─→ Store telegram_message_id for tracking
+
+5. ⏸️ Workflow Pause (await_approval)
+   │
+   ├─→ LangGraph checkpoint saves state
+   ├─→ Email status → "awaiting_approval"
+   └─→ Workflow waits for user decision
+
+6. ✅ User Decision via Telegram Callback
+   │
+   ├─→ User clicks button in Telegram
+   ├─→ Webhook receives callback_query
+   ├─→ LangGraph resumes workflow from checkpoint
+   │
+   └─→ Decision handling:
+       ├─ [Approve] → Move to suggested folder
+       ├─ [Reject] → Keep in inbox
+       └─ [Change] → Show folder selection menu
+
+7. 📬 Gmail Action Execution
+   │
+   ├─→ Apply Gmail label (folder mapping)
+   ├─→ Mark as read (if configured)
+   └─→ Archive (if configured)
+
+8. ✉️ Response Generation (if needs_response=true)
+   │
+   ├─→ Load response_draft from LLM
+   ├─→ Detect language & tone
+   ├─→ Format with user signature
+   └─→ Send email via Gmail API
+
+9. 🎉 Completion Notification
+   │
+   └─→ Edit original Telegram message:
+       "✅ Email moved to [Folder Name]"
+```
+
+### Key Features
+
+**🔄 Unified LLM Integration**
+- Single Gemini API call determines folder, priority, and response needs
+- RAG context from ChromaDB enhances classification accuracy
+- Response drafts generated proactively if needed
+
+**⚡ Immediate Notifications**
+- All emails trigger instant Telegram notifications
+- No batch queuing - real-time processing
+- Priority indicator for urgent emails (score ≥ 70)
+
+**🧠 Context-Aware Classification**
+- Thread history: Previous emails in conversation
+- Semantic search: Similar emails from past
+- Token-optimized: ~2000 tokens per classification
+
+**📊 State Management**
+- LangGraph checkpoints enable pause/resume
+- PostgreSQL persistence across service restarts
+- Workflow state tracking per email
+
+**🛡️ Error Handling**
+- Graceful fallbacks for API failures
+- Manual notification queue for Telegram errors
+- Dead letter queue for persistent failures
+
 ## Documentation
 
 Detailed documentation is available in the `docs/` directory:
@@ -261,7 +386,13 @@ For issues or questions:
 
 ---
 
-**Last Updated**: 2025-12-01
-**Current Status**: MVP Complete (Epics 1-4)
+**Last Updated**: 2025-12-04
+**Current Status**: MVP Complete (Epics 1-4) + Unified LLM + RAG Integration
+**Recent Changes**:
+- ✅ Unified LLM classification (single API call)
+- ✅ RAG integration with ChromaDB
+- ✅ Immediate Telegram notifications (batch removed)
+- ✅ Bug fixes: state management, response draft handling
+
 **Repository**: https://github.com/1987-Dmytro/Mail-Agent (Private)
 **Branch**: main

@@ -288,43 +288,28 @@ async def classify(
                 user_id=int(state["user_id"]),
             )
 
-            # Update state with classification results
+            # Update state with classification results (including unified LLM response)
             state["proposed_folder"] = classification_result.suggested_folder
             state["classification_reasoning"] = classification_result.reasoning
             state["priority_score"] = classification_result.priority_score
 
-            # Determine if email needs response generation (Story 3.11 - AC #1)
-            # Load email for response classification
-            email_result = await db.execute(
-                select(EmailProcessingQueue).where(
-                    EmailProcessingQueue.id == int(state["email_id"])
-                )
+            # Use LLM-determined needs_response (replaces rule-based logic)
+            # LLM analyzed email content + RAG context to determine if response needed
+            needs_response = classification_result.needs_response
+            state["classification"] = "needs_response" if needs_response else "sort_only"
+
+            # Store response_draft if available (for Story 3.11)
+            # Fix: Use draft_response (state field name) not response_draft
+            if classification_result.response_draft:
+                state["draft_response"] = classification_result.response_draft
+
+            logger.info(
+                "email_classified",
+                email_id=state["email_id"],
+                classification=state["classification"],
+                needs_response=needs_response,
+                has_response_draft=bool(classification_result.response_draft),
             )
-            email = email_result.scalar_one_or_none()
-
-            if email:
-                # Use ResponseGenerationService to classify email
-                from app.services.response_generation import ResponseGenerationService
-                response_service = ResponseGenerationService(user_id=int(state["user_id"]))
-                needs_response = await response_service.should_generate_response(email, db_session=db)
-
-                # Set classification based on response need (Story 3.11 - AC #1)
-                state["classification"] = "needs_response" if needs_response else "sort_only"
-
-                logger.info(
-                    "email_classified",
-                    email_id=state["email_id"],
-                    classification=state["classification"],
-                    needs_response=needs_response
-                )
-            else:
-                # Fallback to sort_only if email not found
-                state["classification"] = "sort_only"
-                logger.warning(
-                    "email_not_found_for_classification",
-                    email_id=state["email_id"],
-                    fallback_classification="sort_only"
-                )
 
             # Look up proposed_folder_id for database FK
             if classification_result.suggested_folder:
@@ -668,121 +653,78 @@ async def send_telegram(
                 # Step 4: Create inline keyboard buttons
                 buttons = create_inline_keyboard(email_id=int(state["email_id"]))
 
-            # Step 5: Priority routing - send immediately or queue for batch (Story 2.3)
-            if is_priority:
-                # PRIORITY EMAIL: Send immediately via Telegram
-                logger.info(
-                    "priority_email_sending_immediate",
-                    email_id=state["email_id"],
-                    priority_score=state.get("priority_score", 0)
+            # Step 5: Send ALL emails immediately (batch notifications disabled)
+            # Always send immediately regardless of priority score
+            logger.info(
+                "email_sending_immediate",
+                email_id=state["email_id"],
+                priority_score=state.get("priority_score", 0),
+                is_priority=is_priority
+            )
+
+            # Send message via TelegramBotClient
+            telegram_message_id = await telegram_bot_client.send_message_with_buttons(
+                telegram_id=user.telegram_id,
+                text=message_text,
+                buttons=buttons,
+            )
+
+            # Update WorkflowMapping with telegram_message_id
+            result = await db.execute(
+                select(WorkflowMapping).where(
+                    WorkflowMapping.thread_id == state["thread_id"]
                 )
+            )
+            workflow_mapping = result.scalar_one_or_none()
 
-                # Send message via TelegramBotClient
-                telegram_message_id = await telegram_bot_client.send_message_with_buttons(
-                    telegram_id=user.telegram_id,
-                    text=message_text,
-                    buttons=buttons,
+            if workflow_mapping:
+                workflow_mapping.telegram_message_id = telegram_message_id
+                workflow_mapping.workflow_state = "awaiting_approval"
+                await db.commit()
+                logger.debug(
+                    "workflow_mapping_updated",
+                    thread_id=state["thread_id"],
+                    telegram_message_id=telegram_message_id,
                 )
-
-                # Update WorkflowMapping with telegram_message_id
-                result = await db.execute(
-                    select(WorkflowMapping).where(
-                        WorkflowMapping.thread_id == state["thread_id"]
-                    )
-                )
-                workflow_mapping = result.scalar_one_or_none()
-
-                if workflow_mapping:
-                    workflow_mapping.telegram_message_id = telegram_message_id
-                    workflow_mapping.workflow_state = "awaiting_approval"
-                    await db.commit()
-                    logger.debug(
-                        "workflow_mapping_updated",
-                        thread_id=state["thread_id"],
-                        telegram_message_id=telegram_message_id,
-                    )
-                else:
-                    logger.warning(
-                        "workflow_mapping_not_found",
-                        thread_id=state["thread_id"],
-                        note="WorkflowMapping should have been created during workflow initialization",
-                    )
-
-                # Store telegram_message_id in state
-                state["telegram_message_id"] = telegram_message_id
-
-                # Update EmailProcessingQueue status to awaiting_approval
-                result = await db.execute(
-                    select(EmailProcessingQueue).where(
-                        EmailProcessingQueue.id == int(state["email_id"])
-                    )
-                )
-                email = result.scalar_one_or_none()
-
-                if email:
-                    email.status = "awaiting_approval"
-                    await db.commit()
-
-                    logger.info(
-                        "priority_email_sent_immediate",
-                        email_id=state["email_id"],
-                        telegram_message_id=telegram_message_id,
-                        priority_score=state.get("priority_score", 0),
-                    )
-
             else:
-                # NON-PRIORITY EMAIL: Queue for daily batch (Story 2.3)
+                logger.warning(
+                    "workflow_mapping_not_found",
+                    thread_id=state["thread_id"],
+                    note="WorkflowMapping should have been created during workflow initialization",
+                )
+
+            # Store telegram_message_id in state
+            state["telegram_message_id"] = telegram_message_id
+
+            # Update EmailProcessingQueue status to awaiting_approval
+            result = await db.execute(
+                select(EmailProcessingQueue).where(
+                    EmailProcessingQueue.id == int(state["email_id"])
+                )
+            )
+            email = result.scalar_one_or_none()
+
+            if email:
+                email.status = "awaiting_approval"
+                email.is_priority = is_priority  # Store actual priority flag
+                await db.commit()
+
                 logger.info(
-                    "non_priority_email_queueing_for_batch",
+                    "email_sent_immediate",
                     email_id=state["email_id"],
-                    priority_score=state.get("priority_score", 0)
+                    telegram_message_id=telegram_message_id,
+                    priority_score=state.get("priority_score", 0),
+                    is_priority=is_priority
+                )
+            else:
+                logger.warning(
+                    "email_not_found_for_status_update",
+                    email_id=state["email_id"]
                 )
 
-                # Serialize buttons to JSON for storage
-                buttons_json = json.dumps([
-                    [{"text": btn.text, "callback_data": btn.callback_data} for btn in row]
-                    for row in buttons
-                ])
-
-                # Queue email for daily batch notification
-                await queue_for_daily_batch(
-                    db=db,
-                    user_id=int(state["user_id"]),
-                    email_id=int(state["email_id"]),
-                    telegram_id=user.telegram_id,
-                    message_text=message_text,
-                    buttons_json=buttons_json,
-                    priority_score=state.get("priority_score", 0)
-                )
-
-                # Update EmailProcessingQueue status to awaiting_approval
-                result = await db.execute(
-                    select(EmailProcessingQueue).where(
-                        EmailProcessingQueue.id == int(state["email_id"])
-                    )
-                )
-                email = result.scalar_one_or_none()
-
-                if email:
-                    email.status = "awaiting_approval"
-                    email.is_priority = False
-                    await db.commit()
-
-                    logger.info(
-                        "email_marked_for_batch",
-                        email_id=state["email_id"],
-                        priority_score=state.get("priority_score", 0),
-                        note="Email will be sent in batch notification (Story 2.8)"
-                    )
-                else:
-                    logger.warning(
-                        "email_not_found_for_batch_marking",
-                        email_id=state["email_id"]
-                    )
-
-                # Create body preview for consistency
-                body_preview = state["email_content"][:100] if state.get("email_content") else ""
-                state["body_preview"] = body_preview
+            # Create body preview for consistency
+            body_preview = state["email_content"][:100] if state.get("email_content") else ""
+            state["body_preview"] = body_preview
 
     except Exception as e:
         # Story 1.1: Handle Telegram errors gracefully with manual notification fallback
@@ -1658,8 +1600,16 @@ async def send_confirmation(
                 folder_name = folder.name if folder else "Unknown Folder"
             else:
                 folder_name = state.get("proposed_folder", "Unknown Folder")
-    
-            confirmation_text = f"✅ Email sorted to {folder_name}"
+
+            # Add classification info (needs_response or non_priority)
+            classification = state.get("classification", "")
+            needs_response_text = ""
+            if classification == "needs_response":
+                needs_response_text = "\n📨 Требуется ответ на это письмо"
+            elif classification == "non_priority":
+                needs_response_text = "\n📬 Не требует ответа"
+
+            confirmation_text = f"✅ Email sorted to {folder_name}{needs_response_text}"
     
             logger.info(
                 "send_confirmation_approved",
@@ -1686,8 +1636,16 @@ async def send_confirmation(
                 folder_name = folder.name if folder else "Unknown Folder"
             else:
                 folder_name = state.get("selected_folder", "Unknown Folder")
-    
-            confirmation_text = f"✅ Email sorted to {folder_name}"
+
+            # Add classification info (needs_response or non_priority)
+            classification = state.get("classification", "")
+            needs_response_text = ""
+            if classification == "needs_response":
+                needs_response_text = "\n📨 Требуется ответ на это письмо"
+            elif classification == "non_priority":
+                needs_response_text = "\n📬 Не требует ответа"
+
+            confirmation_text = f"✅ Email sorted to {folder_name}{needs_response_text}"
     
             logger.info(
                 "send_confirmation_folder_changed",
