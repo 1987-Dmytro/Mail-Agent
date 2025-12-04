@@ -13,7 +13,7 @@ Usage:
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Dict
+from typing import Dict, List
 from pydantic import ValidationError
 
 from app.core.gmail_client import GmailClient
@@ -22,7 +22,9 @@ from app.models.classification_response import ClassificationResponse
 from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
 from app.models.user import User
+from app.models.context_models import RAGContext, EmailMessage
 from app.prompts.classification_prompt import build_classification_prompt
+from app.services.context_retrieval import ContextRetrievalService
 from app.utils.errors import (
     GeminiAPIError,
     GeminiRateLimitError,
@@ -32,6 +34,75 @@ from app.utils.errors import (
 
 
 logger = structlog.get_logger(__name__)
+
+
+def _format_rag_context(rag_context: RAGContext) -> str:
+    """Format RAGContext into human-readable string for LLM prompt.
+
+    Converts the structured RAGContext with thread_history and semantic_results
+    into a formatted text block that provides conversation context to the LLM.
+
+    Args:
+        rag_context: RAGContext dict with thread_history, semantic_results, metadata
+
+    Returns:
+        Formatted string with thread history and semantic results, or empty string if no context
+
+    Example:
+        >>> rag_context = {
+        ...     "thread_history": [{"sender": "tax@example.com", "subject": "Tax documents", ...}],
+        ...     "semantic_results": [],
+        ...     "metadata": {"thread_length": 1, "semantic_count": 0, ...}
+        ... }
+        >>> formatted = _format_rag_context(rag_context)
+        >>> print(formatted)
+        **Thread History (1 emails in conversation):**
+
+        1. From: tax@example.com
+           Subject: Tax documents
+           Date: 2024-01-15
+           Body: Please submit your tax return...
+    """
+    if not rag_context:
+        return ""
+
+    thread_history = rag_context.get("thread_history", [])
+    semantic_results = rag_context.get("semantic_results", [])
+    metadata = rag_context.get("metadata", {})
+
+    # If no context available, return empty string
+    if not thread_history and not semantic_results:
+        return "No related emails found."
+
+    formatted_parts = []
+
+    # Format thread history
+    if thread_history:
+        thread_length = metadata.get("thread_length", len(thread_history))
+        formatted_parts.append(f"**Thread History ({thread_length} emails in conversation):**\n")
+
+        for i, email in enumerate(thread_history, 1):
+            formatted_parts.append(
+                f"{i}. From: {email['sender']}\n"
+                f"   Subject: {email['subject']}\n"
+                f"   Date: {email['date']}\n"
+                f"   Body: {email['body'][:200]}...\n"  # First 200 chars
+            )
+
+    # Format semantic results
+    if semantic_results:
+        semantic_count = metadata.get("semantic_count", len(semantic_results))
+        formatted_parts.append(f"\n**Related Emails (top {semantic_count} similar):**\n")
+
+        for i, email in enumerate(semantic_results, 1):
+            formatted_parts.append(
+                f"{i}. From: {email['sender']}\n"
+                f"   Subject: {email['subject']}\n"
+                f"   Date: {email['date']}\n"
+                f"   Body: {email['body'][:200]}...\n"  # First 200 chars
+            )
+
+    return "\n".join(formatted_parts)
 
 
 class EmailClassificationService:
@@ -75,9 +146,10 @@ class EmailClassificationService:
         1. Load email metadata from EmailProcessingQueue
         2. Retrieve full email content from Gmail API
         3. Load user's folder categories from database
-        4. Construct classification prompt using build_classification_prompt()
-        5. Call Gemini LLM API for classification
-        6. Parse and validate JSON response into ClassificationResponse
+        4. Retrieve RAG context (thread history + semantic search)
+        5. Construct classification prompt with RAG context using build_classification_prompt()
+        6. Call Gemini LLM API for unified classification (folder + needs_response + draft)
+        7. Parse and validate JSON response into ClassificationResponse
 
         Args:
             email_id: EmailProcessingQueue.id of the email to classify
@@ -89,6 +161,8 @@ class EmailClassificationService:
                 - reasoning (str): AI reasoning for classification (max 300 chars)
                 - priority_score (int): Priority score 0-100 (optional)
                 - confidence (float): Classification confidence 0.0-1.0 (optional)
+                - needs_response (bool): Whether email requires response (default: False)
+                - response_draft (str): AI-generated draft response if needs_response=True (optional)
 
         Raises:
             ValueError: If email_id not found or doesn't belong to user_id
@@ -192,17 +266,56 @@ class EmailClassificationService:
             for folder in folders
         ]
 
-        # Step 4: Construct classification prompt using Story 2.2 prompt builder
+        # Step 4: Retrieve RAG context (thread history + semantic search)
+        logger.debug(
+            "retrieving_rag_context",
+            email_id=email_id,
+            gmail_thread_id=email.gmail_thread_id,
+        )
+
+        rag_context_formatted = ""
+        try:
+            # Initialize ContextRetrievalService for this user
+            context_retrieval_service = ContextRetrievalService(user_id=user_id)
+
+            # Retrieve context (thread history + semantic search)
+            rag_context = await context_retrieval_service.retrieve_context(email_id=email_id)
+
+            # Format RAG context for prompt
+            rag_context_formatted = _format_rag_context(rag_context)
+
+            logger.debug(
+                "rag_context_retrieved",
+                thread_count=len(rag_context.get("thread_history", [])),
+                semantic_count=len(rag_context.get("semantic_results", [])),
+                total_tokens=rag_context.get("metadata", {}).get("total_tokens_used", 0),
+            )
+        except Exception as e:
+            # RAG retrieval failure is NOT critical - continue with empty context
+            logger.warning(
+                "rag_retrieval_failed",
+                email_id=email_id,
+                user_id=user_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                note="Continuing classification without RAG context",
+            )
+            rag_context_formatted = ""
+
+        # Step 5: Construct classification prompt using Story 2.2 prompt builder
         logger.debug(
             "building_classification_prompt",
             folder_count=len(user_folders),
+            has_rag_context=bool(rag_context_formatted),
         )
 
         prompt = build_classification_prompt(
-            email_data=email_data, user_folders=user_folders
+            email_data=email_data,
+            user_folders=user_folders,
+            rag_context=rag_context_formatted
         )
 
-        # Step 5: Call Gemini LLM API with JSON response format
+        # Step 6: Call Gemini LLM API with JSON response format
         # Gemini API errors trigger fallback to "Unclassified" - workflow continues
         logger.debug("calling_gemini_llm", operation="classification")
 
@@ -212,7 +325,7 @@ class EmailClassificationService:
                 prompt=prompt, operation="classification"
             )
 
-            # Step 6: Parse JSON response into ClassificationResponse Pydantic model
+            # Step 7: Parse JSON response into ClassificationResponse Pydantic model
             # Pydantic ValidationError triggers fallback to "Unclassified"
             try:
                 classification = ClassificationResponse(**llm_response)
@@ -280,10 +393,14 @@ class EmailClassificationService:
                 - reasoning: Reason for fallback
                 - priority_score: 50 (medium priority for manual review)
                 - confidence: 0.0 (no confidence in fallback classification)
+                - needs_response: False (cannot determine without AI)
+                - response_draft: None (no draft available in fallback)
         """
         return ClassificationResponse(
             suggested_folder=fallback_folder,
             reasoning=reason[:300],  # Truncate to max 300 chars
             priority_score=50,  # Medium priority for manual review
             confidence=0.0,  # No confidence in fallback classification
+            needs_response=False,  # Cannot determine without AI
+            response_draft=None,  # No draft available in fallback
         )

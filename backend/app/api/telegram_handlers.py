@@ -64,14 +64,23 @@ async def create_workflow_for_resumption(db: AsyncSession, gmail_client: GmailCl
         # Build workflow with dependency-injected nodes
         workflow = StateGraph(EmailWorkflowState)
 
-        # Bind dependencies to node functions
+        # Create db_factory context manager that yields the existing session
+        # Nodes expect: async with db_factory() as db:
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def db_factory():
+            """Context manager factory that yields the existing session."""
+            yield db
+
+        # Bind dependencies to node functions using db_factory
         # LLMClient IS needed for resumption - workflow re-runs all nodes including classify
         llm_client = LLMClient()
-        extract_context_with_deps = partial(nodes.extract_context, db=db, gmail_client=gmail_client)
-        classify_with_deps = partial(nodes.classify, db=db, gmail_client=gmail_client, llm_client=llm_client)
-        send_telegram_with_deps = partial(nodes.send_telegram, db=db, telegram_bot_client=telegram_bot)
-        execute_action_with_deps = partial(nodes.execute_action, db=db, gmail_client=gmail_client)
-        send_confirmation_with_deps = partial(nodes.send_confirmation, db=db, telegram_bot_client=telegram_bot)
+        extract_context_with_deps = partial(nodes.extract_context, db_factory=db_factory, gmail_client=gmail_client)
+        classify_with_deps = partial(nodes.classify, db_factory=db_factory, gmail_client=gmail_client, llm_client=llm_client)
+        send_telegram_with_deps = partial(nodes.send_telegram, db_factory=db_factory, telegram_bot_client=telegram_bot)
+        execute_action_with_deps = partial(nodes.execute_action, db_factory=db_factory, gmail_client=gmail_client)
+        send_confirmation_with_deps = partial(nodes.send_confirmation, db_factory=db_factory, telegram_bot_client=telegram_bot)
 
         # Add nodes
         workflow.add_node("extract_context", extract_context_with_deps)
@@ -673,12 +682,13 @@ async def handle_approve(query, email_id: int, db: AsyncSession):
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Get current state from PostgreSQL checkpoint
-            state_snapshot = await workflow.aget_state(config)
-            state = dict(state_snapshot.values)
-
-            # Update state with user decision
-            state["user_decision"] = "approve"
+            # Update state with user decision using update_state
+            # This updates only the specific fields without restarting workflow
+            await workflow.aupdate_state(
+                config,
+                {"user_decision": "approve"},
+                as_node="await_approval"
+            )
 
             logger.info(
                 "callback_resuming_workflow",
@@ -687,9 +697,10 @@ async def handle_approve(query, email_id: int, db: AsyncSession):
                 user_decision="approve",
             )
 
-            # Resume workflow from await_approval node
-            # Workflow will execute: await_approval → execute_action → send_confirmation → END
-            await workflow.ainvoke(state, config=config)
+            # Resume workflow from interrupt point (execute_action node)
+            # ainvoke(None) continues from where workflow was interrupted
+            # Workflow will execute: execute_action → send_confirmation → END
+            await workflow.ainvoke(None, config=config)
 
             logger.info(
                 "callback_workflow_resumed",
@@ -771,12 +782,12 @@ async def handle_reject(query, email_id: int, db: AsyncSession):
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Get current state from PostgreSQL checkpoint
-            state_snapshot = await workflow.aget_state(config)
-            state = dict(state_snapshot.values)
-
-            # Update state with user decision
-            state["user_decision"] = "reject"
+            # Update state with user decision using update_state
+            await workflow.aupdate_state(
+                config,
+                {"user_decision": "reject"},
+                as_node="await_approval"
+            )
 
             logger.info(
                 "callback_resuming_workflow",
@@ -785,8 +796,8 @@ async def handle_reject(query, email_id: int, db: AsyncSession):
                 user_decision="reject",
             )
 
-            # Resume workflow
-            await workflow.ainvoke(state, config=config)
+            # Resume workflow from interrupt point
+            await workflow.ainvoke(None, config=config)
 
             logger.info(
                 "callback_workflow_resumed",
@@ -857,10 +868,10 @@ async def handle_change_folder(query, email_id: int, db: AsyncSession):
 
     # Edit message to show folder selection
     try:
+        # Don't use parse_mode to avoid Markdown entity conflicts
         await query.edit_message_text(
-            text=query.message.text + "\n\n📁 *Select a folder:*",
+            text=query.message.text + "\n\n📁 Select a folder:",
             reply_markup=reply_markup,
-            parse_mode="Markdown",
         )
 
         logger.info(
@@ -956,14 +967,16 @@ async def handle_folder_selection(query, email_id: int, folder_id: int, db: Asyn
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Get current state from PostgreSQL checkpoint
-            state_snapshot = await workflow.aget_state(config)
-            state = dict(state_snapshot.values)
-
-            # Update state with user decision and selected folder
-            state["user_decision"] = "change_folder"
-            state["selected_folder_id"] = folder_id
-            state["selected_folder"] = folder.name
+            # Update state with user decision and selected folder using update_state
+            await workflow.aupdate_state(
+                config,
+                {
+                    "user_decision": "change_folder",
+                    "selected_folder_id": folder_id,
+                    "selected_folder": folder.name
+                },
+                as_node="await_approval"
+            )
 
             logger.info(
                 "callback_resuming_workflow",
@@ -973,8 +986,8 @@ async def handle_folder_selection(query, email_id: int, folder_id: int, db: Asyn
                 selected_folder_id=folder_id,
             )
 
-            # Resume workflow
-            await workflow.ainvoke(state, config=config)
+            # Resume workflow from interrupt point
+            await workflow.ainvoke(None, config=config)
 
             logger.info(
                 "callback_workflow_resumed",

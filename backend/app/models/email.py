@@ -90,6 +90,9 @@ class EmailProcessingQueue(BaseModel, table=True):
     retry_count: int = Field(default=0)  # Number of retry attempts made
     dlq_reason: Optional[str] = Field(default=None, sa_column=Column(Text))  # Reason for moving to dead letter queue (after MAX_RETRIES exhausted)
 
+    # Optimistic locking for preventing concurrent update conflicts
+    version: int = Field(default=1, sa_column=Column(Integer, nullable=False, server_default="1"))
+
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()))
 
     # Relationships

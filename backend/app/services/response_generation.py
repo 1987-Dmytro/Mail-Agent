@@ -136,14 +136,28 @@ class ResponseGenerationService:
         )
 
     async def should_generate_response(self, email: EmailProcessingQueue, db_session=None) -> bool:
-        """Determine if email requires a response draft (AC #2).
+        """[DEPRECATED] Determine if email requires a response draft (AC #2).
 
-        Classification logic:
+        **DEPRECATION NOTICE:**
+        This rule-based classification method has been replaced by unified LLM classification
+        in EmailClassificationService. The LLM now determines needs_response using AI analysis
+        with RAG context, providing more accurate classification than these hard-coded rules.
+
+        **New approach (unified LLM call):**
+        - EmailClassificationService.classify_email() returns ClassificationResponse
+        - ClassificationResponse includes: suggested_folder, needs_response, response_draft
+        - Single LLM call instead of 2-3 separate calls (quota optimization)
+        - Uses RAG context (thread history + semantic search) for better accuracy
+
+        **Do not use this method in new code.** It remains only for backwards compatibility
+        with existing tests. Workflow nodes now use ClassificationResponse.needs_response.
+
+        Old classification logic:
         - Return False if sender is no-reply/automated/newsletter
         - Return True if email contains question indicators
         - Return True if email is part of active conversation (>2 in thread)
         - Return False for likely automated messages
-        - Default: True (generate response for unclear cases)
+        - Default: True (generate response for unclear cases) ← Too aggressive, caused false positives
 
         Args:
             email: Email object to classify

@@ -128,6 +128,14 @@ Body Preview (first 500 characters):
 
 ---
 
+**Related Emails Context (RAG):**
+
+{rag_context}
+
+Use this context when generating response_draft to maintain conversation continuity and include relevant information.
+
+---
+
 **Few-Shot Examples:**
 
 Example 1: Government Email (German)
@@ -210,16 +218,26 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
   "suggested_folder": "<folder_name>",
   "reasoning": "<1-2 sentence explanation, max 300 characters>",
   "priority_score": <integer 0-100>,
-  "confidence": <float 0.0-1.0>
+  "confidence": <float 0.0-1.0>,
+  "needs_response": <boolean>,
+  "response_draft": "<AI-generated response draft if needs_response=true, otherwise null>"
 }}
 
 **Required Fields:**
 - suggested_folder (string): Must exactly match one of the user's folder category names listed above
 - reasoning (string): Concise explanation (max 300 characters) in English
+- needs_response (boolean): Whether this email requires a response from the user
 
 **Optional Fields:**
 - priority_score (integer): 0-100 scale (government=high 80-100, clients=medium 50-70, newsletters=low 0-20)
 - confidence (float): 0.0-1.0 scale (how certain you are about this classification)
+- response_draft (string): AI-generated response if needs_response=true (50-2000 chars), null otherwise
+
+**Response Classification Rules:**
+- needs_response = TRUE for: questions, meeting requests, invitations, action requests, follow-ups requiring reply
+- needs_response = FALSE for: newsletters, notifications, automated emails, security updates, informational announcements
+- If needs_response=true, ALWAYS generate response_draft using context from related emails below
+- If needs_response=false, set response_draft to null
 
 **Important:**
 - Ensure suggested_folder exactly matches one of the folder names provided above
@@ -232,19 +250,20 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 Now classify the email above."""
 
 
-def build_classification_prompt(email_data: Dict, user_folders: List[Dict]) -> str:
+def build_classification_prompt(email_data: Dict, user_folders: List[Dict], rag_context: str = "") -> str:
     """
-    Constructs classification prompt from email data and user's folder categories.
+    Constructs classification prompt from email data, user folders, and RAG context.
 
-    This function takes email metadata and user-defined folder categories,
-    then generates a complete prompt string ready for the Gemini LLM API.
+    This function takes email metadata, user-defined folder categories, and related
+    emails context (RAG), then generates a complete prompt string ready for the Gemini LLM API.
     The prompt includes:
     - System role instruction
     - Task description with classification guidelines
     - User's folder categories with descriptions
     - Email content (sender, subject, body preview)
+    - Related emails context (RAG) for response generation
     - Few-shot examples (5 diverse scenarios)
-    - JSON output schema specification
+    - JSON output schema specification with needs_response and response_draft
 
     Args:
         email_data: Dict with keys:
@@ -255,6 +274,7 @@ def build_classification_prompt(email_data: Dict, user_folders: List[Dict]) -> s
         user_folders: List of dicts with keys:
             - name (str): Folder category name
             - description (str): Brief description of what emails belong in this folder
+        rag_context: String with related emails context from vector search (optional)
 
     Returns:
         Complete prompt string ready for LLMClient.send_prompt() or LLMClient.receive_completion()
@@ -292,7 +312,8 @@ def build_classification_prompt(email_data: Dict, user_folders: List[Dict]) -> s
         email_subject=subject,
         email_body_preview=body_preview,
         user_folder_categories=folder_categories_formatted,
-        user_email=user_email
+        user_email=user_email,
+        rag_context=rag_context
     )
 
     return prompt

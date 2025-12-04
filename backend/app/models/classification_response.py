@@ -66,6 +66,18 @@ class ClassificationResponse(BaseModel):
         le=1.0  # Less than or equal to 1.0
     )
 
+    needs_response: bool = Field(
+        default=False,
+        description="Whether this email requires a response from the user. True for questions, requests, invitations. False for newsletters, notifications, automated emails."
+    )
+
+    response_draft: Optional[str] = Field(
+        default=None,
+        description="AI-generated response draft if needs_response=True. Includes context from related emails via RAG. Max 2000 characters for usability.",
+        min_length=50,
+        max_length=2000
+    )
+
     @field_validator('reasoning')
     @classmethod
     def validate_reasoning_length(cls, v: str) -> str:
@@ -125,7 +137,9 @@ class ClassificationResponse(BaseModel):
                 "suggested_folder": "Government",
                 "reasoning": "Official communication from Finanzamt (Tax Office) regarding tax return deadline",
                 "priority_score": 85,
-                "confidence": 0.95
+                "confidence": 0.95,
+                "needs_response": False,
+                "response_draft": None
             }
         }
 

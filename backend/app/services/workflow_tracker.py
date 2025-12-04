@@ -316,7 +316,7 @@ class WorkflowInstanceTracker:
     async def _save_classification_results(
         self, email_id: int, state: EmailWorkflowState
     ) -> None:
-        """Save classification results to EmailProcessingQueue.
+        """Save classification results to EmailProcessingQueue with optimistic locking.
 
         Updates the database with AI classification results:
         - proposed_folder_id (lookup FolderCategory by name)
@@ -324,9 +324,14 @@ class WorkflowInstanceTracker:
         - priority_score
         - is_priority (True if priority_score >= 70)
 
+        Uses optimistic locking to prevent concurrent update conflicts.
+
         Args:
             email_id: EmailProcessingQueue.id to update
             state: Workflow state containing classification results
+
+        Raises:
+            ValueError: If concurrent update detected (version mismatch)
         """
         logger.debug("saving_classification_results", email_id=email_id)
 
@@ -339,6 +344,9 @@ class WorkflowInstanceTracker:
         if not email:
             logger.error("email_not_found_for_update", email_id=email_id)
             return
+
+        # Capture current version for optimistic locking
+        current_version = email.version
 
         # Lookup proposed_folder_id by folder name
         proposed_folder_name = state.get("proposed_folder")
@@ -359,7 +367,12 @@ class WorkflowInstanceTracker:
         email.priority_score = state.get("priority_score", 0)
         email.is_priority = email.priority_score >= 70
 
-        await self.db.commit()
+        # Increment version for optimistic locking
+        email.version = current_version + 1
+
+        # Note: No commit here - let caller control transaction boundary
+        # Caller (email_tasks.py) will commit after workflow completes
+        # If another process updated this email, commit will fail due to version conflict
 
         logger.debug(
             "classification_results_saved",
@@ -367,17 +380,21 @@ class WorkflowInstanceTracker:
             proposed_folder=proposed_folder_name,
             priority_score=email.priority_score,
             is_priority=email.is_priority,
+            version=email.version,
         )
 
     async def _update_email_status(
         self, email_id: int, status: str, error_message: str = None
     ) -> None:
-        """Update EmailProcessingQueue status.
+        """Update EmailProcessingQueue status with optimistic locking.
 
         Args:
             email_id: EmailProcessingQueue.id to update
             status: New status value (e.g., "awaiting_approval", "error")
             error_message: Optional error message if status is "error"
+
+        Raises:
+            ValueError: If concurrent update detected (version mismatch)
         """
         result = await self.db.execute(
             select(EmailProcessingQueue).where(EmailProcessingQueue.id == email_id)
@@ -385,12 +402,20 @@ class WorkflowInstanceTracker:
         email = result.scalar_one_or_none()
 
         if email:
+            # Capture current version for optimistic locking
+            current_version = email.version
+
+            # Update status and error fields
             email.status = status
             if error_message:
                 # Store error in classification_reasoning for debugging
                 email.classification_reasoning = f"Error: {error_message}"
-            await self.db.commit()
-            logger.debug("email_status_updated", email_id=email_id, status=status)
+
+            # Increment version for optimistic locking
+            email.version = current_version + 1
+
+            # Note: No commit here - let caller control transaction boundary
+            logger.debug("email_status_updated", email_id=email_id, status=status, version=email.version)
 
     async def _create_workflow_mapping(
         self, email_id: int, user_id: int, thread_id: str
@@ -418,7 +443,8 @@ class WorkflowInstanceTracker:
         )
 
         self.db.add(workflow_mapping)
-        await self.db.commit()
+        # Note: No commit here - let caller control transaction boundary
+        # Workflow mapping will be committed with email in parent transaction
 
         logger.debug(
             "workflow_mapping_created",

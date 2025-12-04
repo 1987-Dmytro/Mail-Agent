@@ -21,7 +21,7 @@ from app.services.database import database_service
 logger = structlog.get_logger(__name__)
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=600, soft_time_limit=570)
 def send_batch_notifications(self):
     """Send batch notifications to all users with pending emails (AC #1).
 
@@ -49,13 +49,10 @@ def send_batch_notifications(self):
     start_time = time.time()
     logger.info("batch_notifications_started")
 
+    # Create new event loop for this task
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        # Run async operations in event loop
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         # Execute batch notification logic
         stats = loop.run_until_complete(_send_batch_notifications_async())
 
@@ -81,6 +78,10 @@ def send_batch_notifications(self):
         )
         raise
 
+    finally:
+        # Always cleanup event loop to prevent resource leaks
+        loop.close()
+
 
 async def _send_batch_notifications_async() -> dict:
     """Execute batch notifications for all users asynchronously.
@@ -88,7 +89,7 @@ async def _send_batch_notifications_async() -> dict:
     Returns:
         Dict with execution statistics
     """
-    async with database_service.get_session() as db:
+    async with database_service.async_session() as db:
         # Get all active users with batch_enabled=True
         users = await _get_batch_enabled_users(db)
 
@@ -162,7 +163,7 @@ async def _get_batch_enabled_users(db) -> List[User]:
     return list(result.scalars().all())
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=1800, soft_time_limit=1770)
 def send_daily_digest(self):
     """Send daily digest of non-priority emails from BatchNotificationQueue (Story 2.3).
 
@@ -191,13 +192,10 @@ def send_daily_digest(self):
     start_time = time.time()
     logger.info("daily_digest_started")
 
+    # Create new event loop for this task
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        # Run async operations in event loop
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         # Execute daily digest logic
         stats = loop.run_until_complete(_send_daily_digest_async())
 
@@ -222,9 +220,16 @@ def send_daily_digest(self):
         )
         raise
 
+    finally:
+        # Always cleanup event loop to prevent resource leaks
+        loop.close()
+
 
 async def _send_daily_digest_async() -> dict:
     """Execute daily digest sending for all users asynchronously (Story 2.3).
+
+    Uses SELECT FOR UPDATE SKIP LOCKED to ensure atomic status transitions
+    and prevent duplicate processing by concurrent workers.
 
     Returns:
         Dict with execution statistics
@@ -235,15 +240,19 @@ async def _send_daily_digest_async() -> dict:
     from datetime import date, datetime
     import json
 
-    async with database_service.get_session() as db:
+    async with database_service.async_session() as db:
         # Get all pending batch notifications scheduled for today or earlier
+        # with_for_update(skip_locked=True) ensures:
+        # 1. Rows are locked for this transaction (prevents concurrent access)
+        # 2. Already locked rows are skipped (prevents blocking/deadlock)
+        # 3. Only one worker processes each notification (atomic status transition)
         stmt = select(BatchNotificationQueue).where(
             BatchNotificationQueue.status == BatchNotificationStatus.PENDING.value,
             BatchNotificationQueue.scheduled_for <= date.today()
         ).order_by(
             BatchNotificationQueue.user_id,
             BatchNotificationQueue.created_at
-        )
+        ).with_for_update(skip_locked=True)
         result = await db.execute(stmt)
         pending_notifications = list(result.scalars().all())
 
@@ -336,8 +345,33 @@ async def _send_daily_digest_async() -> dict:
                 logger.error(
                     "user_digest_failed",
                     user_id=user_id,
-                    error=str(e)
+                    error=str(e),
+                    exc_info=True
                 )
+
+                # Rollback inconsistent state
+                await db.rollback()
+
+                # Try to save failed status in separate transaction
+                try:
+                    for notif in notifications:
+                        if notif.status == BatchNotificationStatus.PENDING.value:
+                            notif.status = BatchNotificationStatus.FAILED.value
+                            # No sent_at for failed notifications
+
+                    await db.commit()
+                    logger.info(
+                        "batch_error_status_persisted",
+                        user_id=user_id,
+                        failed_count=len(notifications)
+                    )
+                except Exception as persist_error:
+                    logger.error(
+                        "failed_to_persist_error_status",
+                        user_id=user_id,
+                        error=str(persist_error)
+                    )
+
                 failed += len(notifications)
 
         return {

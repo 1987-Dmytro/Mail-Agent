@@ -26,7 +26,7 @@ from app.services.workflow_tracker import WorkflowInstanceTracker
 logger = structlog.get_logger(__name__)
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=300, soft_time_limit=270)
 def poll_user_emails(self, user_id: int):
     """Poll Gmail inbox for new emails for specific user.
 
@@ -44,13 +44,10 @@ def poll_user_emails(self, user_id: int):
     start_time = time.time()
     logger.info("polling_cycle_started", user_id=user_id)
 
+    # Create new event loop for this task
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        # Run async operations in event loop
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         # Execute polling logic
         new_count, skip_count = loop.run_until_complete(_poll_user_emails_async(user_id))
 
@@ -97,6 +94,10 @@ def poll_user_emails(self, user_id: int):
             exc_info=True,
         )
         raise
+
+    finally:
+        # Always cleanup event loop to prevent resource leaks
+        loop.close()
 
 
 async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
@@ -173,13 +174,17 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                 status="pending",
             )
             session.add(new_email)
-            await session.flush()  # Flush to get email ID before commit
+            await session.flush()  # Flush to get email ID
+            email_id = new_email.id  # Capture ID before commit
+
+            # Commit email immediately - closes transaction before slow I/O
+            await session.commit()
             new_count += 1
 
             logger.info(
                 "email_persisted",
                 user_id=user_id,
-                email_id=new_email.id,
+                email_id=email_id,
                 message_id=message_id,
                 sender=email.get("sender"),
                 subject=email.get("subject"),
@@ -187,41 +192,47 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
             )
 
             # Story 2.3: Start email classification workflow
+            # Workflow runs AFTER email committed - no long-lived transaction
             # Workflow will run: extract_context → classify → send_telegram → await_approval (PAUSE)
             try:
-                # Initialize workflow tracker with dependencies
-                llm_client = LLMClient()
-                telegram_bot_client = TelegramBotClient()
-                database_url = os.getenv("DATABASE_URL")
+                # Create new session for workflow (email already committed above)
+                async with database_service.async_session() as workflow_session:
+                    # Initialize workflow tracker with dependencies
+                    llm_client = LLMClient()
+                    telegram_bot_client = TelegramBotClient()
+                    database_url = os.getenv("DATABASE_URL")
 
-                workflow_tracker = WorkflowInstanceTracker(
-                    db=session,
-                    gmail_client=gmail_client,
-                    llm_client=llm_client,
-                    telegram_bot_client=telegram_bot_client,
-                    database_url=database_url,
-                )
+                    workflow_tracker = WorkflowInstanceTracker(
+                        db=workflow_session,
+                        gmail_client=gmail_client,
+                        llm_client=llm_client,
+                        telegram_bot_client=telegram_bot_client,
+                        database_url=database_url,
+                    )
 
-                # Start workflow - returns thread_id for checkpoint tracking
-                thread_id = await workflow_tracker.start_workflow(
-                    email_id=new_email.id,
-                    user_id=user_id,
-                )
+                    # Start workflow - returns thread_id for checkpoint tracking
+                    thread_id = await workflow_tracker.start_workflow(
+                        email_id=email_id,
+                        user_id=user_id,
+                    )
 
-                logger.info(
-                    "workflow_started",
-                    email_id=new_email.id,
-                    user_id=user_id,
-                    thread_id=thread_id,
-                    note="Workflow paused at await_approval, awaiting Telegram response",
-                )
+                    # Commit workflow state updates (mapping, classification, status)
+                    await workflow_session.commit()
+
+                    logger.info(
+                        "workflow_started",
+                        email_id=email_id,
+                        user_id=user_id,
+                        thread_id=thread_id,
+                        note="Workflow paused at await_approval, awaiting Telegram response",
+                    )
 
             except Exception as workflow_error:
                 # Log workflow initialization errors but don't fail email polling
                 # Email is already saved, workflow can be retried later if needed
                 logger.error(
                     "workflow_initialization_failed",
-                    email_id=new_email.id,
+                    email_id=email_id,
                     user_id=user_id,
                     error=str(workflow_error),
                     error_type=type(workflow_error).__name__,
@@ -229,15 +240,12 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                     exc_info=True,
                 )
 
-        # Commit all new emails in batch
-        await session.commit()
-
     logger.info("email_processing_summary", user_id=user_id, new_emails=new_count, duplicates=skip_count)
 
     return new_count, skip_count
 
 
-@shared_task
+@shared_task(time_limit=600, soft_time_limit=570)
 def poll_all_users():
     """Orchestrator task to poll all active users.
 
@@ -248,13 +256,11 @@ def poll_all_users():
     logger.info("poll_all_users_started")
     start_time = time.time()
 
+    # Create new event loop for this task
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
         # Run async database query in event loop
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         users = loop.run_until_complete(_get_active_users())
 
         logger.info("active_users_found", count=len(users))
@@ -288,6 +294,10 @@ def poll_all_users():
             exc_info=True,
         )
         raise
+
+    finally:
+        # Always cleanup event loop to prevent resource leaks
+        loop.close()
 
 
 async def _get_active_users() -> List[User]:
