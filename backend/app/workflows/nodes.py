@@ -982,6 +982,24 @@ async def send_response_draft_notification(
     )
 
     try:
+        # Check if draft notification was already sent (on resume after interrupt)
+        # If so, skip sending and go directly to interrupt to get the decision
+        if state.get("draft_notification_sent"):
+            logger.info(
+                "draft_notification_already_sent_skipping_resend",
+                email_id=state["email_id"],
+                draft_telegram_message_id=state.get("draft_telegram_message_id"),
+                note="This is a resume after interrupt - skipping notification resend"
+            )
+
+            # Pause workflow again and get decision
+            draft_decision = interrupt(value="Waiting for draft approval (Send/Edit/Reject)")
+
+            # Store the decision in state for route_draft_decision() to use
+            state["draft_decision"] = draft_decision
+
+            return state
+
         # Import here to avoid circular imports
         from app.models.user import User
         from app.models.workflow_mapping import WorkflowMapping
