@@ -78,6 +78,20 @@ class ClassificationResponse(BaseModel):
         max_length=2000
     )
 
+    detected_language: Optional[str] = Field(
+        default=None,
+        description="Detected language code of the email (ru=Russian, en=English, de=German, uk=Ukrainian). Used to write response in the same language.",
+        min_length=2,
+        max_length=10
+    )
+
+    tone: Optional[str] = Field(
+        default=None,
+        description="Detected tone/formality of the email (formal, informal, professional, casual). Used to match the response style. Formal='Вы'/'Sie', Informal='ты'/'du'.",
+        min_length=3,
+        max_length=20
+    )
+
     @field_validator('reasoning')
     @classmethod
     def validate_reasoning_length(cls, v: str) -> str:

@@ -220,18 +220,34 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
   "priority_score": <integer 0-100>,
   "confidence": <float 0.0-1.0>,
   "needs_response": <boolean>,
-  "response_draft": "<AI-generated response draft if needs_response=true, otherwise null>"
+  "response_draft": "<AI-generated response draft if needs_response=true, otherwise null>",
+  "detected_language": "<language_code>",
+  "tone": "<formal|informal|professional|casual>"
 }}
 
 **Required Fields:**
 - suggested_folder (string): Must exactly match one of the user's folder category names listed above
 - reasoning (string): Concise explanation (max 300 characters) in English
 - needs_response (boolean): Whether this email requires a response from the user
+- detected_language (string): Language code of the email (ru, en, de, uk, etc.)
+- tone (string): Formality level (formal, informal, professional, casual)
 
 **Optional Fields:**
 - priority_score (integer): 0-100 scale (government=high 80-100, clients=medium 50-70, newsletters=low 0-20)
 - confidence (float): 0.0-1.0 scale (how certain you are about this classification)
 - response_draft (string): AI-generated response if needs_response=true (50-2000 chars), null otherwise
+
+**Language and Tone Detection Guidelines:**
+- detected_language: Identify the primary language of the email based on subject and body
+  - Use ISO 639-1 codes: "ru" (Russian), "en" (English), "de" (German), "uk" (Ukrainian), etc.
+  - If mixed languages, choose the dominant one
+  - Examples: "Праздники 2025" → "ru", "Tax deadline reminder" → "en", "Steuererklärung" → "de"
+- tone: Determine formality level based on pronouns, greetings, and writing style
+  - "formal": Uses formal pronouns (Вы, Sie, Sie), official greetings (Sehr geehrte, Уважаемый)
+  - "informal": Uses informal pronouns (ты, du), casual greetings (Привет, Hi, Hallo)
+  - "professional": Business context with polite but not overly formal tone
+  - "casual": Friendly, relaxed communication style
+  - Examples: "Sehr geehrte Damen und Herren" → "formal", "Привет!" → "informal"
 
 **Response Classification Rules:**
 - needs_response = TRUE for: questions, meeting requests, invitations, action requests, follow-ups requiring reply
@@ -240,11 +256,11 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 - If needs_response=false, set response_draft to null
 
 **Response Draft Generation Guidelines:**
-- Write in the SAME LANGUAGE as the original email (Russian→Russian, English→English, German→German)
+- Write in the SAME LANGUAGE as detected_language (Russian→Russian, English→English, German→German)
+- Match the detected tone (formal→formal "Вы"/"Sie", informal→informal "ты"/"du")
 - Use gender-neutral language - avoid gendered forms when possible
 - For Russian: Use masculine forms as default neutral (e.g., "рад" not "рад/рада", "готов" not "готов/готова")
 - Keep responses brief, professional, and friendly (50-200 words)
-- Match the formality level of the original email (formal "Вы"/"Sie" vs informal "ты"/"du")
 - DO NOT add your name or signature - the system will add it automatically
 
 **Important:**
