@@ -1054,11 +1054,12 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
 
         try:
             # Update state with draft decision using update_state
-            # IMPORTANT: Don't use as_node parameter - it would overwrite the node's state
-            # and lose draft_telegram_message_id that was saved by send_response_draft_notification
+            # CRITICAL FIX: Must use as_node="send_response_draft_notification" to resume from correct node!
+            # Without as_node, workflow resumes from last checkpoint (await_approval) causing infinite loop
             await workflow.aupdate_state(
                 config,
-                {"draft_decision": "send_response"}
+                {"draft_decision": "send_response"},
+                as_node="send_response_draft_notification"
             )
 
             logger.info(
@@ -1066,6 +1067,7 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="send_response",
+                resume_from_node="send_response_draft_notification"
             )
 
             # Resume workflow from interrupt point
@@ -1205,11 +1207,12 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
 
         try:
             # Update state with draft decision using update_state
-            # IMPORTANT: Don't use as_node parameter - it would overwrite the node's state
-            # and lose draft_telegram_message_id that was saved by send_response_draft_notification
+            # CRITICAL FIX: Must use as_node="send_response_draft_notification" to resume from correct node!
+            # Without as_node, workflow resumes from last checkpoint (await_approval) causing infinite loop
             await workflow.aupdate_state(
                 config,
-                {"draft_decision": "reject_response"}
+                {"draft_decision": "reject_response"},
+                as_node="send_response_draft_notification"
             )
 
             logger.info(
@@ -1217,6 +1220,7 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="reject_response",
+                resume_from_node="send_response_draft_notification"
             )
 
             # Resume workflow from interrupt point
