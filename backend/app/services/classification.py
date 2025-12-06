@@ -80,6 +80,7 @@ def _format_rag_context(rag_context: RAGContext) -> str:
     if thread_history:
         thread_length = metadata.get("thread_length", len(thread_history))
         formatted_parts.append(f"**Thread History ({thread_length} emails in conversation):**\n")
+        formatted_parts.append("(Same thread as current email)\n")
 
         for i, email in enumerate(thread_history, 1):
             # Show more context for better AI understanding (500 chars instead of 200)
@@ -95,15 +96,21 @@ def _format_rag_context(rag_context: RAGContext) -> str:
     if semantic_results:
         semantic_count = metadata.get("semantic_count", len(semantic_results))
         formatted_parts.append(f"\n**Related Emails (top {semantic_count} similar):**\n")
+        formatted_parts.append("(From DIFFERENT threads with same sender - may contain relevant context)\n")
 
         for i, email in enumerate(semantic_results, 1):
             # Show more context for cross-thread understanding (500 chars instead of 200)
             # This is crucial for cases where subject changes mid-conversation
             body_preview = email['body'][:500] if len(email['body']) > 500 else email['body']
+
+            # Add thread_id to help AI understand these are from different conversations
+            thread_id = email.get('thread_id', 'unknown')
+
             formatted_parts.append(
                 f"{i}. From: {email['sender']}\n"
                 f"   Subject: {email['subject']}\n"
                 f"   Date: {email['date']}\n"
+                f"   Thread: {thread_id}\n"
                 f"   Body: {body_preview}{'...' if len(email['body']) > 500 else ''}\n"
             )
 
