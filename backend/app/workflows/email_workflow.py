@@ -74,6 +74,7 @@ from app.workflows.nodes import (
     send_telegram,
     draft_response,
     await_approval,
+    send_response_draft_notification,  # Story 3.9: Manual draft approval
     send_email_response,  # New node for sending email responses
     execute_action,
     send_confirmation,
@@ -136,23 +137,23 @@ def route_by_classification(state: EmailWorkflowState) -> str:
 
 
 def route_after_approval(state: EmailWorkflowState) -> str:
-    """Conditional edge function to route workflow after user approval (Story 1.2).
+    """Conditional edge function to route workflow after user approval (Story 1.2 + Story 3.9).
 
     Routes emails based on classification AND user approval decision:
-    - "needs_response" + "approve" → send_email_response (send AI response)
+    - "needs_response" + "approve" → show_draft (show draft for manual confirmation)
     - "sort_only" + "approve" → execute_action (skip email sending)
     - "reject" → send_confirmation (skip all actions, just confirm rejection)
     - "change_folder" → execute_action (use selected_folder instead of proposed_folder)
 
-    This function fixes the critical business logic bug where ALL emails were being sent
-    email responses, even "sort_only" emails that should only be sorted.
+    This function implements manual draft approval workflow (Epic 3 Story 3.9):
+    When classification="needs_response", user must approve draft before sending.
 
     Args:
         state: Current EmailWorkflowState containing classification and user_decision
 
     Returns:
         str: Routing key for path_map - one of:
-            - "send_email" - Send email response then execute action
+            - "show_draft" - Show response draft for manual approval (Story 3.9)
             - "execute_only" - Execute action without sending email
             - "reject" - Skip to confirmation
 
@@ -163,7 +164,7 @@ def route_after_approval(state: EmailWorkflowState) -> str:
         ...     ...
         ... )
         >>> route = route_after_approval(state)
-        >>> print(route)  # "send_email"
+        >>> print(route)  # "show_draft"
 
         >>> state = EmailWorkflowState(
         ...     classification="sort_only",
@@ -195,17 +196,17 @@ def route_after_approval(state: EmailWorkflowState) -> str:
 
     # Handle folder change or approval
     # For both "approve" and "change_folder", we need to apply the Gmail action
-    # But we only send email response if classification was "needs_response"
+    # But we only show draft notification if classification was "needs_response"
     if classification == "needs_response":
         logger.info(
             "workflow_routing_after_approval",
             email_id=email_id,
             classification=classification,
             user_decision=user_decision,
-            next_node="send_email_response",
-            reason="needs_response classification - will send email then execute action"
+            next_node="send_response_draft_notification",
+            reason="needs_response classification - showing draft for manual approval (Story 3.9)"
         )
-        return "send_email"
+        return "show_draft"
     else:
         # sort_only - skip email sending, go straight to execute_action
         logger.info(
@@ -217,6 +218,62 @@ def route_after_approval(state: EmailWorkflowState) -> str:
             reason="sort_only classification - skipping email send"
         )
         return "execute_only"
+
+
+def route_draft_decision(state: EmailWorkflowState) -> str:
+    """Conditional edge function to route workflow after draft approval (Story 3.9).
+
+    Routes based on user decision after reviewing response draft:
+    - "send_response" → send_email_response (send the draft via Gmail)
+    - "edit_response" → edit_draft (allow user to edit before sending)
+    - "reject_response" → execute_action (skip sending, just apply folder)
+
+    Args:
+        state: Current EmailWorkflowState containing draft_decision
+
+    Returns:
+        str: Routing key for path_map - one of:
+            - "send" - Send the response draft
+            - "edit" - Edit the draft (not implemented yet)
+            - "reject_draft" - Reject draft, skip sending
+
+    Example:
+        >>> state = EmailWorkflowState(draft_decision="send_response", ...)
+        >>> route = route_draft_decision(state)
+        >>> print(route)  # "send"
+    """
+    draft_decision = state.get("draft_decision", "send_response")
+    email_id = state.get("email_id", "unknown")
+
+    if draft_decision == "send_response":
+        logger.info(
+            "workflow_routing_draft_decision",
+            email_id=email_id,
+            draft_decision=draft_decision,
+            next_node="send_email_response",
+            reason="User approved draft - sending email"
+        )
+        return "send"
+    elif draft_decision == "edit_response":
+        logger.info(
+            "workflow_routing_draft_decision",
+            email_id=email_id,
+            draft_decision=draft_decision,
+            next_node="edit_draft",
+            reason="User wants to edit draft - not implemented yet, defaulting to send"
+        )
+        # TODO: Implement edit flow in future story
+        # For now, default to sending the draft as-is
+        return "send"
+    else:  # reject_response
+        logger.info(
+            "workflow_routing_draft_decision",
+            email_id=email_id,
+            draft_decision=draft_decision,
+            next_node="execute_action",
+            reason="User rejected draft - skipping email send"
+        )
+        return "reject_draft"
 
 
 def create_email_workflow(
@@ -327,6 +384,7 @@ def create_email_workflow(
         workflow.add_node("generate_response", partial(draft_response, db_factory=db_session_factory, context_service=context_service, embedding_service=embedding_service, vector_db_client=vector_db_client, gmail_client=gmail_client))  # Story 3.11 - AC #3
         workflow.add_node("send_telegram", partial(send_telegram, db_factory=db_session_factory, telegram_bot_client=telegram_client))
         workflow.add_node("await_approval", await_approval)  # No dependencies needed
+        workflow.add_node("send_response_draft_notification", partial(send_response_draft_notification, db_factory=db_session_factory, telegram_bot_client=telegram_client))  # Story 3.9
         workflow.add_node("send_email_response", partial(send_email_response, db_factory=db_session_factory, gmail_client=gmail_client))
         workflow.add_node("execute_action", partial(execute_action, db_factory=db_session_factory, gmail_client=gmail_client))
         workflow.add_node("send_confirmation", partial(send_confirmation, db_factory=db_session_factory, telegram_bot_client=telegram_client))
@@ -340,6 +398,7 @@ def create_email_workflow(
         workflow.add_node("generate_response", draft_response)  # Story 3.11 - AC #3
         workflow.add_node("send_telegram", send_telegram)
         workflow.add_node("await_approval", await_approval)
+        workflow.add_node("send_response_draft_notification", send_response_draft_notification)  # Story 3.9
         workflow.add_node("send_email_response", send_email_response)
         workflow.add_node("execute_action", execute_action)
         workflow.add_node("send_confirmation", send_confirmation)
@@ -369,15 +428,27 @@ def create_email_workflow(
     # Continue to await_approval (workflow pauses here)
     workflow.add_edge("send_telegram", "await_approval")
 
-    # Conditional routing after user approval (Story 1.2)
+    # Conditional routing after user approval (Story 1.2 + Story 3.9)
     # Route based on classification AND user decision
     workflow.add_conditional_edges(
         "await_approval",
         route_after_approval,
         {
-            "send_email": "send_email_response",  # needs_response + approved → send email
-            "execute_only": "execute_action",     # sort_only + approved → skip email
-            "reject": "send_confirmation",         # rejected → skip all actions
+            "show_draft": "send_response_draft_notification",  # needs_response + approved → show draft (Story 3.9)
+            "execute_only": "execute_action",                  # sort_only + approved → skip email
+            "reject": "send_confirmation",                      # rejected → skip all actions
+        }
+    )
+
+    # Conditional routing after draft approval (Story 3.9)
+    # Route based on user decision: Send, Edit, or Reject draft
+    workflow.add_conditional_edges(
+        "send_response_draft_notification",
+        route_draft_decision,
+        {
+            "send": "send_email_response",      # User clicked [Send] → send the draft
+            "edit": "send_email_response",      # User clicked [Edit] → TODO: implement edit, for now send as-is
+            "reject_draft": "execute_action",   # User clicked [Reject] → skip sending, just apply folder
         }
     )
 

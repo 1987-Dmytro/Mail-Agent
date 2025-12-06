@@ -22,6 +22,7 @@ from app.models.user import User
 from app.models.email import EmailProcessingQueue
 from app.services.database import database_service
 from app.services.workflow_tracker import WorkflowInstanceTracker
+from app.tasks.indexing_tasks import index_new_email_background
 
 logger = structlog.get_logger(__name__)
 
@@ -226,6 +227,26 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                         thread_id=thread_id,
                         note="Workflow paused at await_approval, awaiting Telegram response",
                     )
+
+                    # Index new email in vector database for RAG context retrieval
+                    # This runs asynchronously in background - doesn't block workflow
+                    try:
+                        index_new_email_background.delay(user_id=user_id, message_id=message_id)
+                        logger.info(
+                            "incremental_indexing_queued",
+                            email_id=email_id,
+                            user_id=user_id,
+                            message_id=message_id,
+                        )
+                    except Exception as indexing_error:
+                        # Don't fail workflow if indexing fails - just log it
+                        logger.warning(
+                            "incremental_indexing_queue_failed",
+                            email_id=email_id,
+                            user_id=user_id,
+                            message_id=message_id,
+                            error=str(indexing_error),
+                        )
 
             except Exception as workflow_error:
                 # Log workflow initialization errors but don't fail email polling

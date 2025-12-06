@@ -49,7 +49,7 @@ class ClassificationResponse(BaseModel):
         ...,
         description="1-2 sentence explanation for classification decision. Explains why this folder was chosen based on sender, subject, or content.",
         min_length=10,
-        max_length=300  # Telegram message limit consideration
+        max_length=1000  # Increased limit to allow LLM more detailed explanations
     )
 
     priority_score: Optional[int] = Field(
@@ -96,13 +96,13 @@ class ClassificationResponse(BaseModel):
     @classmethod
     def validate_reasoning_length(cls, v: str) -> str:
         """
-        Validate reasoning is concise (max 300 characters for Telegram limit).
+        Validate reasoning is concise (max 1000 characters).
 
         Raises:
-            ValueError: If reasoning exceeds 300 characters
+            ValueError: If reasoning exceeds 1000 characters
         """
-        if len(v) > 300:
-            raise ValueError(f"Reasoning must be max 300 characters, got {len(v)}")
+        if len(v) > 1000:
+            raise ValueError(f"Reasoning must be max 1000 characters, got {len(v)}")
         return v
 
     @field_validator('suggested_folder')

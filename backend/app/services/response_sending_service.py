@@ -213,25 +213,9 @@ class ResponseSendingService:
                     status="completed"
                 )
 
-                # Send Telegram confirmation (AC #7)
-                confirmation_message = (
-                    f"✅ *Response sent to {email.sender}*\n\n"
-                    f"Subject: {reply_subject or '(no subject)'}\n\n"
-                    "Your response has been delivered successfully."
-                )
-
-                await self.telegram_bot.send_message(
-                    telegram_id=telegram_id,
-                    text=confirmation_message,
-                    user_id=user_id
-                )
-
-                self.logger.info(
-                    "telegram_confirmation_sent",
-                    email_id=email_id,
-                    telegram_id=telegram_id,
-                    recipient=email.sender
-                )
+                # NOTE: Telegram confirmation will be sent by send_confirmation node
+                # This ensures clean UX with only one final summary message
+                # (intermediate messages are deleted by send_confirmation)
 
                 # Index sent response to vector DB (AC #9)
                 try:

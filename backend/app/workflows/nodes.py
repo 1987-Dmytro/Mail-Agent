@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlmodel import Session
 from langgraph.types import interrupt
+from langgraph.errors import GraphInterrupt
 
 from app.workflows.states import EmailWorkflowState
 from app.services.classification import EmailClassificationService
@@ -303,12 +304,20 @@ async def classify(
             if classification_result.response_draft:
                 state["draft_response"] = classification_result.response_draft
 
+            # Store detected_language and tone from LLM response (Epic 3)
+            if classification_result.detected_language:
+                state["detected_language"] = classification_result.detected_language
+            if classification_result.tone:
+                state["tone"] = classification_result.tone
+
             logger.info(
                 "email_classified",
                 email_id=state["email_id"],
                 classification=state["classification"],
                 needs_response=needs_response,
                 has_response_draft=bool(classification_result.response_draft),
+                detected_language=state.get("detected_language"),
+                tone=state.get("tone"),
             )
 
             # Look up proposed_folder_id for database FK
@@ -936,6 +945,176 @@ async def await_approval(state: EmailWorkflowState) -> EmailWorkflowState:
     return state
 
 
+async def send_response_draft_notification(
+    state: EmailWorkflowState,
+    db_factory,
+    telegram_bot_client
+) -> EmailWorkflowState:
+    """Send response draft notification to user for manual approval (Epic 3 Story 3.9).
+
+    This node is executed AFTER user approves sorting when needs_response=true.
+    It shows the AI-generated response draft to the user with [Send][Edit][Reject] buttons,
+    allowing manual confirmation before sending the email.
+
+    Workflow:
+        1. Load email with draft_response from database
+        2. Format response draft message with language/tone metadata
+        3. Create inline keyboard with [Send][Edit][Reject] buttons
+        4. Send message via Telegram
+        5. Update WorkflowMapping with new telegram_message_id
+        6. Pause workflow for draft approval (interrupt)
+
+    Args:
+        state: Current workflow state with draft_response, detected_language, tone
+        db_factory: AsyncSession factory for database operations
+        telegram_bot_client: TelegramBotClient for sending messages
+
+    Returns:
+        Updated state with draft_notification_sent=True and draft_telegram_message_id
+
+    Raises:
+        ValueError: If draft_response is missing or empty
+    """
+    logger.info(
+        "node_send_response_draft_notification_start",
+        email_id=state["email_id"],
+        has_draft=bool(state.get("draft_response"))
+    )
+
+    try:
+        # Import here to avoid circular imports
+        from app.models.user import User
+        from app.models.workflow_mapping import WorkflowMapping
+        from app.services.telegram_message_formatter import (
+            format_response_draft_message,
+            create_response_draft_keyboard,
+        )
+
+        # Initialize Telegram bot
+        await telegram_bot_client.initialize()
+
+        async with db_factory() as db:
+            # Step 1: Load email from database to verify draft exists
+            result = await db.execute(
+                select(EmailProcessingQueue).where(
+                    EmailProcessingQueue.id == int(state["email_id"])
+                )
+            )
+            email = result.scalar_one_or_none()
+
+            if not email:
+                raise ValueError(f"Email {state['email_id']} not found in database")
+
+            # Verify draft_response exists
+            draft_response = state.get("draft_response") or email.draft_response
+            if not draft_response or draft_response.strip() == "":
+                logger.error(
+                    "draft_notification_no_draft",
+                    email_id=state["email_id"],
+                    state_has_draft=bool(state.get("draft_response")),
+                    db_has_draft=bool(email.draft_response)
+                )
+                raise ValueError("No draft_response available to show user")
+
+            # Step 2: Load user to get telegram_id
+            result = await db.execute(
+                select(User).where(User.id == int(state["user_id"]))
+            )
+            user = result.scalar_one_or_none()
+
+            if not user or not user.telegram_id:
+                raise ValueError(f"User {state['user_id']} has no Telegram account linked")
+
+            # Step 3: Format response draft message
+            detected_language = state.get("detected_language") or email.detected_language
+            tone = state.get("tone") or email.tone
+
+            message_text = format_response_draft_message(
+                sender=state["sender"],
+                subject=state["subject"],
+                draft_response=draft_response,
+                detected_language=detected_language,
+                tone=tone
+            )
+
+            # Step 4: Create inline keyboard with [Send][Edit][Reject] buttons
+            buttons = create_response_draft_keyboard(email_id=int(state["email_id"]))
+
+            # Step 5: Send message via TelegramBotClient
+            logger.info(
+                "sending_draft_notification",
+                email_id=state["email_id"],
+                telegram_id=user.telegram_id,
+                draft_length=len(draft_response),
+                language=detected_language,
+                tone=tone
+            )
+
+            telegram_message_id = await telegram_bot_client.send_message_with_buttons(
+                telegram_id=user.telegram_id,
+                text=message_text,
+                buttons=buttons,
+            )
+
+            # Step 6: Update WorkflowMapping with draft notification message ID
+            result = await db.execute(
+                select(WorkflowMapping).where(
+                    WorkflowMapping.thread_id == state["thread_id"]
+                )
+            )
+            workflow_mapping = result.scalar_one_or_none()
+
+            if workflow_mapping:
+                # Store draft notification message ID (separate from sorting message)
+                workflow_mapping.telegram_message_id = telegram_message_id
+                workflow_mapping.workflow_state = "awaiting_draft_approval"
+                await db.commit()
+                logger.debug(
+                    "workflow_mapping_updated_draft",
+                    thread_id=state["thread_id"],
+                    telegram_message_id=telegram_message_id,
+                )
+            else:
+                logger.warning(
+                    "workflow_mapping_not_found_draft",
+                    thread_id=state["thread_id"]
+                )
+
+            # Step 7: Update EmailProcessingQueue status
+            email.status = "awaiting_draft_approval"
+            await db.commit()
+
+            # Step 8: Store message ID in state
+            state["draft_telegram_message_id"] = telegram_message_id
+            state["draft_notification_sent"] = True
+
+            logger.info(
+                "draft_notification_sent",
+                email_id=state["email_id"],
+                telegram_message_id=telegram_message_id,
+                workflow_state="awaiting_draft_approval"
+            )
+
+            # Step 9: Pause workflow for user approval
+            interrupt(value="Waiting for draft approval (Send/Edit/Reject)")
+
+            return state
+
+    except GraphInterrupt:
+        # GraphInterrupt is the normal workflow pause mechanism - let it propagate
+        raise
+    except Exception as e:
+        logger.error(
+            "send_response_draft_notification_failed",
+            email_id=state["email_id"],
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True
+        )
+        state["error_message"] = f"Failed to send draft notification: {str(e)}"
+        return state
+
+
 async def execute_action(
     state: EmailWorkflowState,
     db_factory,
@@ -1540,7 +1719,7 @@ async def send_confirmation(
             )
             return state
     
-        # Get original telegram_message_id for editing
+        # Get telegram_message_id for deletion (sorting proposal message)
         telegram_message_id = state.get("telegram_message_id")
         if not telegram_message_id:
             logger.error(
@@ -1549,11 +1728,54 @@ async def send_confirmation(
                 user_id=user_id,
             )
             return state
-    
-        # Get original message text to append confirmation to
-        # (We'll reconstruct a summary since we don't have full original text in state)
+
+        # Initialize Telegram bot for message operations
+        await telegram_bot_client.initialize()
+
+        # Step 1: Delete intermediate messages for clean UX
+        # Delete sorting proposal message
+        await telegram_bot_client.delete_message(
+            telegram_id=user.telegram_id,
+            message_id=telegram_message_id,
+        )
+        logger.debug(
+            "deleted_sorting_proposal_message",
+            email_id=email_id,
+            message_id=telegram_message_id,
+        )
+
+        # Delete draft notification message if it exists (needs_response flow)
+        draft_message_id = state.get("draft_telegram_message_id")
+
+        logger.info(
+            "send_confirmation_draft_message_check",
+            email_id=email_id,
+            draft_message_id=draft_message_id,
+            has_draft_id=bool(draft_message_id),
+        )
+
+        if draft_message_id:
+            await telegram_bot_client.delete_message(
+                telegram_id=user.telegram_id,
+                message_id=draft_message_id,
+            )
+            logger.info(
+                "deleted_draft_notification_message",
+                email_id=email_id,
+                message_id=draft_message_id,
+            )
+        else:
+            logger.warning(
+                "draft_message_id_not_in_state",
+                email_id=email_id,
+                note="draft_telegram_message_id was not found in state, cannot delete draft notification"
+            )
+
+        # Get email metadata for summary
         subject = state.get("subject", "Email")
         sender = state.get("sender", "Unknown sender")
+        detected_language = state.get("detected_language")
+        tone = state.get("tone")
     
         # Format confirmation message based on final_action (AC #6)
         # NOTE: Using plain text (no Markdown) to avoid parsing errors
@@ -1577,20 +1799,50 @@ async def send_confirmation(
             else:
                 folder_name = state.get("proposed_folder", "Unknown Folder")
 
-            # Add classification info (needs_response or non_priority)
+            # Build comprehensive summary with language, tone, and response status
             classification = state.get("classification", "")
-            needs_response_text = ""
-            if classification == "needs_response":
-                needs_response_text = "\n📨 Требуется ответ на это письмо"
-            elif classification == "non_priority":
-                needs_response_text = "\n📬 Не требует ответа"
 
-            confirmation_text = f"✅ Email sorted to {folder_name}{needs_response_text}"
-    
+            # Format language and tone info
+            metadata_parts = []
+            if detected_language:
+                lang_names = {"ru": "Russian", "en": "English", "de": "German", "uk": "Ukrainian"}
+                lang_display = lang_names.get(detected_language, detected_language.upper())
+                metadata_parts.append(f"Language: {lang_display}")
+            if tone:
+                metadata_parts.append(f"Tone: {tone.capitalize()}")
+
+            metadata_line = " | ".join(metadata_parts) if metadata_parts else ""
+
+            # Format response status and get sent response text
+            draft_response = state.get("draft_response", "")
+            if classification == "needs_response":
+                response_status = "\n✉️ Response: Sent"
+                # Include sent response text (truncated to 500 chars for readability)
+                if draft_response:
+                    response_preview = draft_response[:500] + "..." if len(draft_response) > 500 else draft_response
+                    response_status += f"\n\n💬 *Sent Response:*\n{response_preview}"
+            else:
+                response_status = "\n📭 Response: Not needed"
+
+            confirmation_text = (
+                f"✅ *Email processed successfully*\n\n"
+                f"✉️ *From:* {sender}\n"
+                f"📧 *Subject:* {subject}\n"
+                f"📁 *Folder:* {folder_name}"
+            )
+
+            if metadata_line:
+                confirmation_text += f"\n📝 {metadata_line}"
+
+            confirmation_text += response_status
+
             logger.info(
                 "send_confirmation_approved",
                 email_id=email_id,
                 folder_name=folder_name,
+                language=detected_language,
+                tone=tone,
+                classification=classification,
             )
     
         elif final_action == "rejected":
@@ -1613,20 +1865,43 @@ async def send_confirmation(
             else:
                 folder_name = state.get("selected_folder", "Unknown Folder")
 
-            # Add classification info (needs_response or non_priority)
+            # Build comprehensive summary with language, tone, and response status
             classification = state.get("classification", "")
-            needs_response_text = ""
-            if classification == "needs_response":
-                needs_response_text = "\n📨 Требуется ответ на это письмо"
-            elif classification == "non_priority":
-                needs_response_text = "\n📬 Не требует ответа"
 
-            confirmation_text = f"✅ Email sorted to {folder_name}{needs_response_text}"
-    
+            # Format language and tone info
+            metadata_parts = []
+            if detected_language:
+                lang_names = {"ru": "Russian", "en": "English", "de": "German", "uk": "Ukrainian"}
+                lang_display = lang_names.get(detected_language, detected_language.upper())
+                metadata_parts.append(f"Language: {lang_display}")
+            if tone:
+                metadata_parts.append(f"Tone: {tone.capitalize()}")
+
+            metadata_line = " | ".join(metadata_parts) if metadata_parts else ""
+
+            # Format response status
+            if classification == "needs_response":
+                response_status = "\n✉️ Response: Sent"
+            else:
+                response_status = "\n📭 Response: Not needed"
+
+            confirmation_text = (
+                f"✅ *Email processed successfully*\n\n"
+                f"📁 Folder: {folder_name}"
+            )
+
+            if metadata_line:
+                confirmation_text += f"\n📝 {metadata_line}"
+
+            confirmation_text += response_status
+
             logger.info(
                 "send_confirmation_folder_changed",
                 email_id=email_id,
                 folder_name=folder_name,
+                language=detected_language,
+                tone=tone,
+                classification=classification,
             )
     
         else:
@@ -1638,62 +1913,31 @@ async def send_confirmation(
                 final_action=final_action,
             )
     
-        # Build full message with original proposal info + confirmation
-        # Remove ALL Markdown special characters from user-provided text
-        def escape_markdown(text: str) -> str:
-            """Remove ALL characters that could break Telegram Markdown parsing.
-    
-            Telegram's Markdown mode is very strict and many characters can cause
-            parsing errors. We remove all potentially problematic characters.
-            """
-            if not text:
-                return ""
-            # Remove ALL Markdown special characters
-            # < > for HTML-like tags
-            # * _ for bold/italic
-            # [ ] ( ) for links
-            # ` for code
-            # ~ for strikethrough
-            for char in '<>*_[]()~`"':
-                text = text.replace(char, "")
-            return text
-    
-        safe_sender = escape_markdown(sender)
-        safe_subject = escape_markdown(subject)
-    
-        # Build message WITHOUT Markdown formatting to avoid parsing errors
-        full_message = (
-            f"📧 New Email\n\n"
-            f"From: {safe_sender}\n"
-            f"Subject: {safe_subject}\n\n"
-            f"{confirmation_text}"
-        )
-    
-        # Edit original message with confirmation
+        # Step 2: Send clean summary message (no intermediate details, just final result)
+        # Use Markdown for formatting
         try:
-            await telegram_bot_client.edit_message_text(
+            await telegram_bot_client.send_message(
                 telegram_id=user.telegram_id,
-                message_id=telegram_message_id,
-                text=full_message,
+                text=confirmation_text,
+                user_id=user_id,
             )
-    
+
             logger.info(
-                "send_confirmation_message_edited",
+                "send_confirmation_summary_sent",
                 email_id=email_id,
                 telegram_id=user.telegram_id,
-                telegram_message_id=telegram_message_id,
             )
-    
+
         except Exception as e:
             logger.error(
-                "send_confirmation_edit_failed",
+                "send_confirmation_summary_failed",
                 email_id=email_id,
                 error=str(e),
                 error_type=type(e).__name__,
                 exc_info=True,
             )
             # Don't set error_message in state - confirmation failure is not critical
-    
+
         return state
 
 
@@ -1736,7 +1980,7 @@ async def send_email_response(
         has_draft=bool(draft_response)
     )
 
-    # Skip if not needs_response or not approved
+    # Skip if not needs_response
     if classification != "needs_response":
         logger.info(
             "send_email_response_skipped_not_needed",
@@ -1745,11 +1989,19 @@ async def send_email_response(
         )
         return state
 
-    if user_decision != "approve":
+    # Check approval: either old workflow (user_decision=approve) or new workflow (draft_decision=send_response)
+    draft_decision = state.get("draft_decision")
+
+    # Old workflow: Check user_decision (approve/reject sorting)
+    # New workflow (Story 3.9): Check draft_decision (send_response/reject_response)
+    is_approved = (user_decision == "approve" or draft_decision == "send_response")
+
+    if not is_approved:
         logger.info(
             "send_email_response_skipped_not_approved",
             email_id=email_id,
-            user_decision=user_decision
+            user_decision=user_decision,
+            draft_decision=draft_decision
         )
         return state
 
@@ -1825,9 +2077,59 @@ async def send_email_response(
             db.add(email)
             await db.commit()
 
-            # TODO: Index sent response in vector DB for future RAG context
-            # This will help AI learn from successfully sent responses
-            # await index_sent_response_in_vector_db(email, draft_response)
+            # Index sent response in vector DB for future RAG context (Story 3.9 - AC #9)
+            # This helps AI learn from successfully sent responses
+            try:
+                from app.core.embedding_service import EmbeddingService
+                from app.core.vector_db import VectorDBClient
+                from app.core.config import settings
+
+                embedding_service = EmbeddingService()
+                vector_db_client = VectorDBClient(persist_directory=settings.CHROMADB_PATH)
+
+                # Generate unique document ID for sent response
+                sent_doc_id = f"sent_{email_id}_{int(datetime.now(UTC).timestamp())}"
+
+                # Generate embedding
+                embedding = embedding_service.embed_text(draft_response)
+
+                # Prepare metadata for vector DB
+                metadata = {
+                    "message_id": sent_doc_id,
+                    "user_id": email.user_id,
+                    "thread_id": email.gmail_thread_id,
+                    "sender": email.sender,  # Original sender (recipient of our response)
+                    "subject": reply_subject,
+                    "date": datetime.now(UTC).isoformat(),
+                    "language": state.get("detected_language") or email.detected_language or "en",
+                    "tone": state.get("tone") or email.tone or "professional",
+                    "is_sent_response": True  # Flag to distinguish from received emails
+                }
+
+                # Store in ChromaDB
+                vector_db_client.insert_embedding(
+                    collection_name="email_embeddings",
+                    embedding=embedding,
+                    metadata=metadata,
+                    id=sent_doc_id
+                )
+
+                logger.info(
+                    "sent_response_indexed_to_chromadb",
+                    email_id=email_id,
+                    message_id=sent_doc_id,
+                    embedding_dimension=len(embedding)
+                )
+
+            except Exception as indexing_error:
+                # Don't fail send operation if indexing fails
+                logger.error(
+                    "sent_response_indexing_error",
+                    email_id=email_id,
+                    error=str(indexing_error),
+                    error_type=type(indexing_error).__name__,
+                    exc_info=True
+                )
 
         except Exception as e:
             error_msg = f"Failed to send email response: {str(e)}"

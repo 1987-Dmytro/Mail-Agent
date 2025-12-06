@@ -116,3 +116,107 @@ def create_inline_keyboard(email_id: int) -> list[list[InlineKeyboardButton]]:
         ]
     ]
     return keyboard
+
+
+def format_response_draft_message(
+    sender: str,
+    subject: str,
+    draft_response: str,
+    detected_language: str = None,
+    tone: str = None
+) -> str:
+    """Format response draft notification message for user approval.
+
+    Creates a Telegram message showing the AI-generated response draft
+    that the user can Send, Edit, or Reject.
+
+    Args:
+        sender: Email sender address (recipient of the response)
+        subject: Original email subject line
+        draft_response: AI-generated response draft text
+        detected_language: Detected language code (ru, en, de, etc.)
+        tone: Detected tone/formality (formal, informal, professional, casual)
+
+    Returns:
+        Formatted message string with Markdown markup
+
+    Example:
+        >>> format_response_draft_message(
+        ...     sender="friend@example.com",
+        ...     subject="Meeting tomorrow",
+        ...     draft_response="Hi! Yes, I'd be happy to meet tomorrow...",
+        ...     detected_language="en",
+        ...     tone="informal"
+        ... )
+        '📧 **Response Draft Ready**\\n\\n...'
+    """
+    # Truncate draft if too long (Telegram message limit ~4000 chars)
+    max_draft_length = 1500
+    truncated_draft = draft_response
+    if len(draft_response) > max_draft_length:
+        truncated_draft = draft_response[:max_draft_length] + "\n\n...(truncated)"
+
+    # Format language and tone info
+    metadata_line = ""
+    if detected_language or tone:
+        metadata_parts = []
+        if detected_language:
+            lang_names = {"ru": "Russian", "en": "English", "de": "German", "uk": "Ukrainian"}
+            lang_display = lang_names.get(detected_language, detected_language.upper())
+            metadata_parts.append(f"Language: {lang_display}")
+        if tone:
+            metadata_parts.append(f"Tone: {tone.capitalize()}")
+        metadata_line = "\n📝 **Draft Info:** " + " | ".join(metadata_parts)
+
+    message = f"""📧 **Response Draft Ready**
+
+📨 **Original Email:**
+**From:** {sender}
+**Subject:** {subject}{metadata_line}
+
+✍️ **AI-Generated Response:**
+
+{truncated_draft}
+
+---
+
+Review the draft and choose an action:"""
+
+    return message
+
+
+def create_response_draft_keyboard(email_id: int) -> list[list[InlineKeyboardButton]]:
+    """Create inline keyboard for response draft approval.
+
+    Creates a Telegram inline keyboard with three action buttons:
+    - Send: Send the response draft via Gmail
+    - Edit: Allow user to edit the draft before sending
+    - Reject: Discard the draft without sending
+
+    Args:
+        email_id: Email processing queue ID for workflow reconnection
+
+    Returns:
+        2D list of InlineKeyboardButton objects
+
+    Callback Data Format:
+        - send_response_{email_id}: User approves sending the draft
+        - edit_response_{email_id}: User wants to edit the draft
+        - reject_response_{email_id}: User rejects the draft
+
+    Example:
+        >>> keyboard = create_response_draft_keyboard(email_id=42)
+        >>> # Renders as:
+        >>> # [✉️ Send] [✏️ Edit]
+        >>> #    [❌ Reject]
+    """
+    keyboard = [
+        [
+            InlineKeyboardButton("✉️ Send", callback_data=f"send_response_{email_id}"),
+            InlineKeyboardButton("✏️ Edit", callback_data=f"edit_response_{email_id}"),
+        ],
+        [
+            InlineKeyboardButton("❌ Reject", callback_data=f"reject_response_{email_id}"),
+        ]
+    ]
+    return keyboard

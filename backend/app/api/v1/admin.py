@@ -253,3 +253,75 @@ async def get_admin_errors(
             status_code=500,
             detail="Failed to retrieve admin errors"
         )
+
+
+@router.post("/reindex-emails")
+async def reindex_emails(
+    user_id: int = Query(..., description="User ID"),
+    start_id: int = Query(..., description="Start email ID"),
+    end_id: int = Query(..., description="End email ID"),
+    _: None = Depends(verify_admin_key),
+) -> Dict[str, Any]:
+    """Trigger reindexing of existing emails for ChromaDB.
+
+    This endpoint queues a batch reindexing task for emails that were received
+    before incremental indexing was enabled.
+
+    Args:
+        user_id: User ID
+        start_id: Start of email ID range (inclusive)
+        end_id: End of email ID range (inclusive)
+
+    Returns:
+        dict with task_id and queued count
+
+    Example:
+        POST /api/v1/admin/reindex-emails?user_id=3&start_id=252&end_id=261
+        Headers:
+            X-Admin-Api-Key: your-secret-admin-key
+    """
+    from app.tasks.indexing_tasks import reindex_email_batch
+
+    logger.info(
+        "reindex_emails_requested",
+        user_id=user_id,
+        start_id=start_id,
+        end_id=end_id,
+    )
+
+    try:
+        # Queue reindexing task
+        task = reindex_email_batch.delay(
+            user_id=user_id,
+            start_id=start_id,
+            end_id=end_id
+        )
+
+        logger.info(
+            "reindex_emails_task_queued",
+            task_id=task.id,
+            user_id=user_id,
+            start_id=start_id,
+            end_id=end_id,
+        )
+
+        return {
+            "success": True,
+            "task_id": task.id,
+            "message": f"Reindexing task queued for emails {start_id}-{end_id}",
+            "user_id": user_id,
+        }
+
+    except Exception as e:
+        logger.error(
+            "reindex_emails_failed",
+            user_id=user_id,
+            start_id=start_id,
+            end_id=end_id,
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to queue reindexing task: {str(e)}"
+        )

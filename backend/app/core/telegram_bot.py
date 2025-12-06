@@ -436,6 +436,60 @@ class TelegramBotClient:
             )
             raise TelegramSendError(f"Failed to edit message {message_id}: {str(e)}") from e
 
+    async def delete_message(
+        self,
+        telegram_id: str,
+        message_id: str,
+    ) -> bool:
+        """Delete a Telegram message.
+
+        Used for cleaning up intermediate messages (sorting proposal, draft notification)
+        before sending final summary message.
+
+        Args:
+            telegram_id: Telegram user ID (chat_id)
+            message_id: Message ID to delete
+
+        Returns:
+            bool: True if deletion successful, False otherwise
+
+        Raises:
+            ValueError: If telegram_id format is invalid
+            TelegramSendError: If message deletion fails
+        """
+        if not self.bot:
+            raise TelegramBotError("Bot not initialized. Call initialize() first.")
+
+        # Validate telegram_id format (must be digits only)
+        if not telegram_id.isdigit():
+            raise ValueError(f"Invalid telegram_id format: '{telegram_id}'. Must contain only digits.")
+
+        try:
+            await self.bot.delete_message(
+                chat_id=telegram_id,
+                message_id=int(message_id),
+            )
+
+            logger.info(
+                "telegram_message_deleted",
+                telegram_id=telegram_id,
+                message_id=message_id,
+            )
+
+            return True
+
+        except TelegramError as e:
+            # Don't raise error - deletion failure is not critical
+            # Message might already be deleted or not exist
+            logger.warning(
+                "telegram_delete_message_failed",
+                telegram_id=telegram_id,
+                message_id=message_id,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            return False
+
     async def start_polling(self):
         """Start the bot with long polling (getUpdates mode).
 
