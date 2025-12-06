@@ -339,6 +339,9 @@ async def classify(
                     classification=state["classification"],
                     proposed_folder_id=state.get("proposed_folder_id"),
                     classification_reasoning=state["classification_reasoning"],
+                    draft_response=state.get("draft_response"),
+                    detected_language=state.get("detected_language"),
+                    tone=state.get("tone"),
                 )
             )
             await db.execute(stmt)
