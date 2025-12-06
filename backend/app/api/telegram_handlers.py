@@ -1047,7 +1047,8 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
     await telegram_bot.initialize()
 
     embedding_service = EmbeddingService()
-    vector_db_client = VectorDBClient()
+    from app.core.config import settings
+    vector_db_client = VectorDBClient(persist_directory=settings.CHROMADB_PATH)
 
     sending_service = ResponseSendingService(
         telegram_bot=telegram_bot,
@@ -1147,7 +1148,8 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
     await telegram_bot.initialize()
 
     embedding_service = EmbeddingService()
-    vector_db_client = VectorDBClient()
+    from app.core.config import settings
+    vector_db_client = VectorDBClient(persist_directory=settings.CHROMADB_PATH)
 
     sending_service = ResponseSendingService(
         telegram_bot=telegram_bot,
