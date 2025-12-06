@@ -13,7 +13,9 @@ def format_sorting_proposal_message(
     body_preview: str,
     proposed_folder: str,
     reasoning: str,
-    is_priority: bool = False
+    is_priority: bool = False,
+    needs_response: bool = False,
+    has_draft: bool = False
 ) -> str:
     """Format email sorting proposal message with visual hierarchy.
 
@@ -27,6 +29,8 @@ def format_sorting_proposal_message(
         proposed_folder: AI-suggested folder name for sorting
         reasoning: AI reasoning for the suggestion (1-2 sentences)
         is_priority: Whether this is a priority email (triggers ⚠️ icon)
+        needs_response: Whether AI determined this email needs a response
+        has_draft: Whether a response draft is available
 
     Returns:
         Formatted message string with Markdown markup
@@ -38,7 +42,9 @@ def format_sorting_proposal_message(
         ...     body_preview="Dear taxpayer, we require...",
         ...     proposed_folder="Government",
         ...     reasoning="Email from German tax office regarding documents.",
-        ...     is_priority=True
+        ...     is_priority=True,
+        ...     needs_response=True,
+        ...     has_draft=True
         ... )
         '⚠️ **New Email Sorting Proposal**\\n\\n**From:** finanzamt@berlin.de...'
     """
@@ -49,6 +55,14 @@ def format_sorting_proposal_message(
     if len(body_preview) > 100:
         truncated_preview += "..."
 
+    # Format needs_response indicator
+    if needs_response:
+        response_line = "\n✉️ **Requires Response:** Yes"
+        if has_draft:
+            response_line += " (draft available)"
+    else:
+        response_line = "\n📭 **Requires Response:** No"
+
     message = f"""{priority_icon}**New Email Sorting Proposal**
 
 **From:** {sender}
@@ -57,7 +71,7 @@ def format_sorting_proposal_message(
 **Preview:** {truncated_preview}
 
 **AI Suggests:** Sort to "{proposed_folder}"
-**Reasoning:** {reasoning}
+**Reasoning:** {reasoning}{response_line}
 
 What would you like to do?"""
 

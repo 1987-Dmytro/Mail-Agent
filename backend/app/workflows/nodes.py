@@ -640,7 +640,11 @@ async def send_telegram(
                 body_preview = state["email_content"][:100] if state.get("email_content") else ""
                 state["body_preview"] = body_preview
 
-                # Step 3: Format Telegram message with priority indicator
+                # Step 3: Format Telegram message with priority and response indicators
+                # Check if email needs response from classification
+                needs_response = state.get("classification") == "needs_response"
+                has_draft = bool(state.get("draft_response"))
+
                 message_text = format_sorting_proposal_message(
                     sender=state["sender"],
                     subject=state["subject"],
@@ -648,6 +652,8 @@ async def send_telegram(
                     proposed_folder=state.get("proposed_folder", "Unclassified"),
                     reasoning=state.get("classification_reasoning", "No reasoning provided"),
                     is_priority=is_priority,  # Show ⚠️ only for high priority (score >= 70)
+                    needs_response=needs_response,  # Show if response needed
+                    has_draft=has_draft,  # Show if draft available
                 )
 
                 # Step 4: Create inline keyboard buttons
