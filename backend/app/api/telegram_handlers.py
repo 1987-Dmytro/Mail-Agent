@@ -1053,29 +1053,23 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # CRITICAL FIX: Get current state first, then merge draft_decision
-            # This preserves draft_telegram_message_id that was saved by send_response_draft_notification
-            current_state = await workflow.aget_state(config)
+            # Import Command from langgraph.types for proper interrupt resumption
+            from langgraph.types import Command
 
-            # Update state with draft decision, merging with existing state
-            # IMPORTANT: Don't use as_node - it overwrites the entire node state and loses draft_telegram_message_id!
-            await workflow.aupdate_state(
-                config,
-                {"draft_decision": "send_response"}
-            )
-
+            # CRITICAL FIX: Use Command(resume=...) to properly resume after interrupt()
+            # This is the CORRECT way per LangGraph documentation to continue execution
+            # after send_response_draft_notification's interrupt() call
             logger.info(
                 "callback_resuming_workflow",
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="send_response",
-                current_node=current_state.next[0] if current_state.next else "unknown"
+                note="Using Command(resume=...) to properly resume from interrupt"
             )
 
-            # Resume workflow from interrupt point
-            # ainvoke(None) continues from where workflow was interrupted (send_response_draft_notification)
-            # Workflow will execute: send_email_response → execute_action → send_confirmation → END
-            await workflow.ainvoke(None, config=config)
+            # Resume workflow with Command - this passes "send_response" value to the interrupt() return
+            # Workflow will continue: route_draft_decision → send_email_response → execute_action → send_confirmation → END
+            await workflow.ainvoke(Command(resume="send_response"), config=config)
 
             logger.info(
                 "callback_workflow_resumed",
@@ -1208,29 +1202,23 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # CRITICAL FIX: Get current state first, then merge draft_decision
-            # This preserves draft_telegram_message_id that was saved by send_response_draft_notification
-            current_state = await workflow.aget_state(config)
+            # Import Command from langgraph.types for proper interrupt resumption
+            from langgraph.types import Command
 
-            # Update state with draft decision, merging with existing state
-            # IMPORTANT: Don't use as_node - it overwrites the entire node state and loses draft_telegram_message_id!
-            await workflow.aupdate_state(
-                config,
-                {"draft_decision": "reject_response"}
-            )
-
+            # CRITICAL FIX: Use Command(resume=...) to properly resume after interrupt()
+            # This is the CORRECT way per LangGraph documentation to continue execution
+            # after send_response_draft_notification's interrupt() call
             logger.info(
                 "callback_resuming_workflow",
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="reject_response",
-                current_node=current_state.next[0] if current_state.next else "unknown"
+                note="Using Command(resume=...) to properly resume from interrupt"
             )
 
-            # Resume workflow from interrupt point
-            # ainvoke(None) continues from where workflow was interrupted
-            # Workflow will execute: execute_action → send_confirmation → END
-            await workflow.ainvoke(None, config=config)
+            # Resume workflow with Command - this passes "reject_response" value to the interrupt() return
+            # Workflow will continue: route_draft_decision → execute_action → send_confirmation → END
+            await workflow.ainvoke(Command(resume="reject_response"), config=config)
 
             logger.info(
                 "callback_workflow_resumed",

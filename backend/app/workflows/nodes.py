@@ -1095,8 +1095,13 @@ async def send_response_draft_notification(
                 workflow_state="awaiting_draft_approval"
             )
 
-            # Step 9: Pause workflow for user approval
-            interrupt(value="Waiting for draft approval (Send/Edit/Reject)")
+            # Step 9: Pause workflow for user approval and get decision
+            # interrupt() returns the value passed via Command(resume=...) from telegram_handlers.py
+            # This will be "send_response", "edit_response", or "reject_response"
+            draft_decision = interrupt(value="Waiting for draft approval (Send/Edit/Reject)")
+
+            # Store the decision in state for route_draft_decision() to use
+            state["draft_decision"] = draft_decision
 
             return state
 
