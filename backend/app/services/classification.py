@@ -82,11 +82,13 @@ def _format_rag_context(rag_context: RAGContext) -> str:
         formatted_parts.append(f"**Thread History ({thread_length} emails in conversation):**\n")
 
         for i, email in enumerate(thread_history, 1):
+            # Show more context for better AI understanding (500 chars instead of 200)
+            body_preview = email['body'][:500] if len(email['body']) > 500 else email['body']
             formatted_parts.append(
                 f"{i}. From: {email['sender']}\n"
                 f"   Subject: {email['subject']}\n"
                 f"   Date: {email['date']}\n"
-                f"   Body: {email['body'][:200]}...\n"  # First 200 chars
+                f"   Body: {body_preview}{'...' if len(email['body']) > 500 else ''}\n"
             )
 
     # Format semantic results
@@ -95,11 +97,14 @@ def _format_rag_context(rag_context: RAGContext) -> str:
         formatted_parts.append(f"\n**Related Emails (top {semantic_count} similar):**\n")
 
         for i, email in enumerate(semantic_results, 1):
+            # Show more context for cross-thread understanding (500 chars instead of 200)
+            # This is crucial for cases where subject changes mid-conversation
+            body_preview = email['body'][:500] if len(email['body']) > 500 else email['body']
             formatted_parts.append(
                 f"{i}. From: {email['sender']}\n"
                 f"   Subject: {email['subject']}\n"
                 f"   Date: {email['date']}\n"
-                f"   Body: {email['body'][:200]}...\n"  # First 200 chars
+                f"   Body: {body_preview}{'...' if len(email['body']) > 500 else ''}\n"
             )
 
     return "\n".join(formatted_parts)
