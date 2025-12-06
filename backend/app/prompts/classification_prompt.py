@@ -239,6 +239,14 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 - If needs_response=true, ALWAYS generate response_draft using context from related emails below
 - If needs_response=false, set response_draft to null
 
+**Response Draft Generation Guidelines:**
+- Write in the SAME LANGUAGE as the original email (Russian→Russian, English→English, German→German)
+- Use gender-neutral language - avoid gendered forms when possible
+- For Russian: Use masculine forms as default neutral (e.g., "рад" not "рад/рада", "готов" not "готов/готова")
+- Keep responses brief, professional, and friendly (50-200 words)
+- Match the formality level of the original email (formal "Вы"/"Sie" vs informal "ты"/"du")
+- DO NOT add your name or signature - the system will add it automatically
+
 **Important:**
 - Ensure suggested_folder exactly matches one of the folder names provided above
 - NEVER use "Unclassified" or any folder name not in the user's list - always pick the best matching folder

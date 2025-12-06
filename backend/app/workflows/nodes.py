@@ -597,70 +597,37 @@ async def send_telegram(
             if not user or not user.telegram_id:
                 raise ValueError(f"User {state['user_id']} has no Telegram account linked")
 
-            # Step 2: Check if response draft exists and use appropriate template (Story 3.11 - AC #6)
+            # Step 2: ALWAYS send sorting proposal first (even if draft exists)
+            # Response draft will be shown AFTER user approves the sorting
+            logger.info(
+                "sending_sorting_proposal_message",
+                email_id=state["email_id"],
+                classification=state.get("classification"),
+                has_draft=bool(state.get("draft_response"))
+            )
+
+            # Step 3: Create body preview (first 100 characters)
+            body_preview = state["email_content"][:100] if state.get("email_content") else ""
+            state["body_preview"] = body_preview
+
+            # Step 4: Format Telegram message with priority and response indicators
+            # Check if email needs response from classification
+            needs_response = state.get("classification") == "needs_response"
             has_draft = bool(state.get("draft_response"))
 
-            if has_draft:
-                # RESPONSE DRAFT MESSAGE (Story 3.11 - AC #6)
-                logger.info(
-                    "sending_response_draft_message",
-                    email_id=state["email_id"],
-                    has_draft=True
-                )
+            message_text = format_sorting_proposal_message(
+                sender=state["sender"],
+                subject=state["subject"],
+                body_preview=body_preview,
+                proposed_folder=state.get("proposed_folder", "Unclassified"),
+                reasoning=state.get("classification_reasoning", "No reasoning provided"),
+                is_priority=is_priority,  # Show ⚠️ only for high priority (score >= 70)
+                needs_response=needs_response,  # Show if response needed
+                has_draft=has_draft,  # Show if draft available
+            )
 
-                # Format response draft message using TelegramResponseDraftService
-                from app.services.telegram_response_draft import TelegramResponseDraftService
-                from app.services.database import database_service
-
-                draft_service = TelegramResponseDraftService(
-                    telegram_bot=telegram_bot_client,
-                    db_service=database_service
-                )
-
-                # Format message with original email preview + draft + language/tone
-                # Pass draft_response, detected_language, and tone from state (not database)
-                message_text = await draft_service.format_response_draft_message(
-                    email_id=int(state["email_id"]),
-                    draft_response=state.get("draft_response"),
-                    detected_language=state.get("detected_language"),
-                    tone=state.get("tone")
-                )
-
-                # Create response draft keyboard with [Send][Edit][Reject] buttons
-                buttons = draft_service.build_response_draft_keyboard(
-                    email_id=int(state["email_id"])
-                )
-
-            else:
-                # SORTING PROPOSAL MESSAGE (Epic 2)
-                logger.info(
-                    "sending_sorting_proposal_message",
-                    email_id=state["email_id"],
-                    has_draft=False
-                )
-
-                # Step 2: Create body preview (first 100 characters)
-                body_preview = state["email_content"][:100] if state.get("email_content") else ""
-                state["body_preview"] = body_preview
-
-                # Step 3: Format Telegram message with priority and response indicators
-                # Check if email needs response from classification
-                needs_response = state.get("classification") == "needs_response"
-                has_draft = bool(state.get("draft_response"))
-
-                message_text = format_sorting_proposal_message(
-                    sender=state["sender"],
-                    subject=state["subject"],
-                    body_preview=body_preview,
-                    proposed_folder=state.get("proposed_folder", "Unclassified"),
-                    reasoning=state.get("classification_reasoning", "No reasoning provided"),
-                    is_priority=is_priority,  # Show ⚠️ only for high priority (score >= 70)
-                    needs_response=needs_response,  # Show if response needed
-                    has_draft=has_draft,  # Show if draft available
-                )
-
-                # Step 4: Create inline keyboard buttons
-                buttons = create_inline_keyboard(email_id=int(state["email_id"]))
+            # Step 5: Create inline keyboard buttons for sorting approval
+            buttons = create_inline_keyboard(email_id=int(state["email_id"]))
 
             # Step 5: Send ALL emails immediately (batch notifications disabled)
             # Always send immediately regardless of priority score
