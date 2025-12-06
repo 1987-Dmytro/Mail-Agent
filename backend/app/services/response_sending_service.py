@@ -146,7 +146,8 @@ class ResponseSendingService:
                 await query.answer()
 
                 # Send email via Gmail API (AC #5, #6)
-                gmail_client = GmailClient(user_id=user.id, db_session=session)
+                # GmailClient will use its own DatabaseService instance
+                gmail_client = GmailClient(user_id=user.id)
 
                 # Generate reply subject
                 reply_subject = email.subject
