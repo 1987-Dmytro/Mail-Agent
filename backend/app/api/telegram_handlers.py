@@ -1053,23 +1053,27 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Import Command from langgraph.types for proper interrupt resumption
-            from langgraph.types import Command
-
-            # CRITICAL FIX: Use Command(resume=...) to properly resume after interrupt()
-            # This is the CORRECT way per LangGraph documentation to continue execution
-            # after send_response_draft_notification's interrupt() call
+            # Use aupdate_state to set draft_decision without re-executing the node
+            # This prevents duplicate notification sending (Story 3.9 - Fix)
             logger.info(
                 "callback_resuming_workflow",
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="send_response",
-                note="Using Command(resume=...) to properly resume from interrupt"
+                note="Using aupdate_state to set draft_decision"
             )
 
-            # Resume workflow with Command - this passes "send_response" value to the interrupt() return
+            # Update state with draft_decision and resume workflow
             # Workflow will continue: route_draft_decision → send_email_response → execute_action → send_confirmation → END
-            await workflow.ainvoke(Command(resume="send_response"), config=config)
+            await workflow.aupdate_state(
+                config,
+                {"draft_decision": "send_response"},
+                as_node="send_response_draft_notification"
+            )
+
+            # Resume workflow from interrupt point
+            # ainvoke(None) continues from where workflow was interrupted
+            await workflow.ainvoke(None, config=config)
 
             logger.info(
                 "callback_workflow_resumed",
@@ -1202,23 +1206,27 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Import Command from langgraph.types for proper interrupt resumption
-            from langgraph.types import Command
-
-            # CRITICAL FIX: Use Command(resume=...) to properly resume after interrupt()
-            # This is the CORRECT way per LangGraph documentation to continue execution
-            # after send_response_draft_notification's interrupt() call
+            # Use aupdate_state to set draft_decision without re-executing the node
+            # This prevents duplicate notification sending (Story 3.9 - Fix)
             logger.info(
                 "callback_resuming_workflow",
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="reject_response",
-                note="Using Command(resume=...) to properly resume from interrupt"
+                note="Using aupdate_state to set draft_decision"
             )
 
-            # Resume workflow with Command - this passes "reject_response" value to the interrupt() return
+            # Update state with draft_decision and resume workflow
             # Workflow will continue: route_draft_decision → execute_action → send_confirmation → END
-            await workflow.ainvoke(Command(resume="reject_response"), config=config)
+            await workflow.aupdate_state(
+                config,
+                {"draft_decision": "reject_response"},
+                as_node="send_response_draft_notification"
+            )
+
+            # Resume workflow from interrupt point
+            # ainvoke(None) continues from where workflow was interrupted
+            await workflow.ainvoke(None, config=config)
 
             logger.info(
                 "callback_workflow_resumed",
