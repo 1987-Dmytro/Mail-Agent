@@ -443,7 +443,7 @@ TOTAL:             8/8 passed  ✅
 # .env file
 DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/mailagent
 GOOGLE_API_KEY=your_gemini_api_key
-CHROMA_PERSIST_DIR=./data/chroma
+CHROMADB_PATH=./backend/data/chromadb
 ```
 
 ### Deployment Steps

@@ -5983,7 +5983,7 @@ Uses existing environment variables from previous stories:
 ```bash
 # Already configured in Epic 2-3
 GEMINI_API_KEY="your-key-here"          # For embeddings
-CHROMA_PERSIST_DIR="./data/chroma"      # For vector search
+CHROMADB_PATH="./backend/data/chromadb" # For vector search (ChromaDB persistent storage)
 DATABASE_URL="postgresql://..."         # For email queue
 ```
 

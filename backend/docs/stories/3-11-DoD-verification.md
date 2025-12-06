@@ -137,7 +137,7 @@ $ pytest tests/integration/test_epic_3_workflow_integration_e2e.py
 # Existing .env variables (no new additions)
 DATABASE_URL=postgresql+psycopg://...
 GOOGLE_API_KEY=...
-CHROMA_PERSIST_DIR=./data/chroma
+CHROMADB_PATH=./backend/data/chromadb
 ```
 
 ---

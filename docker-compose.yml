@@ -48,8 +48,9 @@ services:
     container_name: mailagent-chromadb
     ports:
       - "8001:8000"
-    volumes:
-      - chroma-data:/chroma/chroma
+    # Note: ChromaDB service not currently used - backend uses PersistentClient with local storage
+    # volumes:
+    #   - ./backend/data/chromadb:/chroma/chroma
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=FALSE
@@ -72,7 +73,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/logs:/app/logs
-      - chroma-data:/app/data/chroma
+      - ./backend/data/chromadb:/app/backend/data/chromadb
     env_file:
       - ./backend/.env
     environment:
@@ -109,7 +110,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/logs:/app/logs
-      - chroma-data:/app/data/chroma
+      - ./backend/data/chromadb:/app/backend/data/chromadb
     env_file:
       - ./backend/.env
     environment:
@@ -146,7 +147,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/logs:/app/logs
-      - chroma-data:/app/data/chroma
+      - ./backend/data/chromadb:/app/backend/data/chromadb
     env_file:
       - ./backend/.env
     environment:
@@ -202,5 +203,3 @@ volumes:
     name: mailagent-postgres-data
   redis-data:
     name: mailagent-redis-data
-  chroma-data:
-    name: mailagent-chroma-data

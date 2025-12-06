@@ -132,8 +132,9 @@ async def get_dashboard_stats(
         # Check ChromaDB vector database connection
         vector_db_connected = False
         try:
+            from app.core.config import settings
             vector_db_client = VectorDBClient(
-                persist_directory=os.getenv("CHROMA_PERSIST_DIR", "./data/chroma")
+                persist_directory=settings.CHROMADB_PATH
             )
             vector_db_connected = vector_db_client.health_check()
             logger.debug(

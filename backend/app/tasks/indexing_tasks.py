@@ -22,6 +22,7 @@ Reference: docs/tech-spec-epic-3.md#Email-History-Indexing-Strategy
 """
 
 import structlog
+from celery import shared_task
 from app.celery import celery_app
 from app.services.email_indexing import EmailIndexingService
 from app.utils.errors import GmailAPIError, GeminiAPIError
@@ -302,16 +303,14 @@ def index_new_email_background(self, user_id: int, message_id: str) -> dict:
         message_id=message_id,
     )
 
+    import asyncio
+
+    # Create new event loop for this task (Celery worker pool issue)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     try:
         service = EmailIndexingService(user_id=user_id)
-
-        import asyncio
-
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
 
         success = loop.run_until_complete(service.index_new_email(message_id=message_id))
 
@@ -352,3 +351,119 @@ def index_new_email_background(self, user_id: int, message_id: str) -> dict:
             "message_id": message_id,
             "error": str(e),
         }
+
+    finally:
+        # Always cleanup event loop to prevent resource leaks
+        loop.close()
+
+
+@shared_task(
+    bind=True,
+    name="app.tasks.indexing_tasks.reindex_email_batch",
+    max_retries=3,
+    time_limit=600,
+)
+def reindex_email_batch(self, user_id: int, start_id: int, end_id: int) -> dict:
+    """Reindex batch of existing emails that were received before incremental indexing was enabled.
+
+    This task queries EmailProcessingQueue for emails in the specified ID range,
+    then queues individual index_new_email_background tasks for each email.
+
+    Args:
+        self: Celery task instance
+        user_id: User ID
+        start_id: Start of email ID range (inclusive)
+        end_id: End of email ID range (inclusive)
+
+    Returns:
+        dict with success status and count of queued emails
+
+    Example:
+        # Reindex emails 252-261 for user 3
+        reindex_email_batch.delay(user_id=3, start_id=252, end_id=261)
+    """
+    import asyncio
+    from sqlalchemy import select
+    from app.models.email import EmailProcessingQueue
+    from app.services.database import database_service
+
+    logger.info(
+        "reindex_batch_started",
+        task_id=self.request.id,
+        user_id=user_id,
+        start_id=start_id,
+        end_id=end_id,
+    )
+
+    async def get_emails():
+        async with database_service.async_session() as session:
+            result = await session.execute(
+                select(EmailProcessingQueue)
+                .where(
+                    EmailProcessingQueue.id >= start_id,
+                    EmailProcessingQueue.id <= end_id,
+                    EmailProcessingQueue.user_id == user_id
+                )
+                .order_by(EmailProcessingQueue.id)
+            )
+            return result.scalars().all()
+
+    # Get emails from database
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        emails = loop.run_until_complete(get_emails())
+    finally:
+        loop.close()
+
+    logger.info(
+        "reindex_batch_emails_found",
+        task_id=self.request.id,
+        user_id=user_id,
+        count=len(emails),
+    )
+
+    # Queue individual indexing tasks
+    queued_count = 0
+    failed_count = 0
+
+    for email in emails:
+        try:
+            # Queue background indexing task
+            index_new_email_background.delay(
+                user_id=email.user_id,
+                message_id=email.gmail_message_id
+            )
+            queued_count += 1
+            logger.info(
+                "reindex_email_queued",
+                task_id=self.request.id,
+                email_id=email.id,
+                subject=email.subject,
+                message_id=email.gmail_message_id,
+            )
+        except Exception as e:
+            failed_count += 1
+            logger.error(
+                "reindex_email_queue_failed",
+                task_id=self.request.id,
+                email_id=email.id,
+                error=str(e),
+            )
+
+    logger.info(
+        "reindex_batch_completed",
+        task_id=self.request.id,
+        user_id=user_id,
+        queued=queued_count,
+        failed=failed_count,
+        total=len(emails),
+    )
+
+    return {
+        "success": True,
+        "user_id": user_id,
+        "queued": queued_count,
+        "failed": failed_count,
+        "total": len(emails),
+    }

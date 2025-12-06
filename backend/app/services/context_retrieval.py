@@ -120,9 +120,10 @@ class ContextRetrievalService:
         self.db_service = db_service or database_service
         self.gmail_client = gmail_client or GmailClient(user_id=user_id, db_service=self.db_service)
         self.embedding_service = embedding_service or EmbeddingService()
-        # Use default ChromaDB persist directory if not provided
+        # Use ChromaDB persist directory from settings
+        from app.core.config import settings
         self.vector_db_client = vector_db_client or VectorDBClient(
-            persist_directory=os.getenv("CHROMA_PERSIST_DIR", "./data/chroma")
+            persist_directory=settings.CHROMADB_PATH
         )
         self.logger = structlog.get_logger(__name__)
 

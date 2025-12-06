@@ -200,8 +200,9 @@ class TestCompleteSystemE2E:
         print("[E2E TEST] Created IndexingProgress record (status=COMPLETED)")
 
         # Clear any existing embeddings to ensure clean test state
+        from app.core.config import settings
         vector_client = VectorDBClient(
-            persist_directory=os.getenv("CHROMA_PERSIST_DIR", "./data/chroma")
+            persist_directory=settings.CHROMADB_PATH
         )
         try:
             collection = vector_client.get_or_create_collection("email_embeddings")
