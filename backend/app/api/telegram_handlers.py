@@ -1053,13 +1053,15 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Update state with draft decision using update_state
-            # CRITICAL FIX: Must use as_node="send_response_draft_notification" to resume from correct node!
-            # Without as_node, workflow resumes from last checkpoint (await_approval) causing infinite loop
+            # CRITICAL FIX: Get current state first, then merge draft_decision
+            # This preserves draft_telegram_message_id that was saved by send_response_draft_notification
+            current_state = await workflow.aget_state(config)
+
+            # Update state with draft decision, merging with existing state
+            # IMPORTANT: Don't use as_node - it overwrites the entire node state and loses draft_telegram_message_id!
             await workflow.aupdate_state(
                 config,
-                {"draft_decision": "send_response"},
-                as_node="send_response_draft_notification"
+                {"draft_decision": "send_response"}
             )
 
             logger.info(
@@ -1067,11 +1069,11 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="send_response",
-                resume_from_node="send_response_draft_notification"
+                current_node=current_state.next[0] if current_state.next else "unknown"
             )
 
             # Resume workflow from interrupt point
-            # ainvoke(None) continues from where workflow was interrupted
+            # ainvoke(None) continues from where workflow was interrupted (send_response_draft_notification)
             # Workflow will execute: send_email_response → execute_action → send_confirmation → END
             await workflow.ainvoke(None, config=config)
 
@@ -1206,13 +1208,15 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Update state with draft decision using update_state
-            # CRITICAL FIX: Must use as_node="send_response_draft_notification" to resume from correct node!
-            # Without as_node, workflow resumes from last checkpoint (await_approval) causing infinite loop
+            # CRITICAL FIX: Get current state first, then merge draft_decision
+            # This preserves draft_telegram_message_id that was saved by send_response_draft_notification
+            current_state = await workflow.aget_state(config)
+
+            # Update state with draft decision, merging with existing state
+            # IMPORTANT: Don't use as_node - it overwrites the entire node state and loses draft_telegram_message_id!
             await workflow.aupdate_state(
                 config,
-                {"draft_decision": "reject_response"},
-                as_node="send_response_draft_notification"
+                {"draft_decision": "reject_response"}
             )
 
             logger.info(
@@ -1220,7 +1224,7 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="reject_response",
-                resume_from_node="send_response_draft_notification"
+                current_node=current_state.next[0] if current_state.next else "unknown"
             )
 
             # Resume workflow from interrupt point
