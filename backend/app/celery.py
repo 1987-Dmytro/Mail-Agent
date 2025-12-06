@@ -5,6 +5,7 @@ including worker settings, task scheduling, and beat configuration.
 """
 
 import os
+from datetime import timedelta
 
 from celery import Celery
 from celery.schedules import crontab
@@ -37,7 +38,7 @@ celery_app.conf.update(
     beat_schedule={
         "poll-all-users": {
             "task": "app.tasks.email_tasks.poll_all_users",
-            "schedule": float(os.getenv("POLLING_INTERVAL_SECONDS", "120")),  # Every 2 minutes by default
+            "schedule": timedelta(seconds=int(os.getenv("POLLING_INTERVAL_SECONDS", "120"))),  # Every 2 minutes by default
         },
         "send-batch-notifications-daily": {
             "task": "app.tasks.notification_tasks.send_batch_notifications",
