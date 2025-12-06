@@ -544,19 +544,24 @@ class EmailIndexingService:
         body = email.get("body", "")
         snippet = body[:200] if len(body) > 200 else body
 
-        # Format date as ISO string (YYYY-MM-DD)
+        # Format date as ISO string (YYYY-MM-DD) and extract timestamp
         date = email.get("date", datetime.now(UTC))
         if isinstance(date, datetime):
             date_str = date.strftime("%Y-%m-%d")
+            # Store Unix timestamp for temporal filtering (seconds since epoch)
+            # This enables "last 7 days" filtering in semantic search
+            timestamp = int(date.timestamp())
         else:
             date_str = str(date)
+            timestamp = int(datetime.now(UTC).timestamp())
 
         metadata = {
             "user_id": str(self.user_id),  # Required for multi-tenant filtering in semantic search
             "message_id": email["message_id"],
             "thread_id": email["thread_id"],
             "sender": email["sender"],
-            "date": date_str,
+            "date": date_str,  # Human-readable date (YYYY-MM-DD)
+            "timestamp": timestamp,  # Unix timestamp for temporal filtering
             "subject": email.get("subject", ""),
             "language": language,
             "snippet": snippet,

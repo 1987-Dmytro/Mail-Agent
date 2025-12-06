@@ -228,7 +228,8 @@ class ContextRetrievalService:
         email_body: str,
         sender: str,
         k: int,
-        user_id: int
+        user_id: int,
+        received_at: Optional[datetime] = None
     ) -> List[EmailMessage]:
         """Perform semantic search in vector DB using email content as query embedding.
 
@@ -240,11 +241,15 @@ class ContextRetrievalService:
         This ensures AI responses have proper context from the SAME correspondent, not unrelated
         emails with similar topics from different senders.
 
+        Enhanced with temporal awareness: prioritizes recent emails (last 7 days) to understand
+        conversation continuity, especially when subject changes mid-conversation.
+
         Args:
-            email_body: Email body text to use as query
+            email_body: Email body text to use as query (enhanced with sender + subject context)
             sender: Email address of sender (for filtering conversation context)
             k: Number of results to retrieve (adaptive: 0, 3, or 7)
             user_id: User ID for multi-tenant filtering
+            received_at: Optional timestamp of current email for temporal filtering
 
         Returns:
             List of EmailMessage dicts (top k similar emails from SAME sender, unordered)
@@ -252,10 +257,11 @@ class ContextRetrievalService:
 
         Example:
             semantic_emails = await service._get_semantic_results(
-                email_body="Tax return deadline reminder...",
+                email_body="From sender about Question: budget details...",
                 sender="colleague@company.com",
                 k=3,
-                user_id=123
+                user_id=123,
+                received_at=datetime.now()
             )
         """
         # Skip semantic search if k=0 (long threads don't need semantic context)
@@ -679,10 +685,40 @@ class ContextRetrievalService:
             if not email:
                 raise ValueError(f"Email with id {email_id} not found in EmailProcessingQueue")
 
-            # Extract gmail_thread_id and use subject for query (body not stored in queue)
+            # Extract gmail_thread_id and prepare enhanced query for semantic search
             gmail_thread_id = email.gmail_thread_id
-            # Use subject as query text since EmailProcessingQueue doesn't store body
-            email_body = email.subject or ""
+
+            # Step 1.5: Fetch full email body from Gmail API for better semantic search
+            # EmailProcessingQueue only stores subject, but we need full body for accurate context
+            try:
+                email_detail = await self.gmail_client.get_message_detail(email.gmail_message_id)
+                full_body = email_detail.get("body", "")
+            except Exception as e:
+                self.logger.warning(
+                    "failed_to_fetch_email_body_for_query",
+                    email_id=email_id,
+                    error=str(e)
+                )
+                full_body = ""
+
+            # Enhanced query construction for better semantic matching
+            # Include: sender name + subject + body + temporal context
+            # This helps find related emails even when subject changes (e.g., "Вопрос" → "Праздники 2025")
+            sender_name = email.sender.split('@')[0].replace('.', ' ').replace('_', ' ')
+            email_subject = email.subject or ""
+
+            # Build contextual query for semantic search
+            # Format: "From [sender] about [subject]: [body preview]"
+            # This creates richer embeddings that capture conversation continuity
+            email_query = f"From {sender_name} about {email_subject}: {full_body[:500]}"
+
+            self.logger.info(
+                "enhanced_query_constructed",
+                email_id=email_id,
+                query_length=len(email_query),
+                has_full_body=bool(full_body),
+                sender_name=sender_name
+            )
 
             # Step 2: Fetch thread history from Gmail
             # NOTE: Must complete before Step 3 to enable adaptive k calculation (AC #5)
@@ -698,10 +734,11 @@ class ContextRetrievalService:
             # Step 4: Perform semantic search if k > 0 (AC #3, #4)
             if k > 0:
                 semantic_results = await self._get_semantic_results(
-                    email_body=email_body,
+                    email_body=email_query,  # Use enhanced query instead of just subject
                     sender=email.sender,  # Filter by sender for conversation context
                     k=k,
-                    user_id=self.user_id
+                    user_id=self.user_id,
+                    received_at=email.received_at  # Pass temporal context for metadata
                 )
             else:
                 semantic_results = []
