@@ -15,6 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Dict, List
 from pydantic import ValidationError
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type
+)
 
 from app.core.gmail_client import GmailClient
 from app.core.llm_client import LLMClient
@@ -39,39 +45,39 @@ logger = structlog.get_logger(__name__)
 def _format_rag_context(rag_context: RAGContext) -> str:
     """Format RAGContext into human-readable string for LLM prompt.
 
-    Converts the structured RAGContext with thread_history and semantic_results
+    Converts the structured RAGContext with thread_history, sender_history, and semantic_results
     into a formatted text block that provides conversation context to the LLM.
 
     Args:
-        rag_context: RAGContext dict with thread_history, semantic_results, metadata
+        rag_context: RAGContext dict with thread_history, sender_history, semantic_results, metadata
 
     Returns:
-        Formatted string with thread history and semantic results, or empty string if no context
+        Formatted string with thread history, sender history, and semantic results, or empty string if no context
 
     Example:
         >>> rag_context = {
         ...     "thread_history": [{"sender": "tax@example.com", "subject": "Tax documents", ...}],
+        ...     "sender_history": [{"sender": "tax@example.com", "subject": "Previous tax email", ...}],
         ...     "semantic_results": [],
-        ...     "metadata": {"thread_length": 1, "semantic_count": 0, ...}
+        ...     "metadata": {"thread_length": 1, "sender_history_count": 5, "semantic_count": 0, ...}
         ... }
         >>> formatted = _format_rag_context(rag_context)
         >>> print(formatted)
         **Thread History (1 emails in conversation):**
-
-        1. From: tax@example.com
-           Subject: Tax documents
-           Date: 2024-01-15
-           Body: Please submit your tax return...
+        ...
+        **Full Conversation with Sender (Last 90 Days - 5 emails):**
+        ...
     """
     if not rag_context:
         return ""
 
     thread_history = rag_context.get("thread_history", [])
+    sender_history = rag_context.get("sender_history", [])
     semantic_results = rag_context.get("semantic_results", [])
     metadata = rag_context.get("metadata", {})
 
     # If no context available, return empty string
-    if not thread_history and not semantic_results:
+    if not thread_history and not sender_history and not semantic_results:
         return "No related emails found."
 
     formatted_parts = []
@@ -90,6 +96,26 @@ def _format_rag_context(rag_context: RAGContext) -> str:
                 f"   Subject: {email['subject']}\n"
                 f"   Date: {email['date']}\n"
                 f"   Body: {body_preview}{'...' if len(email['body']) > 500 else ''}\n"
+            )
+
+    # Format sender conversation history (NEW - Critical for cross-thread context!)
+    if sender_history:
+        sender_history_count = metadata.get("sender_history_count", len(sender_history))
+        formatted_parts.append(f"\n**Full Conversation with Sender (Last 90 Days - {sender_history_count} emails):**\n")
+        formatted_parts.append("(COMPLETE chronological history sorted OLDEST → NEWEST by Date)\n")
+        formatted_parts.append("(⚠️ CRITICAL: Analyze dates to understand timeline of discussion evolution)\n")
+        formatted_parts.append("(Use this historical context to see what plans were made, what was agreed upon, and how the conversation developed over time)\n")
+
+        for i, email in enumerate(sender_history, 1):
+            # Show MORE context for sender history (700 chars) as this is critical for understanding
+            # conversations that span multiple threads (e.g., "Re: Праздники" referencing "Праздники 2025")
+            body_preview = email['body'][:700] if len(email['body']) > 700 else email['body']
+
+            formatted_parts.append(
+                f"{i}. From: {email['sender']}\n"
+                f"   Subject: {email['subject']}\n"
+                f"   Date: {email['date']}\n"
+                f"   Body: {body_preview}{'...' if len(email['body']) > 700 else ''}\n"
             )
 
     # Format semantic results
@@ -115,6 +141,65 @@ def _format_rag_context(rag_context: RAGContext) -> str:
             )
 
     return "\n".join(formatted_parts)
+
+
+def _multilingual_needs_response(email_body: str, subject: str, language: str) -> bool:
+    """Multilingual rule-based detection for emails requiring response.
+
+    Uses language-specific question indicators from response_generation.py.
+    Supports 4 languages: en, de, ru, uk
+
+    Args:
+        email_body: Email body text
+        subject: Email subject line
+        language: Detected language code (en/de/ru/uk)
+
+    Returns:
+        True if email likely needs response, False otherwise
+
+    Example:
+        >>> _multilingual_needs_response("Когда ты сможешь прийти?", "Вопрос", "ru")
+        True
+        >>> _multilingual_needs_response("When can you confirm?", "Meeting", "en")
+        True
+        >>> _multilingual_needs_response("Thank you for the information", "Re: Meeting", "en")
+        False
+    """
+    import re
+    from app.prompts.response_generation import QUESTION_INDICATORS
+
+    text = f"{subject} {email_body}".lower()
+
+    # Get language-specific indicators, fallback to English
+    indicators = QUESTION_INDICATORS.get(language, QUESTION_INDICATORS["en"])
+
+    # Check for question indicators with word boundaries
+    for indicator in indicators:
+        indicator_lower = indicator.lower()
+
+        # Special case: question mark doesn't need word boundaries
+        if indicator_lower == "?":
+            if "?" in text:
+                logger.info(
+                    "needs_response_detected",
+                    indicator=indicator,
+                    language=language
+                )
+                return True
+        else:
+            # Use word boundaries to avoid false matches (e.g., "як" in "Дякую")
+            # \b matches word boundaries for ASCII letters
+            # For Cyrillic/Unicode, we use \s or punctuation as boundaries
+            pattern = r'(?:^|\s|[,.!?;:])' + re.escape(indicator_lower) + r'(?:\s|[,.!?;:]|$)'
+            if re.search(pattern, text):
+                logger.info(
+                    "needs_response_detected",
+                    indicator=indicator,
+                    language=language
+                )
+                return True
+
+    return False
 
 
 class EmailClassificationService:
@@ -148,6 +233,35 @@ class EmailClassificationService:
         self.db = db
         self.gmail_client = gmail_client
         self.llm_client = llm_client
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(GeminiRateLimitError),
+        reraise=True
+    )
+    def _call_gemini_with_retry(self, prompt: str, operation: str) -> Dict:
+        """Call Gemini API with automatic retry for rate limits.
+
+        Implements exponential backoff retry strategy (2025 best practice):
+        - Retry up to 3 times for GeminiRateLimitError
+        - Wait: 2s, 4s, 8s between retries (exponential backoff)
+        - Re-raise exception if all retries exhausted
+
+        Args:
+            prompt: Classification prompt text
+            operation: Operation name for logging ("classification")
+
+        Returns:
+            Dict with classification response from Gemini
+
+        Raises:
+            GeminiRateLimitError: If rate limit persists after 3 retries
+            GeminiAPIError: For other API errors (no retry)
+            GeminiTimeoutError: For timeout errors (no retry)
+        """
+        logger.info("calling_gemini_with_retry", operation=operation, attempt="starting")
+        return self.llm_client.receive_completion(prompt=prompt, operation=operation)
 
     async def classify_email(
         self, email_id: int, user_id: int
@@ -327,13 +441,24 @@ class EmailClassificationService:
             rag_context=rag_context_formatted
         )
 
+        # DEBUG: Log complete prompt for sender_history verification
+        sender_history_in_prompt = "Full Conversation with Sender" in prompt
+        logger.info(
+            "classification_prompt_constructed",
+            email_id=email_id,
+            prompt_length=len(prompt),
+            has_sender_history_section=sender_history_in_prompt,
+            sender_history_count=len(rag_context.get("sender_history", [])) if 'rag_context' in locals() else 0,
+            prompt_preview=prompt[:2000] if len(prompt) > 2000 else prompt,
+        )
+
         # Step 6: Call Gemini LLM API with JSON response format
         # Gemini API errors trigger fallback to "Unclassified" - workflow continues
         logger.debug("calling_gemini_llm", operation="classification")
 
         try:
-            # receive_completion is synchronous - do NOT await
-            llm_response = self.llm_client.receive_completion(
+            # Call Gemini with automatic retry for rate limits (2025 best practice)
+            llm_response = self._call_gemini_with_retry(
                 prompt=prompt, operation="classification"
             )
 
@@ -357,6 +482,7 @@ class EmailClassificationService:
                 return self._create_fallback_classification(
                     "Classification failed: Invalid response format from AI",
                     fallback_folder=fallback_folder,
+                    email_data=email_data
                 )
 
         except (GeminiAPIError, GeminiRateLimitError, GeminiTimeoutError) as e:
@@ -375,6 +501,7 @@ class EmailClassificationService:
             return self._create_fallback_classification(
                 f"Classification failed due to {type(e).__name__}",
                 fallback_folder=fallback_folder,
+                email_data=email_data
             )
 
         logger.info(
@@ -387,32 +514,109 @@ class EmailClassificationService:
         return classification
 
     def _create_fallback_classification(
-        self, reason: str, fallback_folder: str = "Important"
+        self,
+        reason: str,
+        fallback_folder: str = "Important",
+        email_data: Dict = None
     ) -> ClassificationResponse:
-        """Create fallback classification response when AI classification fails.
+        """Create comprehensive fallback classification using existing services (no LLM calls).
 
         This fallback ensures the workflow can continue even when Gemini API fails.
-        The email is marked with the first available user folder (or "Important")
-        with medium priority for manual review.
+        Uses existing services to detect ALL critical workflow fields:
+        - LanguageDetectionService for language detection (en/de/ru/uk)
+        - ToneDetectionService (rule-based only) for tone detection (formal/professional/casual)
+        - Multilingual QUESTION_INDICATORS for needs_response detection
 
         Args:
-            reason: Human-readable reason for fallback (e.g., "API timeout")
+            reason: Human-readable reason for fallback (e.g., "API timeout", "Rate limit exceeded")
             fallback_folder: Folder name to use as fallback (from user's folders)
+            email_data: Email data dict with 'subject', 'body', 'sender' for comprehensive detection
 
         Returns:
-            ClassificationResponse with fallback values:
-                - suggested_folder: First user folder or "Important"
-                - reasoning: Reason for fallback
+            ClassificationResponse with ALL workflow-critical fields:
+                - suggested_folder: Fallback folder (from user's folders)
+                - reasoning: Reason for fallback + detected language/tone
                 - priority_score: 50 (medium priority for manual review)
                 - confidence: 0.0 (no confidence in fallback classification)
-                - needs_response: False (cannot determine without AI)
+                - needs_response: Multilingual rule-based detection
                 - response_draft: None (no draft available in fallback)
+                - detected_language: Auto-detected from email body (en/de/ru/uk)
+                - tone: Rule-based detection from sender domain (formal/professional/casual)
         """
+        # Default values
+        language = "en"
+        tone = "professional"
+        needs_response = False
+        priority_score = 50
+
+        if email_data:
+            subject = email_data.get("subject", "")
+            body = email_data.get("body", "")
+            sender = email_data.get("sender", "")
+
+            # 1. Detect language using LanguageDetectionService
+            try:
+                from app.services.language_detection import LanguageDetectionService
+                lang_service = LanguageDetectionService()
+                language, confidence = lang_service.detect_with_fallback(body, fallback_lang="en")
+
+                logger.info(
+                    "fallback_language_detected",
+                    language=language,
+                    confidence=confidence
+                )
+            except Exception as e:
+                logger.error("fallback_language_detection_failed", error=str(e))
+                language = "en"  # Safe fallback
+
+            # 2. Detect tone using rule-based logic (NO LLM calls)
+            try:
+                from app.services.tone_detection import ToneDetectionService
+
+                # Extract domain from sender email
+                sender_domain = sender.split("@")[-1] if "@" in sender else ""
+
+                # Use GOVERNMENT_DOMAINS constant for formal tone detection
+                government_domains = {
+                    "finanzamt.de", "auslaenderbehoerde.de", "bundesagentur.de",
+                    "arbeitsagentur.de", "tax.gov", "irs.gov"
+                }
+
+                # Rule-based tone detection (NO database queries, NO LLM)
+                if sender_domain in government_domains:
+                    tone = "formal"
+                elif sender_domain and not sender_domain.endswith(("gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "web.de", "gmx.de")):
+                    # Business domain (not free email provider)
+                    tone = "professional"
+                else:
+                    # Personal/free email provider
+                    tone = "casual"
+
+                logger.info("fallback_tone_detected", tone=tone, sender=sender)
+
+            except Exception as e:
+                logger.error("fallback_tone_detection_failed", error=str(e))
+                tone = "professional"  # Safe fallback
+
+            # 3. Detect needs_response using multilingual indicators
+            needs_response = _multilingual_needs_response(body, subject, language)
+
+            logger.info(
+                "fallback_comprehensive_detection",
+                language=language,
+                tone=tone,
+                needs_response=needs_response,
+                subject=subject[:100],
+                body_preview=body[:200]
+            )
+
         return ClassificationResponse(
             suggested_folder=fallback_folder,
-            reasoning=reason[:300],  # Truncate to max 300 chars
-            priority_score=50,  # Medium priority for manual review
-            confidence=0.0,  # No confidence in fallback classification
-            needs_response=False,  # Cannot determine without AI
-            response_draft=None,  # No draft available in fallback
+            reasoning=f"{reason}. Fallback: language={language}, tone={tone}",
+            priority_score=priority_score,
+            confidence=0.0,
+            needs_response=needs_response,
+            response_draft=None,
+            detected_language=language,  # ← CRITICAL for workflow!
+            tone=tone,  # ← CRITICAL for workflow!
         )

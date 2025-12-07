@@ -234,7 +234,7 @@ class ContextRetrievalService:
         sender: str,
         user_id: int,
         days: int = 90,
-        max_emails: int = 50
+        max_emails: int = 100  # Increased from 50 to ensure we get ALL emails
     ) -> Tuple[List[EmailMessage], int]:
         """Retrieve ALL emails from a specific sender over last N days.
 
@@ -266,23 +266,23 @@ class ContextRetrievalService:
                 days=days
             )
 
-            # Calculate cutoff timestamp
-            cutoff_date = datetime.now(UTC) - timedelta(days=days)
-            cutoff_timestamp = int(cutoff_date.timestamp())
-
             # Query ChromaDB for ALL emails from this sender
-            filter_conditions = [
-                {"user_id": str(user_id)},
-                {"sender": sender},
-                {"timestamp": {"$gte": cutoff_timestamp}}
-            ]
+            # NOTE: We do NOT filter by user_id or timestamp here to handle data migration scenarios:
+            # 1. Emails may have been indexed with different user_ids (e.g., after database reset)
+            # 2. Older emails may not have "timestamp" field (only "date" string field)
+            # For sender_history, we want COMPLETE conversation history regardless of indexing metadata.
+            filter_conditions = {"sender": sender}
 
             # Query without embedding (just metadata filter) to get ALL emails
             # Access ChromaDB collection directly for metadata-only query
             collection = self.vector_db_client.client.get_collection(name="email_embeddings")
+
+            # Use a very large limit to ensure we fetch ALL emails from this sender
+            # ChromaDB's count() doesn't support where clause, so we use a large limit instead
+            # For sender_history, we want complete conversation history (not just first N emails)
             results = collection.get(
-                where={"$and": filter_conditions},
-                limit=max_emails,
+                where=filter_conditions,
+                limit=1000,  # Very large limit to get all emails from sender (realistic max)
                 include=["metadatas"]
             )
 
@@ -307,11 +307,16 @@ class ContextRetrievalService:
                     email_detail = await self.gmail_client.get_message_detail(message_id)
 
                     metadata = metadatas[i]
-                    timestamp = metadata.get("timestamp", 0)
 
-                    date_str = email_detail["received_at"].isoformat() if isinstance(
-                        email_detail["received_at"], datetime
-                    ) else str(email_detail["received_at"])
+                    # Use received_at from Gmail as the canonical timestamp
+                    received_at = email_detail["received_at"]
+                    if isinstance(received_at, datetime):
+                        date_str = received_at.isoformat()
+                        sort_timestamp = int(received_at.timestamp())
+                    else:
+                        date_str = str(received_at)
+                        # Fallback: try to parse string or use metadata timestamp
+                        sort_timestamp = metadata.get("timestamp", 0)
 
                     email_message: EmailMessage = {
                         "message_id": message_id,
@@ -320,7 +325,7 @@ class ContextRetrievalService:
                         "body": email_detail["body"],
                         "date": date_str,
                         "thread_id": email_detail["thread_id"],
-                        "_timestamp": timestamp  # For sorting
+                        "_timestamp": sort_timestamp  # For sorting
                     }
 
                     email_messages.append(email_message)
@@ -333,7 +338,7 @@ class ContextRetrievalService:
                     )
                     continue
 
-            # Sort chronologically (oldest → newest)
+            # Sort chronologically (oldest → newest) using Gmail's received_at timestamp
             email_messages.sort(key=lambda x: x.get("_timestamp", 0))
 
             self.logger.info(

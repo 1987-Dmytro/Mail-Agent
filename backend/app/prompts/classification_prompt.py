@@ -132,7 +132,16 @@ Body Preview (first 500 characters):
 
 {rag_context}
 
-Use this context when generating response_draft to maintain conversation continuity and include relevant information.
+⚠️ **CRITICAL: You MUST analyze and use the context above to:**
+1. **Understand conversation history** - Read "Full Conversation with Sender" to see previous discussions, agreements, and plans
+2. **Determine needs_response** - Check if user already addressed the topic in previous emails
+3. **Generate informed response_draft** - Reference specific details, dates, and plans from the conversation history
+4. **Maintain continuity** - Your response should acknowledge what was previously discussed and agreed upon
+
+**Example:** If current email asks "Ты помнишь куда мы планировали поехать?" (Do you remember where we planned to go?), you MUST:
+- Check "Full Conversation with Sender" section above for mentions of locations (Frankfurt, Switzerland, etc.)
+- Reference specific plans found in sender_history (e.g., "meeting at Hauptbahnhof Frankfurt")
+- DO NOT say "I don't have specific information" if plans ARE mentioned in sender_history above!
 
 ---
 
@@ -252,7 +261,8 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 **Response Classification Rules:**
 - needs_response = TRUE for: questions, meeting requests, invitations, action requests, follow-ups requiring reply
 - needs_response = FALSE for: newsletters, notifications, automated emails, security updates, informational announcements
-- If needs_response=true, ALWAYS generate response_draft using context from related emails below
+- If needs_response=true, ALWAYS generate response_draft using "Full Conversation with Sender" and "Related Emails Context" above
+- ⚠️ CRITICAL: Your draft MUST reference specific details from sender_history (dates, locations, plans, agreements)
 - If needs_response=false, set response_draft to null
 
 **Response Draft Generation Guidelines:**
