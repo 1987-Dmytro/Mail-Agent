@@ -1053,22 +1053,26 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Use aupdate_state to set draft_decision without re-executing the node
-            # This prevents duplicate notification sending (Story 3.9 - Fix)
+            # CRITICAL FIX: Get current state first to preserve draft_telegram_message_id
+            # This fixes regression from commit 7fc4303 that broke draft deletion
+            current_state = await workflow.aget_state(config)
+
             logger.info(
                 "callback_resuming_workflow",
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="send_response",
-                note="Using aupdate_state to set draft_decision"
+                draft_message_id_preserved=current_state.values.get("draft_telegram_message_id"),
+                note="Merging draft_decision (preserves draft_telegram_message_id)"
             )
 
-            # Update state with draft_decision and resume workflow
+            # Update state WITHOUT as_node - merges into existing state instead of replacing
+            # This preserves draft_telegram_message_id needed for notification deletion
             # Workflow will continue: route_draft_decision → send_email_response → execute_action → send_confirmation → END
             await workflow.aupdate_state(
                 config,
-                {"draft_decision": "send_response"},
-                as_node="send_response_draft_notification"
+                {"draft_decision": "send_response"}
+                # NO as_node parameter - prevents state replacement!
             )
 
             # Resume workflow from interrupt point
@@ -1206,22 +1210,26 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
         config = {"configurable": {"thread_id": workflow_mapping.thread_id}}
 
         try:
-            # Use aupdate_state to set draft_decision without re-executing the node
-            # This prevents duplicate notification sending (Story 3.9 - Fix)
+            # CRITICAL FIX: Get current state first to preserve draft_telegram_message_id
+            # This fixes regression from commit 7fc4303 that broke draft deletion
+            current_state = await workflow.aget_state(config)
+
             logger.info(
                 "callback_resuming_workflow",
                 email_id=email_id,
                 thread_id=workflow_mapping.thread_id,
                 draft_decision="reject_response",
-                note="Using aupdate_state to set draft_decision"
+                draft_message_id_preserved=current_state.values.get("draft_telegram_message_id"),
+                note="Merging draft_decision (preserves draft_telegram_message_id)"
             )
 
-            # Update state with draft_decision and resume workflow
+            # Update state WITHOUT as_node - merges into existing state instead of replacing
+            # This preserves draft_telegram_message_id needed for notification deletion
             # Workflow will continue: route_draft_decision → execute_action → send_confirmation → END
             await workflow.aupdate_state(
                 config,
-                {"draft_decision": "reject_response"},
-                as_node="send_response_draft_notification"
+                {"draft_decision": "reject_response"}
+                # NO as_node parameter - prevents state replacement!
             )
 
             # Resume workflow from interrupt point
