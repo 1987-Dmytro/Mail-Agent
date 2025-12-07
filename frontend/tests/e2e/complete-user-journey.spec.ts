@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { setupMSWForPlaywright } from './msw-playwright-bridge';
 import { handlers } from '../mocks/handlers';
-import { mockAuthEndpoints, setupAuthenticatedSession } from './fixtures/auth';
+import { mockAuthEndpoints, setupAuthenticatedSession, mockAuthToken } from './fixtures/auth';
 
 /**
  * COMPREHENSIVE END-TO-END USER JOURNEY TEST
@@ -34,13 +34,24 @@ test.describe('Complete User Journey E2E', () => {
     // =====================================================
     console.log('\n🔧 PHASE 0: Setting up auth tokens to simulate connected services');
 
+    // CRITICAL: Set up mock auth endpoint to return new user with Gmail connected
+    // This must be done BEFORE navigating to /onboarding
+    await mockAuthEndpoints(page, {
+      id: 1,
+      email: 'test@example.com',
+      gmail_connected: true, // User has completed Gmail OAuth
+      telegram_connected: false, // Will connect in step 3
+      onboarding_completed: false, // Currently in onboarding
+    });
+
     // Navigate to page first, THEN set localStorage
     await page.goto('/onboarding');
 
     // Simulate user who already completed OAuth (tests resume feature - AC9)
-    await page.evaluate(() => {
-      // Set auth token (used by GmailConnect and API calls)
-      localStorage.setItem('auth_token', 'mock_jwt_token_from_oauth');
+    await page.evaluate((token) => {
+      // FIXED: Use correct localStorage key 'mail_agent_token' (not 'auth_token')
+      // FIXED: Use valid JWT token from auth fixture
+      localStorage.setItem('mail_agent_token', token);
 
       // Set onboarding progress to step 1 (Welcome)
       const initialProgress = {
@@ -51,7 +62,7 @@ test.describe('Complete User Journey E2E', () => {
         lastUpdated: new Date().toISOString(),
       };
       localStorage.setItem('onboarding_progress', JSON.stringify(initialProgress));
-    });
+    }, mockAuthToken);
 
     // =====================================================
     // PHASE 1: ONBOARDING - Welcome Step

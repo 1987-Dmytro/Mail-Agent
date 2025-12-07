@@ -94,24 +94,28 @@ describe('Dashboard Page Integration Tests', () => {
         }
 
         // Subsequent calls: loaded state
+        // FIXED: Removed extra 'data' wrapper after apiClient type fix
+        // apiClient.get() returns ApiResponse<T> with { data: T }
+        // So SWR's 'data' field should be the ApiResponse
         return {
           data: {
             data: {
-              connections: {
-                gmail: { connected: true },
-                telegram: { connected: true },
-              },
-              email_stats: {
-                total_processed: 42,
-                pending_approval: 5,
-                auto_sorted: 30,
-                responses_sent: 12,
-              },
-              time_saved: {
-                today_minutes: 25,
-                total_minutes: 150, // Should display as "2h 30m"
-              },
+              gmail_connected: true,
+              telegram_connected: true,
+              vector_db_connected: true,
+              total_processed: 42,
+              pending_approval: 5,
+              auto_sorted: 30,
+              responses_sent: 12,
+              time_saved_today_minutes: 25,
+              time_saved_total_minutes: 150, // Should display as "2h 30m"
               recent_activity: [],
+              indexing_in_progress: false,
+              indexing_total_emails: 0,
+              indexing_processed_count: 0,
+              indexing_progress_percent: 0,
+              indexing_status: null,
+              indexing_error: null,
             },
           },
           error: undefined,
@@ -180,20 +184,21 @@ describe('Dashboard Page Integration Tests', () => {
         return {
           data: {
             data: {
-              connections: {
-                gmail: { connected: true },
-                telegram: { connected: true },
-              },
-              email_stats: {
-                total_processed: 10,
-                pending_approval: 0,
-                auto_sorted: 10,
-                responses_sent: 0,
-              },
-              time_saved: {
-                today_minutes: 10,
-                total_minutes: 100,
-              },
+              gmail_connected: true,
+              telegram_connected: true,
+              vector_db_connected: true,
+              total_processed: 10,
+              pending_approval: 0,
+              auto_sorted: 10,
+              responses_sent: 0,
+              time_saved_today_minutes: 10,
+              time_saved_total_minutes: 100,
+              indexing_in_progress: false,
+              indexing_total_emails: 0,
+              indexing_processed_count: 0,
+              indexing_progress_percent: 0,
+              indexing_status: null,
+              indexing_error: null,
               recent_activity: [
                 {
                   id: 1,
