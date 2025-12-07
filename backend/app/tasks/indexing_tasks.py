@@ -91,15 +91,16 @@ def index_user_emails(self, user_id: int, days_back: int = 90) -> dict:
         # Start indexing (async operation - need to run in sync context)
         import asyncio
 
-        # Run async indexing in event loop
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # No event loop in current thread - create new one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Always create a fresh event loop for Celery tasks
+        # This avoids "Event loop is closed" errors in worker processes
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-        progress = loop.run_until_complete(service.start_indexing(days_back=days_back))
+        try:
+            progress = loop.run_until_complete(service.start_indexing(days_back=days_back))
+        finally:
+            # Clean up the event loop
+            loop.close()
 
         result = {
             "success": True,
@@ -224,13 +225,16 @@ def resume_user_indexing(self, user_id: int) -> dict:
 
         import asyncio
 
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Always create a fresh event loop for Celery tasks
+        # This avoids "Event loop is closed" errors in worker processes
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-        progress = loop.run_until_complete(service.resume_indexing())
+        try:
+            progress = loop.run_until_complete(service.resume_indexing())
+        finally:
+            # Clean up the event loop
+            loop.close()
 
         if not progress:
             return {
@@ -355,6 +359,112 @@ def index_new_email_background(self, user_id: int, message_id: str) -> dict:
     finally:
         # Always cleanup event loop to prevent resource leaks
         loop.close()
+
+
+@celery_app.task(
+    name="app.tasks.indexing_tasks.check_and_resume_interrupted_indexing",
+    bind=False,
+)
+def check_and_resume_interrupted_indexing() -> dict:
+    """Check for interrupted indexing jobs and auto-resume them.
+
+    This task runs periodically (every 2 minutes) to detect and resume
+    indexing jobs that were interrupted by worker restarts or crashes.
+
+    Returns:
+        dict with resumed jobs count and details
+    """
+    import asyncio
+    from sqlalchemy import select
+    from app.models.indexing_progress import IndexingProgress, IndexingStatus
+    from app.services.database import database_service
+
+    logger.info("checking_for_interrupted_indexing_jobs")
+
+    async def find_and_resume():
+        async with database_service.async_session() as session:
+            # Find all users with interrupted indexing (status=IN_PROGRESS but not completed)
+            result = await session.execute(
+                select(IndexingProgress).where(
+                    IndexingProgress.status == IndexingStatus.IN_PROGRESS,
+                    IndexingProgress.processed_count < IndexingProgress.total_emails
+                )
+            )
+            interrupted_jobs = result.scalars().all()
+
+            # Get currently active tasks to avoid duplicates
+            inspect = celery_app.control.inspect()
+            active_tasks = inspect.active() or {}
+
+            # Extract user_ids from active resume tasks
+            active_resume_user_ids = set()
+            for worker, tasks in active_tasks.items():
+                for task in tasks:
+                    if task['name'] == 'app.tasks.indexing_tasks.resume_user_indexing':
+                        # Extract user_id from task args or kwargs
+                        user_id = task.get('kwargs', {}).get('user_id') or (task.get('args', [None])[0] if task.get('args') else None)
+                        if user_id:
+                            active_resume_user_ids.add(user_id)
+
+            logger.info(
+                "active_resume_tasks_detected",
+                active_user_ids=list(active_resume_user_ids),
+                count=len(active_resume_user_ids)
+            )
+
+            resumed_count = 0
+            skipped_count = 0
+            for job in interrupted_jobs:
+                try:
+                    # Skip if resume task already running for this user
+                    if job.user_id in active_resume_user_ids:
+                        logger.info(
+                            "skipping_resume_task_already_active",
+                            user_id=job.user_id,
+                            processed=job.processed_count,
+                            total=job.total_emails,
+                        )
+                        skipped_count += 1
+                        continue
+
+                    # Trigger resume task only if not already running
+                    resume_user_indexing.delay(user_id=job.user_id)
+                    resumed_count += 1
+                    logger.info(
+                        "auto_resumed_interrupted_indexing",
+                        user_id=job.user_id,
+                        processed=job.processed_count,
+                        total=job.total_emails,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "auto_resume_failed",
+                        user_id=job.user_id,
+                        error=str(e),
+                    )
+
+            return resumed_count, skipped_count
+
+    # Run async code in sync context
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        resumed_count, skipped_count = loop.run_until_complete(find_and_resume())
+    finally:
+        loop.close()
+
+    if resumed_count > 0 or skipped_count > 0:
+        logger.info(
+            "auto_resume_check_completed",
+            resumed_count=resumed_count,
+            skipped_count=skipped_count,
+        )
+
+    return {
+        "success": True,
+        "resumed_count": resumed_count,
+        "skipped_count": skipped_count,
+    }
 
 
 @shared_task(

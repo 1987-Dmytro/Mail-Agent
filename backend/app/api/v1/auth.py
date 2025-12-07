@@ -165,7 +165,11 @@ async def get_current_session(
 
 @router.post("/register", response_model=UserResponse)
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["register"][0])
-async def register_user(request: Request, user_data: UserCreate):
+async def register_user(
+    request: Request,
+    user_data: UserCreate,
+    db_service: DatabaseService = Depends(get_db_service),
+):
     """Register a new user.
 
     Args:

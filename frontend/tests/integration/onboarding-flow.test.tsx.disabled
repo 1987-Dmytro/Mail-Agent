@@ -212,7 +212,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
     // Verify component restores to Step 3
     await waitFor(() => {
-      expect(screen.getByText(/Step 3 of 5/i)).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 2 }); expect(heading).toHaveTextContent(/Link Telegram|Connect Telegram/i);
     });
 
     // Verify localStorage.getItem was called
@@ -264,7 +264,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
     // Verify on Step 4
     await waitFor(() => {
-      expect(screen.getByText(/Step 4 of 5/i)).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 2 }); expect(heading).toHaveTextContent(/Setup.*Folders/i);
     });
 
     const backButton = screen.getByRole('button', { name: /Back/i });
@@ -272,7 +272,7 @@ describe('OnboardingWizard Integration Tests', () => {
     // Click Back 3 times: Step 4 → 3 → 2 → 1
     fireEvent.click(backButton);
     await waitFor(() => {
-      expect(screen.getByText(/Step 3 of 5/i)).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 2 }); expect(heading).toHaveTextContent(/Link Telegram|Connect Telegram/i);
     });
 
     fireEvent.click(backButton);
@@ -344,7 +344,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
     // Verify on Step 5
     await waitFor(() => {
-      expect(screen.getByText(/Step 5 of 5/i)).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 2 }); expect(heading).toHaveTextContent(/You're All Set|All Set|Congratulations|Complete/i);
     });
 
     // Click "Take Me to My Dashboard" button

@@ -177,6 +177,63 @@ async def get_dashboard_stats(
                     (indexing_processed_count / indexing_total_emails) * 100
                 )
 
+            # Auto-resume interrupted indexing (e.g., after worker restart)
+            if indexing.status == IndexingStatus.IN_PROGRESS and indexing_processed_count < indexing_total_emails:
+                # Check if indexing was interrupted (no active Celery task)
+                # We can't easily check Celery active tasks here, but resume_user_indexing
+                # has built-in protection against duplicates via database constraints
+                try:
+                    from app.tasks.indexing_tasks import resume_user_indexing
+                    resume_user_indexing.delay(user_id=current_user.id)
+                    logger.info(
+                        "indexing_auto_resumed_from_dashboard",
+                        user_id=current_user.id,
+                        processed=indexing_processed_count,
+                        total=indexing_total_emails,
+                        reason="interrupted_indexing_detected",
+                    )
+                except Exception as resume_error:
+                    logger.warning(
+                        "indexing_auto_resume_failed",
+                        user_id=current_user.id,
+                        error=str(resume_error),
+                    )
+
+            # Auto-retry failed indexing (only once - don't create infinite loop)
+            if indexing.status == IndexingStatus.FAILED and current_user.onboarding_completed and gmail_connected:
+                try:
+                    from app.tasks.indexing_tasks import index_user_emails
+                    index_user_emails.delay(user_id=current_user.id, days_back=90)
+                    logger.info(
+                        "indexing_auto_retry_from_dashboard",
+                        user_id=current_user.id,
+                        reason="previous_indexing_failed",
+                    )
+                except Exception as trigger_error:
+                    logger.warning(
+                        "indexing_auto_trigger_failed",
+                        user_id=current_user.id,
+                        error=str(trigger_error),
+                    )
+        elif not indexing:
+            # Auto-trigger indexing if user completed onboarding but indexing never started
+            # This only runs ONCE - when no indexing record exists
+            if current_user.onboarding_completed and gmail_connected:
+                try:
+                    from app.tasks.indexing_tasks import index_user_emails
+                    index_user_emails.delay(user_id=current_user.id, days_back=90)
+                    logger.info(
+                        "indexing_auto_triggered_from_dashboard",
+                        user_id=current_user.id,
+                        reason="onboarding_complete_no_indexing_record",
+                    )
+                except Exception as trigger_error:
+                    logger.warning(
+                        "indexing_auto_trigger_failed",
+                        user_id=current_user.id,
+                        error=str(trigger_error),
+                    )
+
         # Log dashboard stats retrieval
         logger.info(
             "dashboard_stats_retrieved",

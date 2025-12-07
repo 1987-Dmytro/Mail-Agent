@@ -62,10 +62,12 @@ class RAGContext(TypedDict):
 
     Attributes:
         thread_history: Last 5 emails in thread (chronological order, oldest → newest)
+        sender_history: ALL emails from sender (last 90 days, chronological order)
         semantic_results: Top 3-7 similar emails (ranked by relevance score descending)
         metadata: Statistics and metadata about the context:
             - thread_length: Original thread length before truncation
             - semantic_count: Number of semantic results retrieved
+            - sender_history_count: Number of emails in sender history
             - oldest_thread_date: Timestamp of oldest email in thread_history
             - total_tokens_used: Total token count of all email bodies in context
 
@@ -88,5 +90,6 @@ class RAGContext(TypedDict):
         }
     """
     thread_history: List[EmailMessage]
+    sender_history: List[EmailMessage]  # NEW: Full sender conversation history (90 days)
     semantic_results: List[EmailMessage]
-    metadata: Dict[str, Any]  # Includes: thread_length, semantic_count, oldest_thread_date, total_tokens_used
+    metadata: Dict[str, Any]  # Includes: thread_length, semantic_count, sender_history_count, oldest_thread_date, total_tokens_used

@@ -180,6 +180,25 @@ class EmailIndexingService:
 
         self.logger.info("indexing_started", user_id=self.user_id, days_back=days_back)
 
+        # Create IndexingProgress record IMMEDIATELY to prevent duplicate tasks
+        # We'll update total_emails after Gmail retrieval completes
+        async with self.db_service.async_session() as session:
+            progress = IndexingProgress(
+                user_id=self.user_id,
+                total_emails=0,  # Will be updated after Gmail retrieval
+                processed_count=0,
+                status=IndexingStatus.IN_PROGRESS,
+            )
+            session.add(progress)
+            await session.commit()
+            await session.refresh(progress)
+
+        self.logger.info(
+            "indexing_progress_record_created",
+            user_id=self.user_id,
+            progress_id=progress.id,
+        )
+
         # Retrieve emails from Gmail
         emails = await self.retrieve_gmail_emails(days_back=days_back)
         total_emails = len(emails)
@@ -191,15 +210,13 @@ class EmailIndexingService:
             days_back=days_back,
         )
 
-        # Create IndexingProgress record
+        # Update progress record with actual total_emails count
         async with self.db_service.async_session() as session:
-            progress = IndexingProgress(
-                user_id=self.user_id,
-                total_emails=total_emails,
-                processed_count=0,
-                status=IndexingStatus.IN_PROGRESS,
+            result = await session.execute(
+                select(IndexingProgress).where(IndexingProgress.id == progress.id)
             )
-            session.add(progress)
+            progress = result.scalar_one()
+            progress.total_emails = total_emails
             await session.commit()
             await session.refresh(progress)
 
@@ -965,3 +982,77 @@ class EmailIndexingService:
                 )
                 if attempt < max_attempts:
                     await asyncio.sleep(2 ** attempt)  # Exponential backoff
+
+    async def cleanup_old_emails(self, days: int = 90) -> int:
+        """Remove emails older than N days from vector database.
+
+        Implements 90-day retention policy for vector embeddings (2025 best practice).
+        Reduces storage costs and improves query performance by removing stale data.
+
+        Args:
+            days: Maximum age of emails to keep (default: 90 days)
+
+        Returns:
+            Number of emails deleted from vector DB
+
+        Example:
+            deleted_count = await service.cleanup_old_emails(days=90)
+            print(f"Cleaned up {deleted_count} old emails")
+        """
+        from datetime import datetime, timedelta, UTC
+
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
+        cutoff_timestamp = int(cutoff_date.timestamp())
+
+        self.logger.info(
+            "cleanup_old_emails_started",
+            user_id=self.user_id,
+            days=days,
+            cutoff_date=cutoff_date.isoformat()
+        )
+
+        try:
+            # Get ChromaDB collection
+            collection = self.vector_db_client.get_collection("email_embeddings")
+
+            # Query for old emails to delete
+            old_emails = collection.get(
+                where={
+                    "$and": [
+                        {"user_id": str(self.user_id)},
+                        {"timestamp": {"$lt": cutoff_timestamp}}
+                    ]
+                },
+                include=["metadatas"]
+            )
+
+            deleted_count = 0
+            if old_emails and old_emails.get('ids'):
+                deleted_count = len(old_emails['ids'])
+
+                # Delete old emails
+                collection.delete(ids=old_emails['ids'])
+
+                self.logger.info(
+                    "cleanup_old_emails_completed",
+                    user_id=self.user_id,
+                    deleted_count=deleted_count,
+                    cutoff_date=cutoff_date.isoformat()
+                )
+            else:
+                self.logger.info(
+                    "cleanup_old_emails_no_emails_to_delete",
+                    user_id=self.user_id,
+                    cutoff_date=cutoff_date.isoformat()
+                )
+
+            return deleted_count
+
+        except Exception as e:
+            self.logger.error(
+                "cleanup_old_emails_failed",
+                user_id=self.user_id,
+                error=str(e),
+                error_type=type(e).__name__
+            )
+            raise

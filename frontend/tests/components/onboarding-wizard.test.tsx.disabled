@@ -181,9 +181,10 @@ describe('OnboardingWizard', () => {
 
     render(<OnboardingWizard />);
 
-    // Verify on Step 3
+    // Verify on Step 3 (Telegram Linking step) by checking for H2 heading
     await waitFor(() => {
-      expect(screen.getByText(/Step 3 of 5/i)).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 2 });
+      expect(heading).toHaveTextContent(/Link Telegram|Connect Telegram/i);
     });
 
     // Verify Next button is disabled (telegramConnected=false)
@@ -214,9 +215,10 @@ describe('OnboardingWizard', () => {
 
     render(<OnboardingWizard />);
 
-    // Verify on Step 4
+    // Verify on Step 4 (Folder Setup step) by checking for H2 heading
     await waitFor(() => {
-      expect(screen.getByText(/Step 4 of 5/i)).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 2 });
+      expect(heading).toHaveTextContent(/Setup.*Folders/i);
     });
 
     // Verify Next button is disabled (folders.length = 0)
@@ -286,9 +288,10 @@ describe('OnboardingWizard', () => {
 
     render(<OnboardingWizard />);
 
-    // Verify component restores to Step 3
+    // Verify component restores to Step 3 (Telegram step) by checking H2 heading
     await waitFor(() => {
-      expect(screen.getByText(/Step 3 of 5/i)).toBeInTheDocument();
+      const heading = screen.getByRole('heading', { level: 2 });
+      expect(heading).toHaveTextContent(/Link Telegram|Connect Telegram/i);
     });
 
     // Verify localStorage.getItem was called

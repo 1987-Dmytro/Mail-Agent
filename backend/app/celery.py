@@ -48,11 +48,20 @@ celery_app.conf.update(
             "task": "app.tasks.notification_tasks.send_daily_digest",
             "schedule": crontab(hour=18, minute=30),  # Daily at 6:30 PM UTC (Story 2.3)
         },
+        "cleanup-old-vector-embeddings": {
+            "task": "app.tasks.cleanup_tasks.cleanup_old_vector_embeddings",
+            "schedule": crontab(hour=3, minute=0),  # Daily at 3:00 AM UTC (90-day retention)
+        },
+        "auto-resume-interrupted-indexing": {
+            "task": "app.tasks.indexing_tasks.check_and_resume_interrupted_indexing",
+            "schedule": timedelta(seconds=120),  # Every 2 minutes - auto-resume interrupted indexing jobs
+        },
     },
 )
 
 # Autodiscover tasks
 celery_app.autodiscover_tasks(["app.tasks"])
+
 
 if __name__ == "__main__":
     celery_app.start()

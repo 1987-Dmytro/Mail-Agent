@@ -23,6 +23,7 @@ class MockTelegramBot:
     def __init__(self):
         """Initialize mock with empty tracking."""
         self.sent_messages: List[Dict[str, Any]] = []
+        self.deleted_messages: List[str] = []
         self.callback_queries_answered: List[str] = []
         self.simulated_callbacks: List[Dict[str, Any]] = []
         self._message_id_counter = 1000
@@ -188,6 +189,31 @@ class MockTelegramBot:
                 return True
         return False
 
+    async def delete_message(
+        self,
+        telegram_id: str,
+        message_id: str,
+    ) -> bool:
+        """Mock delete_message operation.
+
+        Args:
+            telegram_id: Telegram user ID (matches real TelegramBotClient API)
+            message_id: Message ID to delete
+
+        Returns:
+            bool: True if successful
+        """
+        # Track deleted message
+        self.deleted_messages.append(message_id)
+
+        # Remove from sent_messages list
+        self.sent_messages = [
+            msg for msg in self.sent_messages
+            if not (msg["message_id"] == message_id and msg["chat_id"] == telegram_id)
+        ]
+
+        return True
+
     async def answer_callback_query(
         self,
         callback_query_id: str,
@@ -349,6 +375,7 @@ class MockTelegramBot:
     def reset(self):
         """Clear all tracking data."""
         self.sent_messages.clear()
+        self.deleted_messages.clear()
         self.callback_queries_answered.clear()
         self.simulated_callbacks.clear()
         self._message_id_counter = 1000

@@ -1,0 +1,1457 @@
+
+> frontend@0.1.0 test:run
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv4.0.8 [39m[90m/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend[39m
+
+[90mstdout[2m | tests/integration/telegram-linking-flow.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstderr[2m | tests/integration/telegram-linking-flow.test.tsx[2m > [22m[2mTelegram Linking Flow - Integration Tests[2m > [22m[2mtest_copy_code_to_clipboard
+[22m[39mFailed to copy code: Error: Clipboard permission denied
+    at [90m/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/[39mtests/integration/telegram-linking-flow.test.tsx:256:7
+    at [90mfile:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:753:20
+
+[90mstderr[2m | tests/integration/telegram-linking-flow.test.tsx[2m > [22m[2mTelegram Linking Flow - Integration Tests[2m > [22m[2mtest_network_error_retry
+[22m[39mFailed to generate linking code: Error: Network error
+    at [90m/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/[39mtests/integration/telegram-linking-flow.test.tsx:388:7
+    at [90mfile:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:753:20 {
+  status: [33m0[39m,
+  code: [32m'NETWORK_ERROR'[39m
+}
+
+[90mstdout[2m | tests/integration/telegram-linking-flow.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/integration/telegram-linking-flow.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 12333[2mms[22m[39m
+     [33m[2m✓[22m[39m test_complete_telegram_linking_flow [33m 10093[2mms[22m[39m
+     [33m[2m✓[22m[39m test_code_expiration_timeout [33m 2050[2mms[22m[39m
+[90mstdout[2m | tests/integration/notification-prefs-flow.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/integration/notification-prefs-flow.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/integration/notification-prefs-flow.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 3768[2mms[22m[39m
+     [33m[2m✓[22m[39m test_complete_preferences_flow [33m 918[2mms[22m[39m
+     [33m[2m✓[22m[39m test_quiet_hours_overnight_range [33m 538[2mms[22m[39m
+     [33m[2m✓[22m[39m test_batch_toggle_effect [33m 548[2mms[22m[39m
+     [33m[2m✓[22m[39m test_test_notification_sends [33m 591[2mms[22m[39m
+     [33m[2m✓[22m[39m test_preferences_persist_across_navigation [33m 1068[2mms[22m[39m
+[90mstdout[2m | tests/integration/folder-crud-flow.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_complete_folder_crud_flow
+[22m[39mAn update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_complete_folder_crud_flow
+[22m[39mAn update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_complete_folder_crud_flow
+[22m[39mAn update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_complete_folder_crud_flow
+[22m[39mAn update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_folder_name_uniqueness_validation
+[22m[39mAn update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_folder_name_uniqueness_validation
+[22m[39mAn update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_folder_name_uniqueness_validation
+[22m[39mAn update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_folder_name_uniqueness_validation
+[22m[39mAn update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_api_error_handling
+[22m[39mAn update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_api_error_handling
+[22m[39mAn update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/integration/folder-crud-flow.test.tsx[2m > [22m[2mFolderManager Integration Tests[2m > [22m[2mtest_api_error_handling
+[22m[39mFailed to create folder: Error: Network error
+    at [90m/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/[39mtests/integration/folder-crud-flow.test.tsx:403:7
+    at [90mfile:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:157:11
+    at [90mfile:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:753:26
+    at [90mfile:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1636:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1602:10[90m)[39m
+    at runTest [90m(file:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1309:12[90m)[39m
+    at runSuite [90m(file:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1468:8[90m)[39m
+    at runSuite [90m(file:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1468:8[90m)[39m
+    at runFiles [90m(file:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:1526:3[90m)[39m
+
+[90mstdout[2m | tests/integration/folder-crud-flow.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/integration/folder-crud-flow.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 3400[2mms[22m[39m
+     [33m[2m✓[22m[39m test_complete_folder_crud_flow [33m 1475[2mms[22m[39m
+     [33m[2m✓[22m[39m test_folder_name_uniqueness_validation [33m 1127[2mms[22m[39m
+     [33m[2m✓[22m[39m test_api_error_handling [33m 642[2mms[22m[39m
+[90mstdout[2m | tests/components/telegram-link.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstderr[2m | tests/components/telegram-link.test.tsx[2m > [22m[2mTelegramLink Component - Unit Tests[2m > [22m[2mtest_error_handling_network_failure
+[22m[39mFailed to generate linking code: Error: Network error
+    at [90m/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/[39mtests/components/telegram-link.test.tsx:308:7
+    at [90mfile:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:753:20
+
+[90mstdout[2m | tests/components/telegram-link.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/components/telegram-link.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 3270[2mms[22m[39m
+     [33m[2m✓[22m[39m test_polling_verifies_link_success [33m 3023[2mms[22m[39m
+[90mstdout[2m | tests/components/notification-settings.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstderr[2m | tests/components/notification-settings.test.tsx[2m > [22m[2mNotificationSettings[2m > [22m[2mtest_form_disables_during_submit
+[22m[39mAn update to NotificationSettings inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to NotificationSettings inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/components/notification-settings.test.tsx[2m > [22m[2mNotificationSettings[2m > [22m[2mtest_form_disables_during_submit
+[22m[39mAn update to Switch inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Select inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SelectItemText inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SelectItemText inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SelectItemText inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SelectItemText inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Switch inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Switch inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Switch inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Select inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SelectItemText inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SelectItemText inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SelectItemText inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SelectItemText inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Switch inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Switch inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstdout[2m | tests/components/notification-settings.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/components/notification-settings.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 3059[2mms[22m[39m
+     [33m[2m✓[22m[39m test_quiet_hours_validation [33m 811[2mms[22m[39m
+     [33m[2m✓[22m[39m test_save_preferences_success [33m 530[2mms[22m[39m
+     [33m[2m✓[22m[39m test_form_disables_during_submit [33m 834[2mms[22m[39m
+     [33m[2m✓[22m[39m test_overnight_quiet_hours_valid [33m 533[2mms[22m[39m
+[90mstdout[2m | tests/components/folder-manager.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstderr[2m | tests/components/folder-manager.test.tsx[2m > [22m[2mFolderManager[2m > [22m[2mtest_create_folder_form_validation
+[22m[39mAn update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/components/folder-manager.test.tsx[2m > [22m[2mFolderManager[2m > [22m[2mtest_create_folder_form_validation
+[22m[39mAn update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/components/folder-manager.test.tsx[2m > [22m[2mFolderManager[2m > [22m[2mtest_create_folder_success
+[22m[39mAn update to FolderManager inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstderr[2m | tests/components/folder-manager.test.tsx[2m > [22m[2mFolderManager[2m > [22m[2mtest_create_folder_success
+[22m[39mAn update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FocusScope inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to Presence inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to DismissableLayer inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstdout[2m | tests/components/folder-manager.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/components/folder-manager.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 2058[2mms[22m[39m
+     [33m[2m✓[22m[39m test_create_folder_form_validation [33m 969[2mms[22m[39m
+     [33m[2m✓[22m[39m test_create_folder_success [33m 685[2mms[22m[39m
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_next_button_advances_step
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_back_button_returns_to_previous_step
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_back_button_returns_to_previous_step
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_next_disabled_without_gmail_connection
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_next_disabled_without_telegram_connection
+[22m[39m🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_next_disabled_without_telegram_connection
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_next_disabled_without_folders
+[22m[39mFolderSetupStep: useEffect running, fetching folders...
+FolderSetupStep: Calling apiClient.getFolders()
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_next_disabled_without_folders
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/folders
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_next_disabled_without_folders
+[22m[39mFolderSetupStep: Got response: { data: [], status: [33m200[39m }
+FolderSetupStep: foldersData: { data: [], status: [33m200[39m }
+FolderSetupStep: Is array? [33mfalse[39m
+FolderSetupStep: Length: [90mundefined[39m
+FolderSetupStep: No folders found or invalid response
+FolderSetupStep: Finally block - setting isLoadingFolders to false
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_progress_persisted_to_localstorage
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_progress_persisted_to_localstorage
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_progress_restored_from_localstorage
+[22m[39m🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx[2m > [22m[2mOnboardingWizard[2m > [22m[2mtest_progress_restored_from_localstorage
+[22m[39m🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+
+[90mstdout[2m | tests/components/onboarding-wizard.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/components/onboarding-wizard.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 409[2mms[22m[39m
+[90mstdout[2m | tests/integration/onboarding-flow.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/integration/onboarding-flow.test.tsx[2m > [22m[2mOnboardingWizard Integration Tests[2m > [22m[2mtest_back_navigation
+[22m[39mFolderSetupStep: useEffect running, fetching folders...
+FolderSetupStep: Calling apiClient.getFolders()
+
+[90mstdout[2m | tests/integration/onboarding-flow.test.tsx[2m > [22m[2mOnboardingWizard Integration Tests[2m > [22m[2mtest_back_navigation
+[22m[39mFolderSetupStep: Got response: { data: [] }
+FolderSetupStep: foldersData: { data: [] }
+FolderSetupStep: Is array? [33mfalse[39m
+FolderSetupStep: Length: [90mundefined[39m
+FolderSetupStep: No folders found or invalid response
+FolderSetupStep: Finally block - setting isLoadingFolders to false
+
+[90mstdout[2m | tests/integration/onboarding-flow.test.tsx[2m > [22m[2mOnboardingWizard Integration Tests[2m > [22m[2mtest_back_navigation
+[22m[39mToken found in localStorage, showing success state
+
+[90mstdout[2m | tests/integration/onboarding-flow.test.tsx[2m > [22m[2mOnboardingWizard Integration Tests[2m > [22m[2mtest_back_navigation
+[22m[39mToken found in localStorage, showing success state
+
+[90mstdout[2m | tests/integration/onboarding-flow.test.tsx[2m > [22m[2mOnboardingWizard Integration Tests[2m > [22m[2mtest_first_time_user_redirect
+[22m[39m[OnboardingRedirect] First-time user detected, redirecting to /onboarding
+
+[90mstdout[2m | tests/integration/onboarding-flow.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/integration/onboarding-flow.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 461[2mms[22m[39m
+[90mstdout[2m | tests/integration/oauth-flow.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstderr[2m | tests/integration/oauth-flow.test.tsx[2m > [22m[2mGmail OAuth Flow - Integration Tests[2m > [22m[2mtest_network_error_retry
+[22m[39mFailed to fetch OAuth config: Error: Network error. Please check your connection.
+    at [90m/Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/[39mtests/integration/oauth-flow.test.tsx:347:7
+    at [90mfile:///Users/hdv_1987/Desktop/%D0%9F%D1%80%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/Mail%20Agent/frontend/[39mnode_modules/[4m@vitest[24m/runner/dist/index.js:753:20 {
+  status: [33m0[39m,
+  code: [32m'NETWORK_ERROR'[39m
+}
+
+[90mstdout[2m | tests/integration/oauth-flow.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/integration/oauth-flow.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 260[2mms[22m[39m
+[90mstdout[2m | tests/components/gmail-connect.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/components/gmail-connect.test.tsx[2m > [22m[2mGmailConnect Component - Unit Tests[2m > [22m[2mtest_csrf_state_validation
+[22m[39mToken found in localStorage, showing success state
+
+[90mstdout[2m | tests/components/gmail-connect.test.tsx[2m > [22m[2mGmailConnect Component - Unit Tests[2m > [22m[2mtest_success_state_displays_email
+[22m[39mToken found in localStorage, showing success state
+
+[90mstdout[2m | tests/components/gmail-connect.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/components/gmail-connect.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 256[2mms[22m[39m
+[90mstdout[2m | tests/integration/dashboard-page.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/integration/dashboard-page.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/integration/dashboard-page.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 220[2mms[22m[39m
+[90mstdout[2m | tests/layout.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstderr[2m | tests/layout.test.tsx[2m > [22m[2mRoot Layout[2m > [22m[2mtest_root_layout_renders - should render layout component with children
+[22m[39mIn HTML, <html> cannot be a child of <div>.
+This will cause a hydration error.
+
+[90mstderr[2m | tests/layout.test.tsx[2m > [22m[2mNavbar Component[2m > [22m[2mtest_navbar_renders_navigation - should render navbar with logo and navigation links
+[22m[39m⚠️  Unhandled GET request to http://localhost:8000/api/v1/auth/status
+   Headers: { Accept: [32m'application/json, text/plain, */*'[39m }
+
+[90mstdout[2m | tests/layout.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/layout.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 193[2mms[22m[39m
+[90mstdout[2m | tests/integration/integration.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstderr[2m | tests/integration/integration.test.tsx[2m > [22m[2mAPI Client Integration[2m > [22m[2mshould handle API errors correctly
+[22m[39m🔴 Axios Error Details: {
+  message: [32m'Request failed with status code 401'[39m,
+  code: [32m'ERR_BAD_REQUEST'[39m,
+  hasResponse: [33mtrue[39m,
+  hasRequest: [33mtrue[39m,
+  config: {
+    url: [32m'/api/v1/protected'[39m,
+    baseURL: [32m'http://localhost:8000'[39m,
+    method: [32m'get'[39m
+  }
+}
+
+[90mstdout[2m | tests/integration/integration.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/integration/integration.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 164[2mms[22m[39m
+[90mstdout[2m | tests/components/dashboard.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/components/dashboard.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/components/dashboard.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 187[2mms[22m[39m
+[90mstdout[2m | tests/api-and-auth.test.ts
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/api-and-auth.test.ts
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/api-and-auth.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 150[2mms[22m[39m
+[90mstdout[2m | tests/styling.test.tsx
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/styling.test.tsx
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/styling.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 126[2mms[22m[39m
+[90mstdout[2m | tests/project-setup.test.ts
+[22m[39m✅ MSW Server started
+📍 API_URL configured as: http://localhost:8000
+
+[90mstdout[2m | tests/project-setup.test.ts
+[22m[39m🛑 MSW Server closed
+
+ [32m✓[39m tests/project-setup.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 107[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m17 passed[39m[22m[90m (17)[39m
+[2m      Tests [22m [1m[32m84 passed[39m[22m[90m (84)[39m
+[2m   Start at [22m 13:20:36
+[2m   Duration [22m 41.77s[2m (transform 691ms, setup 3.53s, collect 3.26s, tests 30.42s, environment 3.05s, prepare 106ms)[22m
+

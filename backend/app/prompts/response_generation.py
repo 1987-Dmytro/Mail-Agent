@@ -26,6 +26,38 @@ LANGUAGE_NAMES: Dict[str, str] = {
 }
 
 
+# Question indicators for needs_response detection (multilingual)
+# Used by fallback classification when LLM is unavailable
+QUESTION_INDICATORS: Dict[str, List[str]] = {
+    "en": [
+        "?",  # Question mark
+        "what", "when", "where", "who", "why", "how",  # Question words
+        "can you", "could you", "would you", "will you",  # Request patterns
+        "please confirm", "please let me know", "please advise",  # Polite requests
+    ],
+    "de": [
+        "?",  # Fragezeichen
+        "was", "wann", "wo", "wer", "warum", "wie",  # Fragewörter
+        "können sie", "könnten sie", "würden sie",  # Höfliche Bitten
+        "bitte bestätigen", "bitte mitteilen", "bitte informieren",  # Höfliche Anfragen
+    ],
+    "ru": [
+        "?",  # Вопросительный знак
+        "что", "когда", "где", "кто", "почему", "как",  # Вопросительные слова
+        "можешь", "можете", "мог бы", "могли бы",  # Модальные глаголы
+        "подтверди", "ответь", "скажи", "уточни", "поясни",  # Императивные глаголы
+        "пожалуйста подтверди", "пожалуйста сообщи",  # Вежливые просьбы
+    ],
+    "uk": [
+        "?",  # Знак питання
+        "що", "коли", "де", "хто", "чому", "як",  # Питальні слова
+        "чи можеш", "чи можете", "чи міг би", "чи могли б",  # Модальні дієслова
+        "підтверди", "відповідь", "скажи", "уточни", "поясни",  # Наказові дієслова
+        "будь ласка підтверди", "будь ласка повідом",  # Ввічливі прохання
+    ],
+}
+
+
 # Greeting examples: 4 languages × 3 tones = 12 combinations
 GREETING_EXAMPLES: Dict[str, Dict[str, str]] = {
     "de": {
@@ -90,6 +122,10 @@ CONVERSATION CONTEXT:
 
 Thread History (Chronological):
 {thread_history}
+
+Full Conversation History with Sender (Last 90 Days):
+The following is the COMPLETE chronological history of ALL emails exchanged with this correspondent. Use this to understand the full context and timeline of your relationship.
+{sender_history}
 
 Relevant Context from Previous Emails (Semantic Search):
 {semantic_results}
@@ -169,6 +205,11 @@ def format_response_prompt(
         rag_context.get("thread_history", [])
     )
 
+    # Format sender conversation history (ALL emails from sender, last 90 days)
+    sender_history_text = _format_sender_history(
+        rag_context.get("sender_history", [])
+    )
+
     # Format semantic results (ranked by relevance, with similarity scores if available)
     semantic_results_text = _format_semantic_results(
         rag_context.get("semantic_results", [])
@@ -202,6 +243,7 @@ def format_response_prompt(
         language_code=language,
         email_body=email_body[:2000],  # Limit body to prevent token overflow
         thread_history=thread_history_text,
+        sender_history=sender_history_text,  # NEW: Full sender conversation history
         semantic_results=semantic_results_text,
         tone_description=tone_descriptions[tone],
         formality_instructions=formality_instructions[tone],
@@ -228,7 +270,7 @@ def _format_thread_history(thread_history: List[Dict]) -> str:
     formatted_entries = []
     for i, email_msg in enumerate(thread_history, 1):
         sender = email_msg.get("sender", "Unknown")
-        date = email_msg.get("sent_at", "Unknown date")
+        date = email_msg.get("date", "Unknown date")  # FIX: was "sent_at"
         body = email_msg.get("body", "")
 
         # Format date if it's a datetime object
@@ -237,6 +279,36 @@ def _format_thread_history(thread_history: List[Dict]) -> str:
 
         formatted_entries.append(
             f"{i}. From: {sender} | Date: {date}\n   {body[:300]}..."  # Limit each email to 300 chars
+        )
+
+    return "\n\n".join(formatted_entries)
+
+
+def _format_sender_history(sender_history: List[Dict]) -> str:
+    """Format sender conversation history into chronological timeline.
+
+    Args:
+        sender_history: List of ALL EmailMessage dicts from sender (90 days)
+
+    Returns:
+        Formatted chronological timeline, or "No sender history available" if empty
+    """
+    if not sender_history:
+        return "No sender history available."
+
+    formatted_entries = []
+    for i, email_msg in enumerate(sender_history, 1):
+        sender = email_msg.get("sender", "Unknown")
+        subject = email_msg.get("subject", "No Subject")
+        date = email_msg.get("date", "Unknown date")
+        body = email_msg.get("body", "")
+
+        # Format date if it's a datetime object
+        if isinstance(date, datetime):
+            date = date.strftime("%Y-%m-%d %H:%M")
+
+        formatted_entries.append(
+            f"{i}. [{date}] {subject}\n   From: {sender}\n   {body[:200]}..."
         )
 
     return "\n\n".join(formatted_entries)
@@ -257,7 +329,7 @@ def _format_semantic_results(semantic_results: List[Dict]) -> str:
     formatted_entries = []
     for i, email_msg in enumerate(semantic_results, 1):
         sender = email_msg.get("sender", "Unknown")
-        date = email_msg.get("sent_at", "Unknown date")
+        date = email_msg.get("date", "Unknown date")  # FIX: was "sent_at"
         body = email_msg.get("body", "")
         similarity = email_msg.get("similarity_score", 0.0)
 

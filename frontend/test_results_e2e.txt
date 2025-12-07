@@ -1,0 +1,571 @@
+[WebServer] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+
+Running 10 tests using 2 workers
+
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== TESTING RETURNING USER EXPERIENCE ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+✅ RETURNING USER TEST PASSED
+  ✓   1 [chromium] › tests/e2e/complete-user-journey.spec.ts:187:7 › Complete User Journey E2E › returning user can access all features directly (1.5s)
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+
+💬 PHASE 3: Telegram Linking - verifying token detection
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+🔵 MSW→PW: GET /api/v1/telegram/verify/123456 → 200
+Telegram detected token and showed success state - clicking Continue
+
+📁 PHASE 4: Folder Setup - creating default folder
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+
+✅ PHASE 5: Completion Step
+
+📊 PHASE 6: Verifying Dashboard
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/users/complete-onboarding
+🔵 MSW→PW: POST /api/v1/users/complete-onboarding → 200
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+Current URL: http://localhost:3000/dashboard
+✅ DASHBOARD PAGE VERIFIED - User successfully reached dashboard after onboarding!
+
+✅ COMPLETE USER JOURNEY TEST PASSED
+  ✓   3 [firefox] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (10.2s)
+  ✘   2 [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (13.6s)
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== TESTING RETURNING USER EXPERIENCE ===
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+✅ RETURNING USER TEST PASSED
+  ✓   4 [firefox] › tests/e2e/complete-user-journey.spec.ts:187:7 › Complete User Journey E2E › returning user can access all features directly (1.3s)
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+
+💬 PHASE 3: Telegram Linking - verifying token detection
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+🔵 MSW→PW: GET /api/v1/telegram/verify/123456 → 200
+Telegram detected token and showed success state - clicking Continue
+
+📁 PHASE 4: Folder Setup - creating default folder
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+
+💬 PHASE 3: Telegram Linking - verifying token detection
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+
+✅ PHASE 5: Completion Step
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/users/complete-onboarding
+🔵 MSW→PW: POST /api/v1/users/complete-onboarding → 200
+
+📊 PHASE 6: Verifying Dashboard
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+🔵 MSW→PW: GET /api/v1/telegram/verify/123456 → 200
+Telegram detected token and showed success state - clicking Continue
+
+📁 PHASE 4: Folder Setup - creating default folder
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+
+✅ PHASE 5: Completion Step
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/users/complete-onboarding
+🔵 MSW→PW: POST /api/v1/users/complete-onboarding → 200
+
+📊 PHASE 6: Verifying Dashboard
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+Current URL: http://localhost:3000/dashboard
+✅ DASHBOARD PAGE VERIFIED - User successfully reached dashboard after onboarding!
+
+✅ COMPLETE USER JOURNEY TEST PASSED
+  ✓   5 [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (retry #1) (9.3s)
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== TESTING RETURNING USER EXPERIENCE ===
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+✅ RETURNING USER TEST PASSED
+  ✓   7 [webkit] › tests/e2e/complete-user-journey.spec.ts:187:7 › Complete User Journey E2E › returning user can access all features directly (1.0s)
+Current URL: http://localhost:3000/dashboard
+✅ DASHBOARD PAGE VERIFIED - User successfully reached dashboard after onboarding!
+
+✅ COMPLETE USER JOURNEY TEST PASSED
+  ✓   6 [webkit] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (10.0s)
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== TESTING RETURNING USER EXPERIENCE ===
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+✅ RETURNING USER TEST PASSED
+  ✓   9 [mobile-chrome] › tests/e2e/complete-user-journey.spec.ts:187:7 › Complete User Journey E2E › returning user can access all features directly (696ms)
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== STARTING COMPLETE USER JOURNEY E2E TEST ===
+
+🔧 PHASE 0: Setting up auth tokens to simulate connected services
+
+📋 PHASE 1: Onboarding - Welcome
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/auth/gmail/config
+🔵 MSW→PW: GET /api/v1/auth/gmail/config → 200
+
+📧 PHASE 2: Gmail Connection - verifying token detection
+
+💬 PHASE 3: Telegram Linking - verifying token detection
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+
+💬 PHASE 3: Telegram Linking - verifying token detection
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/telegram/link
+🔵 MSW→PW: POST /api/v1/telegram/link → 200
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/telegram/verify/123456 (code: 123456)
+🔵 MSW→PW: GET /api/v1/telegram/verify/123456 → 200
+Telegram detected token and showed success state - clicking Continue
+
+📁 PHASE 4: Folder Setup - creating default folder
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+
+✅ PHASE 5: Completion Step
+
+📊 PHASE 6: Verifying Dashboard
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/users/complete-onboarding
+🔵 MSW→PW: POST /api/v1/users/complete-onboarding → 200
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+🔵 MSW→PW: GET /api/v1/telegram/verify/123456 → 200
+Telegram detected token and showed success state - clicking Continue
+
+📁 PHASE 4: Folder Setup - creating default folder
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Important'[39m,
+  keywords: [ [32m'urgent'[39m, [32m'важно'[39m, [32m'wichtig'[39m ],
+  color: [32m'#EF4444'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Government'[39m,
+  keywords: [ [32m'finanzamt'[39m, [32m'ausländerbehörde'[39m, [32m'tax'[39m, [32m'visa'[39m ],
+  color: [32m'#F97316'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/folders {
+  name: [32m'Clients'[39m,
+  keywords: [ [32m'meeting'[39m, [32m'project'[39m, [32m'client'[39m ],
+  color: [32m'#3B82F6'[39m
+}
+🔵 MSW→PW: POST /api/v1/folders → 200
+
+✅ PHASE 5: Completion Step
+🔵 MSW: Intercepted POST http://localhost:8000/api/v1/users/complete-onboarding
+🔵 MSW→PW: POST /api/v1/users/complete-onboarding → 200
+
+📊 PHASE 6: Verifying Dashboard
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+Current URL: http://localhost:3000/dashboard
+✅ DASHBOARD PAGE VERIFIED - User successfully reached dashboard after onboarding!
+
+✅ COMPLETE USER JOURNEY TEST PASSED
+  ✓   8 [mobile-chrome] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (9.2s)
+✅ MSW→Playwright Bridge: Installed 13/13 routes
+=== TESTING RETURNING USER EXPERIENCE ===
+Current URL: http://localhost:3000/dashboard
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 PW Route: Intercepted GET http://localhost:8000/api/v1/auth/status
+🔵 PW Route: Returning user: {
+  "id": 1,
+  "email": "test@example.com",
+  "gmail_connected": true,
+  "telegram_connected": true,
+  "telegram_id": "123456789",
+  "telegram_username": "testuser",
+  "onboarding_completed": true
+}
+🔵 MSW: Intercepted GET http://localhost:8000/api/v1/dashboard/stats
+🔵 MSW→PW: GET /api/v1/dashboard/stats → 200
+✅ DASHBOARD PAGE VERIFIED - User successfully reached dashboard after onboarding!
+
+✅ COMPLETE USER JOURNEY TEST PASSED
+✅ RETURNING USER TEST PASSED
+  ✓  10 [mobile-safari] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system (9.3s)
+  ✓  11 [mobile-safari] › tests/e2e/complete-user-journey.spec.ts:187:7 › Complete User Journey E2E › returning user can access all features directly (920ms)
+
+
+  1) [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /gmail connected/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /gmail connected/i })[22m
+
+
+      79 |     // Verify Gmail connection success state is shown
+      80 |     const gmailSuccess = page.getByRole('heading', { name: /gmail connected/i });
+    > 81 |     await expect(gmailSuccess).toBeVisible({ timeout: 10000 });
+         |                                ^
+      82 |
+      83 |     // Click Next to proceed (should be enabled now that Gmail is "connected")
+      84 |     const nextBtn = page.getByRole('button', { name: /next/i }).first();
+        at /Users/hdv_1987/Desktop/Прроекты/Mail Agent/frontend/tests/e2e/complete-user-journey.spec.ts:81:32
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/complete-user-journey-Comp-71358-oarding-and-uses-the-system-chromium/error-context.md
+
+  1 flaky
+    [chromium] › tests/e2e/complete-user-journey.spec.ts:26:7 › Complete User Journey E2E › new user completes full onboarding and uses the system 
+  9 passed (42.7s)
