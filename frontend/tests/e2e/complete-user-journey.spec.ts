@@ -44,13 +44,9 @@ test.describe('Complete User Journey E2E', () => {
       onboarding_completed: false, // Currently in onboarding
     });
 
-    // Navigate to page first, THEN set localStorage
-    await page.goto('/onboarding');
-
-    // Simulate user who already completed OAuth (tests resume feature - AC9)
-    await page.evaluate((token) => {
-      // FIXED: Use correct localStorage key 'mail_agent_token' (not 'auth_token')
-      // FIXED: Use valid JWT token from auth fixture
+    // CRITICAL FIX: Set localStorage BEFORE navigation to prevent redirect to /login
+    // Use addInitScript to inject localStorage for ALL page loads
+    await page.addInitScript((token) => {
       localStorage.setItem('mail_agent_token', token);
 
       // Set onboarding progress to step 1 (Welcome)
@@ -63,6 +59,27 @@ test.describe('Complete User Journey E2E', () => {
       };
       localStorage.setItem('onboarding_progress', JSON.stringify(initialProgress));
     }, mockAuthToken);
+
+    // Navigate to neutral page first to initialize localStorage
+    await page.goto('/');
+
+    // Set localStorage immediately for current page context
+    await page.evaluate((token) => {
+      localStorage.setItem('mail_agent_token', token);
+
+      // Set onboarding progress to step 1 (Welcome)
+      const initialProgress = {
+        currentStep: 1,
+        gmailConnected: false, // Will be set to true when GmailConnect detects token
+        telegramConnected: false,
+        folders: [],
+        lastUpdated: new Date().toISOString(),
+      };
+      localStorage.setItem('onboarding_progress', JSON.stringify(initialProgress));
+    }, mockAuthToken);
+
+    // NOW navigate to /onboarding - localStorage is already set, no redirect!
+    await page.goto('/onboarding');
 
     // =====================================================
     // PHASE 1: ONBOARDING - Welcome Step
@@ -198,9 +215,12 @@ test.describe('Complete User Journey E2E', () => {
   test('returning user can access all features directly', async ({ page }) => {
     console.log('=== TESTING RETURNING USER EXPERIENCE ===');
 
+    // CRITICAL FIX: Set up mock auth endpoints FIRST, before setupAuthenticatedSession
+    // setupAuthenticatedSession() navigates to '/', which triggers /api/v1/auth/status request
+    await mockAuthEndpoints(page);
+
     // Set up authenticated session (user already completed onboarding)
     await setupAuthenticatedSession(page);
-    await mockAuthEndpoints(page);
 
     await page.goto('/dashboard');
 

@@ -16,9 +16,45 @@ export const handlers = [
     });
   }),
 
-  // NOTE: Auth endpoints (/api/v1/auth/status, /api/v1/auth/me) are handled by test-specific mocks
-  // See tests/e2e/fixtures/auth.ts:mockAuthEndpoints()
-  // This allows tests to control auth state per-test
+  // ============================================
+  // Authentication Endpoints
+  // ============================================
+
+  // Mock GET /api/v1/auth/status (used by useAuthStatus hook)
+  // Returns authenticated user if mail_agent_token exists in localStorage
+  http.get(`${API_URL}/api/v1/auth/status`, ({ request }) => {
+    console.log(`🔵 MSW: Intercepted GET ${request.url}`);
+
+    // Check if authorization header exists (sent by apiClient)
+    const authHeader = request.headers.get('Authorization');
+    console.log(`🔵 MSW: Authorization header:`, authHeader);
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      // Token exists - return authenticated user
+      return HttpResponse.json({
+        data: {
+          authenticated: true,
+          user: {
+            id: 1,
+            email: 'test@example.com',
+            gmail_connected: true,
+            telegram_connected: false,
+            onboarding_completed: false,
+          },
+        },
+        status: 200,
+      });
+    } else {
+      // No token - return unauthenticated
+      return HttpResponse.json(
+        {
+          message: 'Not authenticated',
+          status: 401,
+        },
+        { status: 401 }
+      );
+    }
+  }),
 
   // ============================================
   // User Management Endpoints
