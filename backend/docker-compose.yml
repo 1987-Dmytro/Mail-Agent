@@ -44,6 +44,7 @@ services:
     volumes:
       - ./app:/app/app
       - ./logs:/app/logs
+      - ./backend/data/chromadb:/app/backend/data/chromadb  # ChromaDB persistent storage
     env_file:
       - .env
     environment:
@@ -74,6 +75,7 @@ services:
     volumes:
       - ./app:/app/app
       - ./logs:/app/logs
+      - ./backend/data/chromadb:/app/backend/data/chromadb  # ChromaDB persistent storage
     env_file:
       - .env
     environment:
@@ -90,6 +92,53 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    restart: on-failure
+    networks:
+      - monitoring
+
+  # Celery beat for periodic tasks (polling, cleanup, notifications)
+  celery-beat:
+    build:
+      context: .
+      args:
+        APP_ENV: ${APP_ENV:-development}
+    command: ["/app/.venv/bin/celery", "-A", "app.celery", "beat", "--loglevel=info", "--schedule=/app/data/celerybeat-schedule.db"]
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+      - celery-beat-schedule:/app/data  # Beat schedule storage
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-supersecretkeythatshouldbechangedforproduction}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - monitoring
+
+  # Flower - Celery monitoring tool
+  flower:
+    build:
+      context: .
+      args:
+        APP_ENV: ${APP_ENV:-development}
+    command: ["/app/.venv/bin/python", "-m", "celery", "-A", "app.celery", "flower", "--port=5555"]
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+    depends_on:
+      - redis
+      - celery-worker
     restart: on-failure
     networks:
       - monitoring
@@ -136,6 +185,29 @@ services:
       - monitoring
     restart: always
 
+  # Frontend - Next.js application
+  frontend:
+    build:
+      context: ../frontend
+      target: development
+    ports:
+      - "3001:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - INTERNAL_API_URL=http://app:8000
+      - NODE_ENV=development
+    depends_on:
+      - app
+    networks:
+      - monitoring
+    restart: on-failure
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 
 networks:
   monitoring:
@@ -145,3 +217,4 @@ volumes:
   grafana-storage:
   postgres-data:
   redis-data:
+  celery-beat-schedule:  # Celery beat schedule persistence

@@ -44,7 +44,7 @@ class VectorDBClient:
         persist_directory: Path to persistent SQLite storage directory
 
     Example:
-        >>> client = VectorDBClient(persist_directory="./data/chromadb")
+        >>> client = VectorDBClient(persist_directory="./backend/data/chromadb")
         >>> collection = client.get_or_create_collection(
         ...     name="email_embeddings",
         ...     metadata={"hnsw:space": "cosine"}
@@ -69,7 +69,7 @@ class VectorDBClient:
             ValueError: If persist_directory is empty or invalid
 
         Example:
-            >>> client = VectorDBClient(persist_directory="./data/chromadb")
+            >>> client = VectorDBClient(persist_directory="./backend/data/chromadb")
         """
         if not persist_directory:
             raise ValueError("persist_directory cannot be empty")

@@ -56,7 +56,7 @@ services:
       - "8001:8000"  # Different port to avoid conflict with local backend
     volumes:
       - ./logs:/app/logs
-      - ./data/chromadb:/app/data/chromadb
+      - ./backend/data/chromadb:/app/backend/data/chromadb
     env_file:
       - .env.staging
     environment:
@@ -91,7 +91,7 @@ services:
     command: ["/app/.venv/bin/celery", "-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2"]
     volumes:
       - ./logs:/app/logs
-      - ./data/chromadb:/app/data/chromadb
+      - ./backend/data/chromadb:/app/backend/data/chromadb
     env_file:
       - .env.staging
     environment:

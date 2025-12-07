@@ -27,9 +27,10 @@ ADR: docs/adrs/epic-3-architecture-decisions.md#ADR-011
 """
 
 import asyncio
+import math
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, UTC
 from typing import Dict, List, Optional, Tuple
 
 import structlog
@@ -86,6 +87,11 @@ class ContextRetrievalService:
 
     # Performance target (AC #11)
     TARGET_LATENCY_SECONDS = 3.0  # <3 seconds per NFR001
+
+    # Temporal filtering constants (Recency boost based on 2025 RAG best practices)
+    RECENCY_ALPHA = 0.7  # 70% semantic similarity, 30% recency score
+    HALF_LIFE_DAYS = 14  # 14-day half-life for exponential decay
+    DEFAULT_TEMPORAL_WINDOW_DAYS = 30  # Default: last 30 days for recent context
 
     def __init__(
         self,
@@ -223,12 +229,140 @@ class ContextRetrievalService:
             # Re-raise exception - thread history is critical, cannot proceed without it
             raise
 
+    async def _get_sender_history(
+        self,
+        sender: str,
+        user_id: int,
+        days: int = 90,
+        max_emails: int = 50
+    ) -> Tuple[List[EmailMessage], int]:
+        """Retrieve ALL emails from a specific sender over last N days.
+
+        This provides complete conversation context across multiple threads,
+        enabling chronological understanding of the full correspondence.
+
+        Args:
+            sender: Email address of the sender
+            user_id: User ID for filtering
+            days: Number of days to look back (default: 90)
+            max_emails: Maximum number of emails to retrieve (default: 50)
+
+        Returns:
+            Tuple of (list of EmailMessage dicts sorted chronologically, total count)
+
+        Example:
+            For sender="colleague@example.com", retrieves:
+            1. "Праздники 2025" (2025-12-07 09:00)
+            2. "Re: Праздники" (2025-12-07 14:00)
+            3. Other emails from same sender...
+
+        Note: Sorted oldest→newest for chronological narrative.
+        """
+        try:
+            self.logger.info(
+                "sender_history_retrieval_started",
+                sender=sender,
+                user_id=user_id,
+                days=days
+            )
+
+            # Calculate cutoff timestamp
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
+            cutoff_timestamp = int(cutoff_date.timestamp())
+
+            # Query ChromaDB for ALL emails from this sender
+            filter_conditions = [
+                {"user_id": str(user_id)},
+                {"sender": sender},
+                {"timestamp": {"$gte": cutoff_timestamp}}
+            ]
+
+            # Query without embedding (just metadata filter) to get ALL emails
+            # Access ChromaDB collection directly for metadata-only query
+            collection = self.vector_db_client.client.get_collection(name="email_embeddings")
+            results = collection.get(
+                where={"$and": filter_conditions},
+                limit=max_emails,
+                include=["metadatas"]
+            )
+
+            if not results["ids"]:
+                self.logger.info(
+                    "sender_history_empty",
+                    sender=sender,
+                    user_id=user_id
+                )
+                return [], 0
+
+            # Process results into EmailMessage format
+            ids = results["ids"]
+            metadatas = results["metadatas"]
+            total_count = len(ids)
+
+            email_messages: List[EmailMessage] = []
+
+            for i, message_id in enumerate(ids):
+                try:
+                    # Fetch full email details from Gmail
+                    email_detail = await self.gmail_client.get_message_detail(message_id)
+
+                    metadata = metadatas[i]
+                    timestamp = metadata.get("timestamp", 0)
+
+                    date_str = email_detail["received_at"].isoformat() if isinstance(
+                        email_detail["received_at"], datetime
+                    ) else str(email_detail["received_at"])
+
+                    email_message: EmailMessage = {
+                        "message_id": message_id,
+                        "sender": email_detail["sender"],
+                        "subject": email_detail["subject"],
+                        "body": email_detail["body"],
+                        "date": date_str,
+                        "thread_id": email_detail["thread_id"],
+                        "_timestamp": timestamp  # For sorting
+                    }
+
+                    email_messages.append(email_message)
+
+                except Exception as e:
+                    self.logger.warning(
+                        "sender_history_email_fetch_failed",
+                        message_id=message_id,
+                        error=str(e)
+                    )
+                    continue
+
+            # Sort chronologically (oldest → newest)
+            email_messages.sort(key=lambda x: x.get("_timestamp", 0))
+
+            self.logger.info(
+                "sender_history_retrieval_completed",
+                sender=sender,
+                user_id=user_id,
+                count=len(email_messages),
+                total_count=total_count,
+                days=days
+            )
+
+            return email_messages, total_count
+
+        except Exception as e:
+            self.logger.error(
+                "sender_history_retrieval_failed",
+                sender=sender,
+                user_id=user_id,
+                error=str(e)
+            )
+            return [], 0
+
     async def _get_semantic_results(
         self,
         email_body: str,
         sender: str,
         k: int,
         user_id: int,
+        thread_length: int = 0,
         received_at: Optional[datetime] = None
     ) -> List[EmailMessage]:
         """Perform semantic search in vector DB using email content as query embedding.
@@ -278,19 +412,34 @@ class ContextRetrievalService:
             # Generate query embedding from email body
             query_embedding = self.embedding_service.embed_text(email_body)
 
+            # Calculate adaptive temporal window based on thread length
+            temporal_window_days = self._get_temporal_window_days(thread_length)
+            cutoff_date = datetime.now(UTC) - timedelta(days=temporal_window_days)
+            cutoff_timestamp = int(cutoff_date.timestamp())
+
             # Query ChromaDB for top k most similar emails
-            # Filter by user_id AND sender for conversation-specific context
+            # Filter by user_id AND sender AND timestamp for conversation-specific recent context
             # ChromaDB requires $and operator for multiple filter conditions
+            filter_conditions = [
+                {"user_id": str(user_id)},  # Multi-tenant isolation
+                {"sender": sender},  # Conversation-specific context (same correspondent)
+                {"timestamp": {"$gte": cutoff_timestamp}}  # Temporal filtering (recent emails only)
+            ]
+
             results = self.vector_db_client.query_embeddings(
                 collection_name="email_embeddings",
                 query_embedding=query_embedding,
                 n_results=k,
-                filter={
-                    "$and": [
-                        {"user_id": str(user_id)},  # Multi-tenant isolation
-                        {"sender": sender}  # Conversation-specific context (same correspondent)
-                    ]
-                }
+                filter={"$and": filter_conditions}
+            )
+
+            # Log temporal filtering details
+            self.logger.info(
+                "temporal_filter_applied",
+                user_id=user_id,
+                thread_length=thread_length,
+                temporal_window_days=temporal_window_days,
+                cutoff_date=cutoff_date.isoformat()
             )
 
             # Handle empty results
@@ -329,6 +478,24 @@ class ContextRetrievalService:
                     # Convert received_at datetime to ISO 8601 string
                     date_str = email_detail["received_at"].isoformat() if isinstance(email_detail["received_at"], datetime) else str(email_detail["received_at"])
 
+                    # Extract timestamp from ChromaDB metadata for recency scoring
+                    metadata = metadatas[i]
+                    timestamp = metadata.get("timestamp", 0)
+
+                    # Calculate recency score using half-life decay function
+                    recency_score = self._calculate_recency_score(
+                        timestamp=timestamp,
+                        half_life_days=self.HALF_LIFE_DAYS
+                    )
+
+                    # Calculate fused score (semantic + temporal)
+                    cosine_distance = distances[i]
+                    fused = self._fused_score(
+                        cosine_sim=cosine_distance,
+                        recency=recency_score,
+                        alpha=self.RECENCY_ALPHA
+                    )
+
                     # Create EmailMessage with full body and metadata from ChromaDB
                     email_message: EmailMessage = {
                         "message_id": message_id,
@@ -339,9 +506,12 @@ class ContextRetrievalService:
                         "thread_id": email_detail["thread_id"]
                     }
 
-                    # Store distance (cosine similarity) for ranking (will be used in _rank_semantic_results)
-                    # Attach as temporary attribute for ranking, will be removed after ranking
-                    email_message["_distance"] = distances[i]  # type: ignore
+                    # Store ranking attributes (will be used in _rank_semantic_results)
+                    # Attach as temporary attributes for ranking, will be removed after ranking
+                    email_message["_distance"] = cosine_distance  # type: ignore
+                    email_message["_timestamp"] = timestamp  # type: ignore
+                    email_message["_recency_score"] = recency_score  # type: ignore
+                    email_message["_fused_score"] = fused  # type: ignore
 
                     email_messages.append(email_message)
 
@@ -419,21 +589,119 @@ class ContextRetrievalService:
 
         return k
 
-    def _rank_semantic_results(self, results: List[EmailMessage]) -> List[EmailMessage]:
-        """Rank semantic results by relevance score and recency.
+    @staticmethod
+    def _calculate_recency_score(timestamp: int, half_life_days: int = 14) -> float:
+        """Calculate exponential decay score based on email age.
 
-        Implements AC #7: Semantic results ranked by relevance score (cosine similarity)
-        and recency (prefer recent emails if tie).
+        Implements temporal ranking using half-life decay function from
+        "Solving Freshness in RAG" (arXiv 2025).
 
-        Ranking algorithm:
-        1. Primary sort: Cosine similarity score (descending, lower distance = higher similarity)
-        2. Tiebreaker: Date (descending, prefer recent if scores within 0.01)
+        Formula: recency_score = exp(-ln(2) * days_ago / half_life)
 
         Args:
-            results: List of EmailMessage dicts with temporary _distance attribute
+            timestamp: Unix timestamp of email received_at
+            half_life_days: Number of days for score to decay to 50% (default: 14)
 
         Returns:
-            List of EmailMessage dicts (ranked by relevance, then recency, _distance removed)
+            Recency score between 0.0 and 1.0 (1.0 = today, 0.5 = 14 days ago)
+
+        Example:
+            # Email from today
+            score = _calculate_recency_score(time.time())  # Returns ~1.0
+
+            # Email from 14 days ago
+            old_timestamp = time.time() - (14 * 86400)
+            score = _calculate_recency_score(old_timestamp)  # Returns ~0.5
+
+            # Email from 28 days ago
+            very_old = time.time() - (28 * 86400)
+            score = _calculate_recency_score(very_old)  # Returns ~0.25
+        """
+        now = datetime.now(UTC).timestamp()
+        days_ago = (now - timestamp) / 86400  # Convert seconds to days
+
+        # Exponential decay: score = e^(-ln(2) * days_ago / half_life)
+        # This ensures score = 0.5 when days_ago = half_life
+        recency_score = math.exp(-math.log(2) * days_ago / half_life_days)
+
+        return max(0.0, min(1.0, recency_score))  # Clamp to [0, 1]
+
+    @staticmethod
+    def _fused_score(cosine_sim: float, recency: float, alpha: float = 0.7) -> float:
+        """Combine semantic similarity and recency into fused score.
+
+        Implements hybrid ranking from "Solving Freshness in RAG" (arXiv 2025).
+
+        Formula: fused_score = alpha * cosine_sim + (1 - alpha) * recency
+
+        Args:
+            cosine_sim: Cosine similarity score (ChromaDB distance, 0.0-1.0, lower is better)
+            recency: Recency score from _calculate_recency_score (0.0-1.0, higher is better)
+            alpha: Weight for semantic similarity (default: 0.7 = 70% semantic, 30% temporal)
+
+        Returns:
+            Fused score (higher = better match)
+
+        Example:
+            # High semantic, recent email
+            score = _fused_score(cosine_sim=0.1, recency=1.0, alpha=0.7)
+            # Returns: 0.7 * (1 - 0.1) + 0.3 * 1.0 = 0.63 + 0.3 = 0.93
+
+            # High semantic, old email
+            score = _fused_score(cosine_sim=0.1, recency=0.2, alpha=0.7)
+            # Returns: 0.7 * (1 - 0.1) + 0.3 * 0.2 = 0.63 + 0.06 = 0.69
+
+            # Low semantic, recent email
+            score = _fused_score(cosine_sim=0.8, recency=1.0, alpha=0.7)
+            # Returns: 0.7 * (1 - 0.8) + 0.3 * 1.0 = 0.14 + 0.3 = 0.44
+        """
+        # Convert ChromaDB distance to similarity (distance 0 = perfect match = similarity 1)
+        similarity = 1.0 - cosine_sim
+
+        # Weighted combination: alpha * semantic + (1-alpha) * temporal
+        return alpha * similarity + (1 - alpha) * recency
+
+    @staticmethod
+    def _get_temporal_window_days(thread_length: int) -> int:
+        """Calculate adaptive temporal window based on thread length.
+
+        Longer threads may reference older context, so we expand the temporal window
+        to avoid filtering out relevant historical emails.
+
+        Args:
+            thread_length: Number of emails in current thread
+
+        Returns:
+            Number of days for temporal filtering window
+
+        Example:
+            window = _get_temporal_window_days(0)  # Returns 30 (new thread)
+            window = _get_temporal_window_days(2)  # Returns 60 (short thread)
+            window = _get_temporal_window_days(6)  # Returns 90 (long thread)
+        """
+        if thread_length == 0:
+            return 30  # New thread - only recent context
+        elif thread_length <= 3:
+            return 60  # Short thread - moderate history
+        else:
+            return 90  # Long thread - full 90-day history
+
+    def _rank_semantic_results(self, results: List[EmailMessage]) -> List[EmailMessage]:
+        """Rank semantic results by fused score (semantic + temporal).
+
+        Implements hybrid ranking from "Solving Freshness in RAG" (arXiv 2025):
+        - Combines cosine similarity (70%) with recency score (30%)
+        - Uses half-life decay function for temporal weighting
+
+        Ranking algorithm:
+        1. Sort by fused_score (descending, higher = better)
+        2. Remove temporary ranking attributes (_distance, _timestamp, _recency_score, _fused_score)
+
+        Args:
+            results: List of EmailMessage dicts with temporary ranking attributes
+
+        Returns:
+            List of EmailMessage dicts (ranked by fused score, temp attributes removed)
 
         Example:
             ranked_emails = service._rank_semantic_results(semantic_results)
@@ -441,23 +709,27 @@ class ContextRetrievalService:
         if not results:
             return []
 
-        # Sort by distance (ascending, lower = more similar) and date (descending, recent first)
-        # Use stable sort to preserve order when scores are equal
+        # Sort by fused score (descending, higher = better)
+        # Fused score already combines semantic similarity + recency
         ranked_results = sorted(
             results,
-            key=lambda email: (
-                email.get("_distance", float("inf")),  # Primary: similarity score (lower = better)
-                -self._parse_date_for_sort(email["date"])  # Secondary: recency (negative for descending)
-            )
+            key=lambda email: email.get("_fused_score", 0.0),
+            reverse=True  # Higher fused score = better match
         )
 
-        # Extract score and date ranges for logging
+        # Extract scores for logging
+        fused_scores = [email.get("_fused_score", 0.0) for email in ranked_results if "_fused_score" in email]
+        recency_scores = [email.get("_recency_score", 0.0) for email in ranked_results if "_recency_score" in email]
         distances = [email.get("_distance", 0.0) for email in ranked_results if "_distance" in email]
         dates = [email["date"] for email in ranked_results]
 
         score_range = {
-            "min": min(distances) if distances else None,
-            "max": max(distances) if distances else None
+            "fused_min": min(fused_scores) if fused_scores else None,
+            "fused_max": max(fused_scores) if fused_scores else None,
+            "recency_min": min(recency_scores) if recency_scores else None,
+            "recency_max": max(recency_scores) if recency_scores else None,
+            "distance_min": min(distances) if distances else None,
+            "distance_max": max(distances) if distances else None,
         }
         date_range = {
             "oldest": min(dates) if dates else None,
@@ -471,10 +743,12 @@ class ContextRetrievalService:
             date_range=date_range
         )
 
-        # Remove temporary _distance attribute before returning
+        # Remove all temporary ranking attributes before returning
         for email in ranked_results:
-            if "_distance" in email:
-                del email["_distance"]  # type: ignore
+            # Clean up temporary attributes used for ranking
+            for attr in ["_distance", "_timestamp", "_recency_score", "_fused_score"]:
+                if attr in email:
+                    del email[attr]  # type: ignore
 
         return ranked_results
 
@@ -707,10 +981,11 @@ class ContextRetrievalService:
             sender_name = email.sender.split('@')[0].replace('.', ' ').replace('_', ' ')
             email_subject = email.subject or ""
 
-            # Build contextual query for semantic search
-            # Format: "From [sender] about [subject]: [body preview]"
-            # This creates richer embeddings that capture conversation continuity
-            email_query = f"From {sender_name} about {email_subject}: {full_body[:500]}"
+            # Build contextual query for semantic search with subject boost
+            # Format: "[subject] [subject] From [sender]: [body preview]"
+            # Subject is duplicated to boost its weight in embedding (2025 RAG best practice)
+            # This improves matching when emails from same sender have different subjects
+            email_query = f"{email_subject} {email_subject} From {sender_name}: {full_body[:500]}"
 
             self.logger.info(
                 "enhanced_query_constructed",
@@ -724,6 +999,23 @@ class ContextRetrievalService:
             # NOTE: Must complete before Step 3 to enable adaptive k calculation (AC #5)
             thread_history, original_thread_length = await self._get_thread_history(gmail_thread_id)
 
+            # Step 2.5: Fetch FULL sender conversation history (last 90 days)
+            # This provides complete chronological context across ALL threads with this sender
+            sender_history, sender_history_count = await self._get_sender_history(
+                sender=email.sender,
+                user_id=self.user_id,
+                days=90,
+                max_emails=50
+            )
+
+            self.logger.info(
+                "sender_history_retrieved",
+                user_id=self.user_id,
+                sender=email.sender,
+                count=sender_history_count,
+                email_id=email_id
+            )
+
             # Step 3: Calculate adaptive k based on thread length (AC #5)
             # DESIGN DECISION: Sequential execution required here to satisfy AC #5
             # Adaptive k logic DEPENDS on thread_length from Step 2, preventing parallelization
@@ -734,10 +1026,11 @@ class ContextRetrievalService:
             # Step 4: Perform semantic search if k > 0 (AC #3, #4)
             if k > 0:
                 semantic_results = await self._get_semantic_results(
-                    email_body=email_query,  # Use enhanced query instead of just subject
+                    email_body=email_query,  # Use enhanced query with subject boost
                     sender=email.sender,  # Filter by sender for conversation context
                     k=k,
                     user_id=self.user_id,
+                    thread_length=original_thread_length,  # For adaptive temporal window
                     received_at=email.received_at  # Pass temporal context for metadata
                 )
             else:
@@ -765,10 +1058,12 @@ class ContextRetrievalService:
             # Step 8: Construct RAGContext (AC #6, #10)
             context: RAGContext = {
                 "thread_history": thread_history,
+                "sender_history": sender_history,  # NEW: Full sender conversation history
                 "semantic_results": semantic_results,
                 "metadata": {
                     "thread_length": original_thread_length,
                     "semantic_count": len(semantic_results),
+                    "sender_history_count": sender_history_count,  # NEW: Sender history count
                     "oldest_thread_date": oldest_thread_date,
                     "total_tokens_used": total_tokens_used,
                     "adaptive_k": k,
