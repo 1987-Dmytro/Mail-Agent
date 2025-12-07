@@ -84,7 +84,7 @@ export const handlers = [
 
     // Extract code and state from query parameters
     const url = new URL(request.url);
-    const code = url.searchParams.get('code');
+    const _code = url.searchParams.get('code'); // Reserved for future validation
     const state = url.searchParams.get('state');
 
     // Simulate state validation failure

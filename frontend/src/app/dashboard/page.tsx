@@ -77,8 +77,8 @@ export default function DashboardPage() {
   );
 
   // Extract stats from response
-  // NOTE: Backend returns data directly, not wrapped in {data: ...}
-  const stats = statsResponse;
+  // NOTE: apiClient.get() wraps response in ApiResponse<T>, so we need to access .data
+  const stats = statsResponse?.data;
 
   // Show error toast when stats fail to load
   useEffect(() => {
@@ -179,15 +179,15 @@ export default function DashboardPage() {
         )}
 
         {/* RAG Indexing Progress (if in progress) */}
-        {stats?.rag_indexing_in_progress && (
+        {stats?.indexing_in_progress && (
           <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
             <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertTitle className="text-blue-800 dark:text-blue-200">
               Email history indexing in progress...
             </AlertTitle>
             <AlertDescription className="text-blue-700 dark:text-blue-300">
-              {stats.rag_indexing_progress
-                ? `${stats.rag_indexing_progress}% complete`
+              {stats.indexing_progress_percent
+                ? `${stats.indexing_progress_percent}% complete`
                 : 'Preparing your email context for AI responses'}
             </AlertDescription>
           </Alert>

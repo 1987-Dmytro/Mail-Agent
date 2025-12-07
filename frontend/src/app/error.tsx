@@ -27,7 +27,7 @@ export default function Error({
           Something went wrong
         </h2>
         <p className="text-gray-600 mb-6 leading-relaxed">
-          We encountered an unexpected error. Don't worry, your data is safe.
+          We encountered an unexpected error. Don&apos;t worry, your data is safe.
           Please try again or contact support if the problem persists.
         </p>
 

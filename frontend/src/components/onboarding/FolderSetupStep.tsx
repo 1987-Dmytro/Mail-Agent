@@ -161,9 +161,10 @@ export default function FolderSetupStep({ onStepComplete, currentState }: StepPr
           });
 
           newFolders.push(response.data as FolderCategory);
-        } catch (folderError: any) {
+        } catch (folderError: unknown) {
           // If folder already exists (duplicate name error), skip it
-          if (folderError.status === 400 && folderError.message?.includes('already exists')) {
+          const error = folderError as { status?: number; message?: string };
+          if (error.status === 400 && error.message?.includes('already exists')) {
             console.log(`Folder "${folder.name}" already exists (API error), skipping`);
             skippedCount++;
             continue;

@@ -54,7 +54,7 @@ interface GmailConnectProps {
  * AC: 3 - Error boundary prevents crashes
  */
 function ErrorFallback({
-  error,
+  error: _error,
   resetErrorBoundary,
   onSkip,
 }: {
@@ -203,10 +203,11 @@ function GmailConnectContent({ onSuccess, onError, onNavigate, onSkip }: GmailCo
       } else {
         throw new Error('Invalid OAuth configuration received');
       }
-    } catch (error: any) {
-      console.error('Failed to fetch OAuth config:', error);
+    } catch (err: unknown) {
+      console.error('Failed to fetch OAuth config:', err);
 
       // User-friendly error messages based on error type (AC: 2)
+      const error = err as { response?: { status?: number }; code?: string };
       if (error.response?.status === 404) {
         handleError('config_fetch_failed', 'OAuth configuration not found. Please contact support.');
       } else if (error.response?.status === 500) {

@@ -25,7 +25,7 @@ import type { StepProps } from './OnboardingWizard';
  * AC10: Completion updates user.onboarding_completed = true in backend
  */
 export default function CompletionStep({ currentState }: StepProps) {
-  const router = useRouter();
+  const _router = useRouter(); // Reserved for future navigation
   const [isCompleting, setIsCompleting] = useState<boolean>(false);
 
   /**

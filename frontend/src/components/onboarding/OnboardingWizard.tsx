@@ -60,7 +60,7 @@ export interface OnboardingState {
  * - Presentation (step components): UI rendering, user interaction
  */
 export default function OnboardingWizard() {
-  const router = useRouter();
+  const _router = useRouter(); // Reserved for future navigation
 
   // ============================================
   // CRITICAL: Extract token from URL SYNCHRONOUSLY before any rendering
@@ -297,7 +297,7 @@ export default function OnboardingWizard() {
       setGmailConnected(true);
 
       if (email) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- OAuth callback handling
+         
         setGmailEmail(email);
       }
 
@@ -350,7 +350,7 @@ export default function OnboardingWizard() {
           // If on Step 3+ but no token exists, force back to Step 2 (Gmail)
           if (state.currentStep >= 3 && !token) {
             console.warn('No auth token found - forcing back to Gmail connection (Step 2)');
-            // eslint-disable-next-line react-hooks/set-state-in-effect -- Security validation requires state reset
+             
             setCurrentStep(2);
             setGmailConnected(false);
             setTelegramConnected(false);
@@ -386,7 +386,7 @@ export default function OnboardingWizard() {
           }
 
           // Restore state (initial load from localStorage is acceptable)
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- Loading initial wizard state from localStorage on mount is a valid use case
+           
           setCurrentStep(state.currentStep);
           setGmailConnected(state.gmailConnected);
           setTelegramConnected(state.telegramConnected);
