@@ -462,15 +462,20 @@ def create_email_workflow(
     workflow.add_edge("send_confirmation", END)
 
     # Compile workflow with checkpointer
+    # Workflow pauses ONLY at explicit interrupt() call in await_approval node
+    # This is the correct LangGraph pattern for human-in-the-loop workflows
+    # DO NOT use interrupt_before - it creates infinite loops with explicit interrupt()
     logger.debug("compiling_workflow_with_checkpointer")
 
-    app = workflow.compile(checkpointer=checkpointer)
+    app = workflow.compile(
+        checkpointer=checkpointer,
+    )
 
     logger.info(
         "workflow_compiled_successfully",
         node_count=8,
         checkpointer="PostgreSQL",
-        pause_point="await_approval",
+        pause_point="await_approval (explicit interrupt)",
     )
 
     return app
