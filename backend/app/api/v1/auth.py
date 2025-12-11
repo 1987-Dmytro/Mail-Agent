@@ -48,6 +48,10 @@ from app.utils.sanitization import (
     sanitize_string,
     validate_password_strength,
 )
+from app.utils.oauth_state import (
+    store_oauth_state,
+    validate_oauth_state,
+)
 
 router = APIRouter()
 security = HTTPBearer()
@@ -382,9 +386,6 @@ GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.labels",
 ]
 
-# In-memory state storage (for MVP only - use Redis in production)
-oauth_states = {}
-
 
 @router.get("/gmail/config")
 async def get_gmail_oauth_config(request: Request):
@@ -414,8 +415,9 @@ async def get_gmail_oauth_config(request: Request):
     # Generate cryptographically secure state token
     state = secrets.token_urlsafe(32)
 
-    # Store state for callback validation (MVP: in-memory, Production: Redis)
-    oauth_states[state] = True
+    # Store state in Redis for callback validation
+    if not store_oauth_state(state):
+        raise HTTPException(status_code=500, detail="Failed to generate OAuth state")
 
     params = {
         "client_id": settings.GMAIL_CLIENT_ID,
@@ -486,8 +488,9 @@ async def gmail_login(request: Request):
             prompt="consent",  # Force consent screen to get refresh token
         )
 
-        # Store state for callback validation (MVP: in-memory, Production: Redis)
-        oauth_states[state] = True
+        # Store state in Redis for callback validation
+        if not store_oauth_state(state):
+            raise HTTPException(status_code=500, detail="Failed to generate OAuth state")
 
         logger.info("gmail_oauth_initiated", state=state[:10] + "...", client_id=settings.GMAIL_CLIENT_ID[:20] + "...")
 
@@ -553,13 +556,10 @@ async def gmail_callback(
             logger.warning("oauth_parameter_validation_failed", error=str(e))
             raise HTTPException(status_code=400, detail=f"Invalid parameter: {str(e)}")
 
-        # Validate state parameter (CSRF protection)
-        if state not in oauth_states:
+        # Validate state parameter (CSRF protection) using Redis
+        if not validate_oauth_state(state):
             logger.error("oauth_state_validation_failed", state=state[:10] + "...")
             raise HTTPException(status_code=403, detail="Invalid state parameter - possible CSRF attack")
-
-        # Remove used state
-        del oauth_states[state]
 
         # Create OAuth flow with same configuration
         flow = Flow.from_client_config(
