@@ -16,7 +16,8 @@ An intelligent email assistant that autonomously classifies Gmail messages, gene
 ## 🎯 Core Features
 
 ### 🤖 AI-Powered Classification
-- **Google Gemini 2.5 Flash** integration for intelligent email categorization
+- **Groq (llama-3.3-70b-versatile)** for intelligent email classification and response generation
+- **Google Gemini Embeddings** for semantic search and vector representations
 - **RAG-Enhanced Context**: Semantic search across email history using ChromaDB
 - **Thread-Aware Processing**: Analyzes conversation context for accurate classification
 - **Priority Detection**: Automatically identifies urgent emails based on content analysis
@@ -54,7 +55,8 @@ An intelligent email assistant that autonomously classifies Gmail messages, gene
 ┌─────────────────────────────────────────────────────────────────────┐
 │  EXTERNAL SERVICES                                                  │
 ├─────────────────────────────────────────────────────────────────────┤
-│  📧 Gmail API          🤖 Google Gemini      💬 Telegram Bot API   │
+│  📧 Gmail API          🤖 Groq LLM          💬 Telegram Bot API    │
+│                        🧠 Gemini Embeddings                         │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
@@ -95,7 +97,7 @@ An intelligent email assistant that autonomously classifies Gmail messages, gene
 │  BACKGROUND WORKERS      │  │  CORE SERVICES           │  │  STORAGE LAYER           │
 ├──────────────────────────┤  ├──────────────────────────┤  ├──────────────────────────┤
 │  🔨 Celery Worker        │  │  📧 Gmail Client         │  │  🐘 PostgreSQL 18        │
-│    • Email Processing    │  │  🤖 LLM Client (Gemini)  │  │    • User Data           │
+│    • Email Processing    │  │  🤖 LLM Client (Groq)    │  │    • User Data           │
 │    • Indexing Tasks      │  │  💬 Telegram Bot Client  │  │    • Email Metadata      │
 │    • Notification Tasks  │  │  🧠 Vector DB Client     │  │    • Workflow States     │
 │    • Response Sending    │  │  🔍 Context Retrieval    │  │    • Approval History    │
@@ -140,10 +142,10 @@ The system implements an **event-driven processing pipeline** using **LangGraph*
 3. 🤖 CLASSIFICATION NODE (LangGraph Workflow)
    ├─→ Context Retrieval Service:
    │   • Thread history (conversation context)
-   │   • Semantic search (similar past emails)
+   │   • Semantic search (similar past emails via Gemini embeddings)
    │   • User folder configuration
    │
-   ├─→ LLM Service (Gemini 2.5 Flash):
+   ├─→ LLM Service (Groq llama-3.3-70b-versatile):
    │   {
    │     "suggested_folder": "Government",
    │     "reasoning": "Official tax office communication...",
@@ -216,8 +218,8 @@ The system implements an **event-driven processing pipeline** using **LangGraph*
 ### AI/ML Stack
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
-| **LLM** | Google Gemini 2.5 Flash | Email classification + response generation |
-| **Embeddings** | Gemini Embeddings | Vector representations for semantic search |
+| **LLM** | Groq (llama-3.3-70b-versatile) | Email classification + response generation |
+| **Embeddings** | Google Gemini Embeddings | Vector representations for semantic search |
 | **RAG Framework** | LangChain | Context retrieval pipeline |
 | **Vector DB** | ChromaDB | Persistent embedding storage |
 
@@ -286,12 +288,17 @@ See **[DOCKER_QUICKSTART.md](DOCKER_QUICKSTART.md)** for detailed setup instruct
    - Create OAuth 2.0 credentials (Client ID + Secret)
    - Authorized redirect URI: `http://localhost:8000/api/v1/auth/gmail/callback`
 
-2. **Google Gemini API Key**
+2. **Groq API Key**
+   - Generate from [Groq Console](https://console.groq.com/)
+   - Free tier: 30 requests/minute, high throughput
+   - Used for email classification and response generation
+
+3. **Google Gemini API Key**
    - Generate from [Google AI Studio](https://aistudio.google.com/)
    - Free tier: 15 requests/minute, 1500 requests/day
-   - Used for classification and embeddings
+   - Used for generating embeddings for semantic search
 
-3. **Telegram Bot Token**
+4. **Telegram Bot Token**
    - Create bot via [@BotFather](https://t.me/BotFather)
    - Save token from BotFather response
    - Set webhook URL: `https://your-domain.com/api/v1/telegram/webhook`
@@ -307,7 +314,9 @@ JWT_SECRET_KEY=your-secret-key-here
 ENVIRONMENT=production
 
 # AI Configuration
-GEMINI_API_KEY=your-gemini-api-key
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=llama-3.3-70b-versatile
+GEMINI_API_KEY=your-gemini-api-key  # For embeddings only
 GEMINI_MODEL=gemini-2.0-flash-exp
 
 # OAuth
@@ -438,9 +447,10 @@ Mail-Agent/
 ## 🎯 Key Technical Achievements
 
 ### 1. **Unified LLM Architecture**
-- Single Gemini API call performs classification, priority detection, AND response generation
+- Single Groq API call (llama-3.3-70b-versatile) performs classification, priority detection, AND response generation
 - Reduces API calls by 60% compared to multi-step approaches
 - Average latency: 340ms per email classification
+- Groq for reasoning, Gemini for embeddings - optimal cost/performance balance
 
 ### 2. **RAG-Powered Context**
 - ChromaDB semantic search retrieves relevant historical emails
@@ -528,7 +538,8 @@ AI/ML Engineer & Full-Stack Developer
 ## 🙏 Acknowledgments
 
 - **LangChain/LangGraph** for workflow orchestration framework
-- **Google Gemini** for powerful LLM capabilities
+- **Groq** for fast and powerful LLM inference
+- **Google Gemini** for high-quality embeddings generation
 - **FastAPI** for excellent Python async framework
 - **Next.js** for modern React development
 - **Celery** for robust distributed task processing
