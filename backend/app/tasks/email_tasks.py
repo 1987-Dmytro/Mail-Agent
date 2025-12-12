@@ -16,7 +16,7 @@ from googleapiclient.errors import HttpError
 from sqlmodel import select
 
 from app.core.gmail_client import GmailClient
-from app.core.llm_client import LLMClient
+from app.core.groq_client import GroqLLMClient as LLMClient
 from app.core.telegram_bot import TelegramBotClient
 from app.models.user import User
 from app.models.email import EmailProcessingQueue

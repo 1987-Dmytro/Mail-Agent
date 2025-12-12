@@ -23,8 +23,9 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from app.workflows.states import EmailWorkflowState
 from app.workflows import nodes
+from app.workflows.email_workflow import create_email_workflow
 from app.core.gmail_client import GmailClient
-from app.core.llm_client import LLMClient
+from app.core.groq_client import GroqLLMClient as LLMClient
 from app.core.telegram_bot import TelegramBotClient
 from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
@@ -85,11 +86,10 @@ class WorkflowInstanceTracker:
         logger.debug("workflow_tracker_initialized", checkpointer="PostgreSQL")
 
     def _build_workflow(self, checkpointer) -> StateGraph:
-        """Build LangGraph workflow with dependency-injected nodes.
+        """Build LangGraph workflow using create_email_workflow() from email_workflow.py.
 
-        This method creates a StateGraph with nodes that have dependencies bound
-        using functools.partial. This allows nodes to access db_factory, gmail_client,
-        and llm_client without violating LangGraph's state-only parameter model.
+        This method delegates to create_email_workflow() which builds the complete workflow
+        with all nodes and conditional edges for both sort_only and needs_response flows.
 
         Args:
             checkpointer: AsyncPostgresSaver instance for checkpoint persistence
@@ -102,10 +102,7 @@ class WorkflowInstanceTracker:
             >>>     workflow = tracker._build_workflow(checkpointer)
             >>>     result = await workflow.ainvoke(initial_state, config)
         """
-        logger.debug("building_workflow_with_injected_dependencies")
-
-        # Create workflow graph
-        workflow = StateGraph(EmailWorkflowState)
+        logger.debug("building_workflow_using_create_email_workflow")
 
         # Create a db_factory that returns the same session wrapped in context manager
         # Nodes expect: async with db_factory() as db:
@@ -116,72 +113,17 @@ class WorkflowInstanceTracker:
             """Context manager factory that yields the existing session."""
             yield self.db
 
-        # Bind dependencies to node functions using functools.partial
-        # This creates new functions with db_factory, gmail_client, llm_client pre-filled
-        extract_context_with_deps = partial(
-            nodes.extract_context,
-            db_factory=db_factory,
-            gmail_client=self.gmail_client,
-        )
-
-        classify_with_deps = partial(
-            nodes.classify,
-            db_factory=db_factory,
+        # Use create_email_workflow() from email_workflow.py to get the complete workflow
+        # This includes all nodes and conditional edges for needs_response flow
+        app = create_email_workflow(
+            checkpointer=checkpointer,
+            db_session_factory=db_factory,
             gmail_client=self.gmail_client,
             llm_client=self.llm_client,
+            telegram_client=self.telegram_bot_client,
         )
 
-        # Bind dependencies for send_telegram node (Story 2.6)
-        send_telegram_with_deps = partial(
-            nodes.send_telegram,
-            db_factory=db_factory,
-            telegram_bot_client=self.telegram_bot_client,
-        )
-
-        # Bind dependencies for execute_action node (Story 2.7)
-        execute_action_with_deps = partial(
-            nodes.execute_action,
-            db_factory=db_factory,
-            gmail_client=self.gmail_client,
-        )
-
-        # Bind dependencies for send_confirmation node (Story 2.7)
-        send_confirmation_with_deps = partial(
-            nodes.send_confirmation,
-            db_factory=db_factory,
-            telegram_bot_client=self.telegram_bot_client,
-        )
-
-        # Stub node without dependencies
-        await_approval_node = nodes.await_approval
-
-        # Add nodes to workflow with dependency-injected functions
-        workflow.add_node("extract_context", extract_context_with_deps)
-        workflow.add_node("classify", classify_with_deps)
-        workflow.add_node("send_telegram", send_telegram_with_deps)
-        workflow.add_node("await_approval", await_approval_node)
-        workflow.add_node("execute_action", execute_action_with_deps)
-        workflow.add_node("send_confirmation", send_confirmation_with_deps)
-
-        # Define workflow edges (sequential flow)
-        workflow.set_entry_point("extract_context")
-        workflow.add_edge("extract_context", "classify")
-        workflow.add_edge("classify", "send_telegram")
-        workflow.add_edge("send_telegram", "await_approval")
-        # await_approval → execute_action (Story 2.7: Resume after user decision)
-        workflow.add_edge("await_approval", "execute_action")
-        workflow.add_edge("execute_action", "send_confirmation")
-        workflow.add_edge("send_confirmation", END)
-
-        # Compile workflow with PostgreSQL checkpointer
-        # interrupt_before=["execute_action"] pauses workflow AFTER await_approval
-        # and BEFORE execute_action - waiting for user approval via Telegram callback
-        app = workflow.compile(
-            checkpointer=checkpointer,
-            interrupt_before=["execute_action"],
-        )
-
-        logger.debug("workflow_compiled_with_dependencies", interrupt_before=["execute_action"])
+        logger.debug("workflow_compiled_with_all_nodes", note="Using create_email_workflow()")
 
         return app
 
@@ -244,12 +186,18 @@ class WorkflowInstanceTracker:
             "proposed_folder_id": None,  # Story 2.6
             "classification_reasoning": None,
             "priority_score": 0,
+            # Fields populated by draft_response node (Story 3.11):
+            "draft_response": None,
+            "detected_language": None,
+            "tone": None,
             # Fields populated by send_telegram node (Story 2.6):
             "telegram_message_id": None,
             # Fields populated by user approval (Story 2.7):
             "user_decision": None,
             "selected_folder": None,
             "selected_folder_id": None,  # Story 2.6
+            # Fields populated by draft approval (Story 3.9):
+            "draft_decision": None,
             # Fields populated by execute_action (Story 2.7):
             "final_action": None,
             # Error handling:

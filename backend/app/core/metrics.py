@@ -35,11 +35,11 @@ llm_stream_duration_seconds = Histogram(
     buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
 )
 
-# Gemini-specific metrics
+# Gemini-specific metrics (also used for GROQ)
 gemini_token_usage_total = Counter(
     "gemini_token_usage_total",
-    "Total tokens consumed by Gemini API calls",
-    ["operation"]
+    "Total tokens consumed by LLM API calls (Gemini/GROQ)",
+    ["token_type", "model"]  # token_type: prompt/completion, model: gemini-2.5-pro/llama-3.3-70b-versatile
 )
 
 # Error handling and recovery metrics (Story 2.11 - Task 9)

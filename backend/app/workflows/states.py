@@ -78,6 +78,9 @@ class EmailWorkflowState(TypedDict):
     selected_folder: str | None  # Only used if user_decision == "change_folder"
     selected_folder_id: int | None  # Database FK for selected folder
 
+    # Draft approval (populated by Send/Edit/Reject buttons in Telegram - Story 3.9)
+    draft_decision: Literal["send_response", "edit_response", "reject_response"] | None
+
     # Workflow completion (populated by execute_action node)
     final_action: str | None  # Description of action taken (e.g., "Moved to Work folder")
 

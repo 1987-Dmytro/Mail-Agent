@@ -22,7 +22,7 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from app.services.database import database_service
-from app.core.llm_client import LLMClient
+from app.core.groq_client import GroqLLMClient as LLMClient
 from app.models.email import EmailProcessingQueue
 from app.models.context_models import RAGContext
 from app.services.context_retrieval import ContextRetrievalService

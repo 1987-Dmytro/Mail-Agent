@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.api.v1.auth import get_current_user
 from app.core.gmail_client import GmailClient
-from app.core.llm_client import LLMClient
+from app.core.groq_client import GroqLLMClient as LLMClient
 from app.core.logging import logger
 from app.core.vector_db import VectorDBClient
 from app.core.embedding_service import EmbeddingService

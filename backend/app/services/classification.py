@@ -23,7 +23,7 @@ from tenacity import (
 )
 
 from app.core.gmail_client import GmailClient
-from app.core.llm_client import LLMClient
+from app.core.groq_client import GroqLLMClient as LLMClient
 from app.models.classification_response import ClassificationResponse
 from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
@@ -234,19 +234,11 @@ class EmailClassificationService:
         self.gmail_client = gmail_client
         self.llm_client = llm_client
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type(GeminiRateLimitError),
-        reraise=True
-    )
     def _call_gemini_with_retry(self, prompt: str, operation: str) -> Dict:
         """Call Gemini API with automatic retry for rate limits.
 
-        Implements exponential backoff retry strategy (2025 best practice):
-        - Retry up to 3 times for GeminiRateLimitError
-        - Wait: 2s, 4s, 8s between retries (exponential backoff)
-        - Re-raise exception if all retries exhausted
+        NOTE: Retry logic is handled by llm_client.send_prompt() to avoid double-retry.
+        This wrapper exists for backwards compatibility and logging.
 
         Args:
             prompt: Classification prompt text
@@ -256,11 +248,11 @@ class EmailClassificationService:
             Dict with classification response from Gemini
 
         Raises:
-            GeminiRateLimitError: If rate limit persists after 3 retries
-            GeminiAPIError: For other API errors (no retry)
-            GeminiTimeoutError: For timeout errors (no retry)
+            GeminiRateLimitError: If rate limit persists after retries
+            GeminiAPIError: For other API errors
+            GeminiTimeoutError: For timeout errors
         """
-        logger.info("calling_gemini_with_retry", operation=operation, attempt="starting")
+        logger.info("calling_gemini", operation=operation)
         return self.llm_client.receive_completion(prompt=prompt, operation=operation)
 
     async def classify_email(

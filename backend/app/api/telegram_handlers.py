@@ -17,7 +17,7 @@ import os
 
 from app.api.deps import AsyncSessionLocal, engine
 from app.core.gmail_client import GmailClient
-from app.core.llm_client import LLMClient
+from app.core.groq_client import GroqLLMClient as LLMClient
 from app.core.telegram_bot import TelegramBotClient
 from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
@@ -663,6 +663,17 @@ async def handle_approve(query, email_id: int, db: AsyncSession):
                 config,
                 {"user_decision": "approve"},
                 as_node="await_approval"
+            )
+
+            # DIAGNOSTIC: Check state after update_state
+            current_state = await workflow.aget_state(config)
+            logger.info(
+                "telegram_approve_state_after_update",
+                email_id=email_id,
+                classification=current_state.values.get("classification"),
+                user_decision=current_state.values.get("user_decision"),
+                has_draft_response=current_state.values.get("draft_response") is not None,
+                full_state_keys=list(current_state.values.keys()),
             )
 
             logger.info(

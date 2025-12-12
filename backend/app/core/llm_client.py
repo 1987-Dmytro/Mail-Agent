@@ -167,8 +167,11 @@ class LLMClient:
                 self._total_prompt_tokens += prompt_tokens
                 self._total_completion_tokens += completion_tokens
 
-                # Update Prometheus metrics
-                gemini_token_usage_total.labels(operation=operation).inc(total_tokens)
+                # Update Prometheus metrics (separate counters for prompt and completion)
+                gemini_token_usage_total.labels(token_type="prompt", model=self.model_name).inc(prompt_tokens)
+                gemini_token_usage_total.labels(token_type="completion", model=self.model_name).inc(
+                    completion_tokens
+                )
 
                 # Structured logging
                 self.logger.info(

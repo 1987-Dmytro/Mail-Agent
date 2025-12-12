@@ -29,7 +29,7 @@ from app.workflows.states import EmailWorkflowState
 from app.services.classification import EmailClassificationService
 from app.services.approval_history import ApprovalHistoryService
 from app.core.gmail_client import GmailClient
-from app.core.llm_client import LLMClient
+from app.core.groq_client import GroqLLMClient as LLMClient
 from app.core.telegram_bot import TelegramBotClient
 from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
