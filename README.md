@@ -261,13 +261,13 @@ cd Mail-Agent
 cp backend/.env.example backend/.env
 # Edit backend/.env with your API keys (see Configuration section)
 
-# Launch all services
-docker-compose up -d
+# Launch all services (from backend directory)
+cd backend && docker-compose up -d
 
 # Access services
-# Frontend:        http://localhost:3000
+# Frontend:        http://localhost:3001 (mapped to 3000 internally)
 # Backend API:     http://localhost:8000/docs
-# Flower:          http://localhost:5555
+# Flower:          http://localhost:5555 (Celery monitoring)
 # Grafana:         http://localhost:3000 (admin/admin)
 # Prometheus:      http://localhost:9090
 ```
