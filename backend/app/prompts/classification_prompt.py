@@ -158,7 +158,11 @@ Output:
   "suggested_folder": "Government",
   "reasoning": "Official communication from Finanzamt (Tax Office) regarding tax return deadline",
   "priority_score": 85,
-  "confidence": 0.95
+  "confidence": 0.95,
+  "needs_response": false,
+  "response_draft": null,
+  "detected_language": "de",
+  "tone": "formal"
 }}
 
 Example 2: Client Email (English)
@@ -172,7 +176,11 @@ Output:
   "suggested_folder": "Clients",
   "reasoning": "Business correspondence from client discussing project deliverables",
   "priority_score": 60,
-  "confidence": 0.90
+  "confidence": 0.90,
+  "needs_response": true,
+  "response_draft": "Hi John, thanks for following up. I'll review the Q4 deliverables timeline and get back to you with an update by end of week.",
+  "detected_language": "en",
+  "tone": "professional"
 }}
 
 Example 3: Marketing Email (English)
@@ -186,7 +194,27 @@ Output:
   "suggested_folder": "Important",
   "reasoning": "Automated newsletter/marketing email. Classified as Important (lowest priority) since no dedicated newsletter folder exists",
   "priority_score": 10,
-  "confidence": 0.60
+  "confidence": 0.60,
+  "needs_response": false,
+  "response_draft": null
+}}
+
+Example 3b: Platform Notification with noreply (English)
+Input:
+From: AI Automation Agency Hub <noreply@skool.com>
+Subject: New post: "UPCOMING MASTERCLASS"
+Body: Liam Ottley posted in your community about upcoming masterclass...
+
+Output:
+{{
+  "suggested_folder": "Important",
+  "reasoning": "Automated platform notification from Skool (noreply address). No response possible or needed",
+  "priority_score": 15,
+  "confidence": 0.95,
+  "needs_response": false,
+  "response_draft": null,
+  "detected_language": "en",
+  "tone": "professional"
 }}
 
 Example 4: Unclear Email (Russian)
@@ -200,7 +228,11 @@ Output:
   "suggested_folder": "Clients",
   "reasoning": "Unknown sender proposing business collaboration - best fits Clients folder as potential business inquiry. Low confidence due to unclear sender",
   "priority_score": 40,
-  "confidence": 0.45
+  "confidence": 0.45,
+  "needs_response": true,
+  "response_draft": "Здравствуйте, спасибо за ваше предложение. Мог бы узнать больше деталей о возможности сотрудничества?",
+  "detected_language": "ru",
+  "tone": "formal"
 }}
 
 Example 5: Priority Government Email (German)
@@ -214,7 +246,11 @@ Output:
   "suggested_folder": "Government",
   "reasoning": "Urgent communication from immigration office (Ausländerbehörde) regarding residence permit appointment",
   "priority_score": 95,
-  "confidence": 0.98
+  "confidence": 0.98,
+  "needs_response": false,
+  "response_draft": null,
+  "detected_language": "de",
+  "tone": "formal"
 }}
 
 ---
@@ -259,8 +295,19 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
   - Examples: "Sehr geehrte Damen und Herren" → "formal", "Привет!" → "informal"
 
 **Response Classification Rules:**
-- needs_response = TRUE for: questions, meeting requests, invitations, action requests, follow-ups requiring reply
-- needs_response = FALSE for: newsletters, notifications, automated emails, security updates, informational announcements
+
+⚠️ **CRITICAL - Check sender address FIRST:**
+- **noreply addresses** (noreply@*, no-reply@*, donotreply@*): ALWAYS needs_response = FALSE
+- **automated system emails** (*@notifications.*, *@updates.*, *@alerts.*): ALWAYS needs_response = FALSE
+- **Platform notifications** (LinkedIn, GitHub, Skool, Slack, etc.): ALWAYS needs_response = FALSE
+- Examples of automated senders that should NEVER get response:
+  - noreply@skool.com, notifications@github.com, noreply@linkedin.com
+  - marketing@company.com, newsletter@techcrunch.com
+  - system@alerts.com, updates@platform.com
+
+**After checking sender address:**
+- needs_response = TRUE for: questions, meeting requests, invitations, action requests, follow-ups requiring reply FROM REAL PEOPLE
+- needs_response = FALSE for: newsletters, notifications, automated emails, security updates, informational announcements, marketing campaigns
 - If needs_response=true, ALWAYS generate response_draft using "Full Conversation with Sender" and "Related Emails Context" above
 - ⚠️ CRITICAL: Your draft MUST reference specific details from sender_history (dates, locations, plans, agreements)
 - If needs_response=false, set response_draft to null

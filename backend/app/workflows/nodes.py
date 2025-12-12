@@ -35,6 +35,7 @@ from app.models.email import EmailProcessingQueue
 from app.models.folder_category import FolderCategory
 from app.models.user import User
 from app.models.dead_letter_queue import DeadLetterQueue
+from app.models.workflow_mapping import WorkflowMapping
 from app.utils.retry import execute_with_retry, RetryConfig
 
 
@@ -992,7 +993,19 @@ async def send_response_draft_notification(
                 note="This is a resume after interrupt - skipping notification resend"
             )
 
-            # Pause workflow again and get decision
+            # Check if decision was already provided by Telegram callback handler
+            # (handle_send_response, handle_edit_response, or handle_reject_draft)
+            if state.get("draft_decision"):
+                logger.info(
+                    "draft_decision_already_set_skipping_interrupt",
+                    email_id=state["email_id"],
+                    draft_decision=state["draft_decision"],
+                    note="Decision already set by Telegram callback - continuing workflow to route_draft_decision"
+                )
+                # Decision exists - continue to route_draft_decision without pausing
+                return state
+
+            # No decision yet - pause workflow and wait for user input
             draft_decision = interrupt(value="Waiting for draft approval (Send/Edit/Reject)")
 
             # Store the decision in state for route_draft_decision() to use
@@ -1768,7 +1781,29 @@ async def send_confirmation(
         )
 
         # Delete draft notification message if it exists (needs_response flow)
+        # Try to get draft_message_id from state first
         draft_message_id = state.get("draft_telegram_message_id")
+
+        # FALLBACK: If not in state, read from WorkflowMapping in database
+        # This handles cases where state loses draft_telegram_message_id during workflow resume
+        if not draft_message_id and state.get("classification") == "needs_response":
+            thread_id = state.get("thread_id")
+            if thread_id:
+                result = await db.execute(
+                    select(WorkflowMapping).where(WorkflowMapping.thread_id == thread_id)
+                )
+                workflow_mapping = result.scalar_one_or_none()
+                if workflow_mapping and workflow_mapping.telegram_message_id:
+                    # WorkflowMapping.telegram_message_id contains the LAST sent Telegram message
+                    # For needs_response workflow, this is the draft notification message
+                    draft_message_id = workflow_mapping.telegram_message_id
+                    logger.info(
+                        "draft_message_id_fallback_from_db",
+                        email_id=email_id,
+                        thread_id=thread_id,
+                        draft_message_id=draft_message_id,
+                        note="Retrieved draft_telegram_message_id from WorkflowMapping as fallback"
+                    )
 
         logger.info(
             "send_confirmation_draft_message_check",
@@ -1791,7 +1826,7 @@ async def send_confirmation(
             logger.warning(
                 "draft_message_id_not_in_state",
                 email_id=email_id,
-                note="draft_telegram_message_id was not found in state, cannot delete draft notification"
+                note="draft_telegram_message_id was not found in state or database, cannot delete draft notification"
             )
 
         # Get email metadata for summary

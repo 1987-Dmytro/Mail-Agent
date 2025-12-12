@@ -1077,13 +1077,21 @@ async def handle_send_response(update: Update, context: ContextTypes.DEFAULT_TYP
                 note="Merging draft_decision (preserves draft_telegram_message_id)"
             )
 
-            # Update state WITHOUT as_node - merges into existing state instead of replacing
-            # This preserves draft_telegram_message_id needed for notification deletion
+            # Update state at send_response_draft_notification node where workflow was interrupted
+            # This ensures workflow continues from correct node after draft approval
+            # IMPORTANT: Preserve draft_telegram_message_id so send_confirmation can delete the draft notification
             # Workflow will continue: route_draft_decision → send_email_response → execute_action → send_confirmation → END
+            update_dict = {"draft_decision": "send_response"}
+
+            # Preserve draft_telegram_message_id from current state (needed for message deletion in send_confirmation)
+            draft_msg_id = current_state.values.get("draft_telegram_message_id")
+            if draft_msg_id:
+                update_dict["draft_telegram_message_id"] = draft_msg_id
+
             await workflow.aupdate_state(
                 config,
-                {"draft_decision": "send_response"}
-                # NO as_node parameter - prevents state replacement!
+                update_dict,
+                as_node="send_response_draft_notification"  # CRITICAL: Specify node to continue from!
             )
 
             # Resume workflow from interrupt point
@@ -1234,13 +1242,21 @@ async def handle_reject_response(update: Update, context: ContextTypes.DEFAULT_T
                 note="Merging draft_decision (preserves draft_telegram_message_id)"
             )
 
-            # Update state WITHOUT as_node - merges into existing state instead of replacing
-            # This preserves draft_telegram_message_id needed for notification deletion
+            # Update state at send_response_draft_notification node where workflow was interrupted
+            # This ensures workflow continues from correct node after draft rejection
+            # IMPORTANT: Preserve draft_telegram_message_id so send_confirmation can delete the draft notification
             # Workflow will continue: route_draft_decision → execute_action → send_confirmation → END
+            update_dict = {"draft_decision": "reject_response"}
+
+            # Preserve draft_telegram_message_id from current state (needed for message deletion in send_confirmation)
+            draft_msg_id = current_state.values.get("draft_telegram_message_id")
+            if draft_msg_id:
+                update_dict["draft_telegram_message_id"] = draft_msg_id
+
             await workflow.aupdate_state(
                 config,
-                {"draft_decision": "reject_response"}
-                # NO as_node parameter - prevents state replacement!
+                update_dict,
+                as_node="send_response_draft_notification"  # CRITICAL: Specify node to continue from!
             )
 
             # Resume workflow from interrupt point
