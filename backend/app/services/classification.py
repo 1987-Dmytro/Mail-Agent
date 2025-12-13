@@ -444,57 +444,32 @@ class EmailClassificationService:
             prompt_preview=prompt[:2000] if len(prompt) > 2000 else prompt,
         )
 
-        # Step 6: Call Gemini LLM API with JSON response format
-        # Gemini API errors trigger fallback to "Unclassified" - workflow continues
-        logger.debug("calling_gemini_llm", operation="classification")
+        # Step 6: Call Groq LLM API with JSON response format
+        # NO FALLBACK - Groq is reliable, if errors occur they should be raised and handled by workflow
+        logger.debug("calling_groq_llm", operation="classification")
 
+        # Call Groq with automatic retry for transient errors
+        llm_response = self._call_gemini_with_retry(
+            prompt=prompt, operation="classification"
+        )
+
+        # Step 7: Parse JSON response into ClassificationResponse Pydantic model
+        # ValidationError will be raised to caller - NO FALLBACK
         try:
-            # Call Gemini with automatic retry for rate limits (2025 best practice)
-            llm_response = self._call_gemini_with_retry(
-                prompt=prompt, operation="classification"
-            )
-
-            # Step 7: Parse JSON response into ClassificationResponse Pydantic model
-            # Pydantic ValidationError triggers fallback to "Unclassified"
-            try:
-                classification = ClassificationResponse(**llm_response)
-            except ValidationError as e:
-                # Invalid JSON response from Gemini - use fallback classification
-                # Use first user folder as fallback
-                fallback_folder = user_folders[0]["name"] if user_folders else "Important"
-                logger.warning(
-                    "classification_fallback",
-                    email_id=email_id,
-                    user_id=user_id,
-                    error_type="ValidationError",
-                    error=str(e),
-                    fallback_folder=fallback_folder,
-                    note="Pydantic validation failed on LLM response",
-                )
-                return self._create_fallback_classification(
-                    "Classification failed: Invalid response format from AI",
-                    fallback_folder=fallback_folder,
-                    email_data=email_data
-                )
-
-        except (GeminiAPIError, GeminiRateLimitError, GeminiTimeoutError) as e:
-            # Gemini API errors (rate limits, timeouts, API errors) - use fallback
-            # Use first user folder as fallback
-            fallback_folder = user_folders[0]["name"] if user_folders else "Important"
-            logger.warning(
-                "classification_fallback",
+            classification = ClassificationResponse(**llm_response)
+        except ValidationError as e:
+            # Invalid JSON response from LLM - log and re-raise
+            logger.error(
+                "classification_validation_error",
                 email_id=email_id,
                 user_id=user_id,
-                error_type=type(e).__name__,
+                error_type="ValidationError",
                 error=str(e),
-                fallback_folder=fallback_folder,
-                note="Gemini API error, workflow continues with fallback",
+                llm_response_preview=str(llm_response)[:500],
+                note="Pydantic validation failed on LLM response - re-raising exception",
             )
-            return self._create_fallback_classification(
-                f"Classification failed due to {type(e).__name__}",
-                fallback_folder=fallback_folder,
-                email_data=email_data
-            )
+            # Re-raise to let workflow handle the error
+            raise
 
         logger.info(
             "classification_completed",
@@ -505,110 +480,114 @@ class EmailClassificationService:
 
         return classification
 
-    def _create_fallback_classification(
-        self,
-        reason: str,
-        fallback_folder: str = "Important",
-        email_data: Dict = None
-    ) -> ClassificationResponse:
-        """Create comprehensive fallback classification using existing services (no LLM calls).
-
-        This fallback ensures the workflow can continue even when Gemini API fails.
-        Uses existing services to detect ALL critical workflow fields:
-        - LanguageDetectionService for language detection (en/de/ru/uk)
-        - ToneDetectionService (rule-based only) for tone detection (formal/professional/casual)
-        - Multilingual QUESTION_INDICATORS for needs_response detection
-
-        Args:
-            reason: Human-readable reason for fallback (e.g., "API timeout", "Rate limit exceeded")
-            fallback_folder: Folder name to use as fallback (from user's folders)
-            email_data: Email data dict with 'subject', 'body', 'sender' for comprehensive detection
-
-        Returns:
-            ClassificationResponse with ALL workflow-critical fields:
-                - suggested_folder: Fallback folder (from user's folders)
-                - reasoning: Reason for fallback + detected language/tone
-                - priority_score: 50 (medium priority for manual review)
-                - confidence: 0.0 (no confidence in fallback classification)
-                - needs_response: Multilingual rule-based detection
-                - response_draft: None (no draft available in fallback)
-                - detected_language: Auto-detected from email body (en/de/ru/uk)
-                - tone: Rule-based detection from sender domain (formal/professional/casual)
-        """
-        # Default values
-        language = "en"
-        tone = "professional"
-        needs_response = False
-        priority_score = 50
-
-        if email_data:
-            subject = email_data.get("subject", "")
-            body = email_data.get("body", "")
-            sender = email_data.get("sender", "")
-
-            # 1. Detect language using LanguageDetectionService
-            try:
-                from app.services.language_detection import LanguageDetectionService
-                lang_service = LanguageDetectionService()
-                language, confidence = lang_service.detect_with_fallback(body, fallback_lang="en")
-
-                logger.info(
-                    "fallback_language_detected",
-                    language=language,
-                    confidence=confidence
-                )
-            except Exception as e:
-                logger.error("fallback_language_detection_failed", error=str(e))
-                language = "en"  # Safe fallback
-
-            # 2. Detect tone using rule-based logic (NO LLM calls)
-            try:
-                from app.services.tone_detection import ToneDetectionService
-
-                # Extract domain from sender email
-                sender_domain = sender.split("@")[-1] if "@" in sender else ""
-
-                # Use GOVERNMENT_DOMAINS constant for formal tone detection
-                government_domains = {
-                    "finanzamt.de", "auslaenderbehoerde.de", "bundesagentur.de",
-                    "arbeitsagentur.de", "tax.gov", "irs.gov"
-                }
-
-                # Rule-based tone detection (NO database queries, NO LLM)
-                if sender_domain in government_domains:
-                    tone = "formal"
-                elif sender_domain and not sender_domain.endswith(("gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "web.de", "gmx.de")):
-                    # Business domain (not free email provider)
-                    tone = "professional"
-                else:
-                    # Personal/free email provider
-                    tone = "casual"
-
-                logger.info("fallback_tone_detected", tone=tone, sender=sender)
-
-            except Exception as e:
-                logger.error("fallback_tone_detection_failed", error=str(e))
-                tone = "professional"  # Safe fallback
-
-            # 3. Detect needs_response using multilingual indicators
-            needs_response = _multilingual_needs_response(body, subject, language)
-
-            logger.info(
-                "fallback_comprehensive_detection",
-                language=language,
-                tone=tone,
-                needs_response=needs_response,
-                subject=subject[:100],
-                body_preview=body[:200]
-            )
-
-        return ClassificationResponse(
-            suggested_folder=fallback_folder,
-            reasoning=f"{reason}. Fallback: language={language}, tone={tone}",
-            priority_score=priority_score,
-            confidence=0.0,
-            needs_response=needs_response,
-            response_draft=None,
-            detected_language=language,  # ← CRITICAL for workflow!
-            tone=tone,  # ← CRITICAL for workflow!
-        )
+    # DEPRECATED: Fallback logic removed as per user request (2025-12-13)
+    # Groq LLM is reliable and doesn't have rate limit issues like Gemini
+    # If classification fails, exceptions should be raised to Dead Letter Queue
+    #
+    # def _create_fallback_classification(
+    #     self,
+    #     reason: str,
+    #     fallback_folder: str = "Important",
+    #     email_data: Dict = None
+    # ) -> ClassificationResponse:
+    #     """Create comprehensive fallback classification using existing services (no LLM calls).
+    #
+    #     This fallback ensures the workflow can continue even when Gemini API fails.
+    #     Uses existing services to detect ALL critical workflow fields:
+    #     - LanguageDetectionService for language detection (en/de/ru/uk)
+    #     - ToneDetectionService (rule-based only) for tone detection (formal/professional/casual)
+    #     - Multilingual QUESTION_INDICATORS for needs_response detection
+    #
+    #     Args:
+    #         reason: Human-readable reason for fallback (e.g., "API timeout", "Rate limit exceeded")
+    #         fallback_folder: Folder name to use as fallback (from user's folders)
+    #         email_data: Email data dict with 'subject', 'body', 'sender' for comprehensive detection
+    #
+    #     Returns:
+    #         ClassificationResponse with ALL workflow-critical fields:
+    #             - suggested_folder: Fallback folder (from user's folders)
+    #             - reasoning: Reason for fallback + detected language/tone
+    #             - priority_score: 50 (medium priority for manual review)
+    #             - confidence: 0.0 (no confidence in fallback classification)
+    #             - needs_response: Multilingual rule-based detection
+    #             - response_draft: None (no draft available in fallback)
+    #             - detected_language: Auto-detected from email body (en/de/ru/uk)
+    #             - tone: Rule-based detection from sender domain (formal/professional/casual)
+    #     """
+    #     # Default values
+    #     language = "en"
+    #     tone = "professional"
+    #     needs_response = False
+    #     priority_score = 50
+    #
+    #     if email_data:
+    #         subject = email_data.get("subject", "")
+    #         body = email_data.get("body", "")
+    #         sender = email_data.get("sender", "")
+    #
+    #         # 1. Detect language using LanguageDetectionService
+    #         try:
+    #             from app.services.language_detection import LanguageDetectionService
+    #             lang_service = LanguageDetectionService()
+    #             language, confidence = lang_service.detect_with_fallback(body, fallback_lang="en")
+    #
+    #             logger.info(
+    #                 "fallback_language_detected",
+    #                 language=language,
+    #                 confidence=confidence
+    #             )
+    #         except Exception as e:
+    #             logger.error("fallback_language_detection_failed", error=str(e))
+    #             language = "en"  # Safe fallback
+    #
+    #         # 2. Detect tone using rule-based logic (NO LLM calls)
+    #         try:
+    #             from app.services.tone_detection import ToneDetectionService
+    #
+    #             # Extract domain from sender email
+    #             sender_domain = sender.split("@")[-1] if "@" in sender else ""
+    #
+    #             # Use GOVERNMENT_DOMAINS constant for formal tone detection
+    #             government_domains = {
+    #                 "finanzamt.de", "auslaenderbehoerde.de", "bundesagentur.de",
+    #                 "arbeitsagentur.de", "tax.gov", "irs.gov"
+    #             }
+    #
+    #             # Rule-based tone detection (NO database queries, NO LLM)
+    #             if sender_domain in government_domains:
+    #                 tone = "formal"
+    #             elif sender_domain and not sender_domain.endswith(("gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "web.de", "gmx.de")):
+    #                 # Business domain (not free email provider)
+    #                 tone = "professional"
+    #             else:
+    #                 # Personal/free email provider
+    #                 tone = "casual"
+    #
+    #             logger.info("fallback_tone_detected", tone=tone, sender=sender)
+    #
+    #         except Exception as e:
+    #             logger.error("fallback_tone_detection_failed", error=str(e))
+    #             tone = "professional"  # Safe fallback
+    #
+    #         # 3. Detect needs_response using multilingual indicators
+    #         needs_response = _multilingual_needs_response(body, subject, language)
+    #
+    #         logger.info(
+    #             "fallback_comprehensive_detection",
+    #             language=language,
+    #             tone=tone,
+    #             needs_response=needs_response,
+    #             subject=subject[:100],
+    #             body_preview=body[:200]
+    #         )
+    #
+    #     return ClassificationResponse(
+    #         suggested_folder=fallback_folder,
+    #         reasoning=f"{reason}. Fallback: language={language}, tone={tone}",
+    #         priority_score=priority_score,
+    #         confidence=0.0,
+    #         needs_response=needs_response,
+    #         response_draft=None,
+    #         detected_language=language,  # ← CRITICAL for workflow!
+    #         tone=tone,  # ← CRITICAL for workflow!
+    #     )

@@ -253,6 +253,88 @@ Output:
   "tone": "formal"
 }}
 
+Example 6: Automated Bank Email with sender_history (Russian)
+Input:
+From: "ВТБ" <email@send.vtb.ru>
+Subject: Обновите согласие на взаимодействие с ВТБ
+Body: Дмитрий! Банк должен регулярно обновлять данные клиентов. Обновите, пожалуйста, согласие на взаимодействие с банком онлайн...
+Related Emails Context:
+- Full Conversation with Sender: Found 6 previous emails from "ВТБ" <email@send.vtb.ru>
+  - NO user responses in conversation history
+  - All emails are automated notifications (account statements, service updates, consent requests)
+
+Analysis:
+- STEP 1: Sender address is email@send.vtb.ru → Matches *@send.* pattern → Automated/bulk email domain
+- STEP 2: sender_history shows 6 emails with NO user responses → Newsletter/automated pattern confirmed
+- STEP 3: Content is generic bank notification request, no personal question
+
+Output:
+{{
+  "suggested_folder": "Important",
+  "reasoning": "Automated bank notification from bulk email domain (email@send.vtb.ru). sender_history shows 6 emails with no user responses",
+  "priority_score": 20,
+  "confidence": 0.95,
+  "needs_response": false,
+  "response_draft": null,
+  "detected_language": "ru",
+  "tone": "formal"
+}}
+
+Example 7: Marketing Newsletter with extensive sender_history (English)
+Input:
+From: Liam Ottley <admin@liamottley.com>
+Subject: the easier AI offer
+Body: Hey - Liam here. People always ask me what's the quickest way to get into AI. Here's the reality: You don't need technical skills...
+Related Emails Context:
+- Full Conversation with Sender: Found 38 previous emails from Liam Ottley <admin@liamottley.com>
+  - NO user responses in conversation history
+  - All emails are marketing newsletters about AI courses, webinars, and offers
+  - Consistent pattern: weekly newsletters, promotional content, course sales
+
+Analysis:
+- STEP 1: Sender address admin@liamottley.com → Not obviously automated, need further analysis
+- STEP 2: sender_history shows 38 emails with NO user responses → STRONG indicator of newsletter/marketing
+- STEP 3: Content is promotional (AI training offer), matches marketing pattern from sender_history
+
+Output:
+{{
+  "suggested_folder": "Important",
+  "reasoning": "Marketing newsletter. sender_history shows 38 previous emails with no user responses - clear newsletter pattern",
+  "priority_score": 10,
+  "confidence": 0.98,
+  "needs_response": false,
+  "response_draft": null,
+  "detected_language": "en",
+  "tone": "professional"
+}}
+
+Example 8: Real conversation requiring response (English)
+Input:
+From: sarah.johnson@techstartup.io
+Subject: Re: Meeting next week?
+Body: Hi! Yes, I'm available on Tuesday or Wednesday afternoon. Which works better for you?
+Related Emails Context:
+- Full Conversation with Sender: Found 3 previous emails from sarah.johnson@techstartup.io
+  - User sent 2 responses in conversation history
+  - Back-and-forth discussion about project collaboration and scheduling
+
+Analysis:
+- STEP 1: Sender address sarah.johnson@techstartup.io → Not automated pattern
+- STEP 2: sender_history shows back-and-forth conversation with user responses → Real conversation
+- STEP 3: Current email asks direct question requiring user's answer
+
+Output:
+{{
+  "suggested_folder": "Clients",
+  "reasoning": "Active conversation thread with back-and-forth exchanges. Direct question about meeting availability requires response",
+  "priority_score": 65,
+  "confidence": 0.95,
+  "needs_response": true,
+  "response_draft": "Hi Sarah! Tuesday afternoon works great for me. How about 2 PM? Let me know if that time suits you.",
+  "detected_language": "en",
+  "tone": "professional"
+}}
+
 ---
 
 **Your Output Format:**
@@ -296,16 +378,29 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 
 **Response Classification Rules:**
 
-⚠️ **CRITICAL - Check sender address FIRST:**
+⚠️ **CRITICAL STEP 1 - Check sender address patterns FIRST:**
 - **noreply addresses** (noreply@*, no-reply@*, donotreply@*): ALWAYS needs_response = FALSE
-- **automated system emails** (*@notifications.*, *@updates.*, *@alerts.*): ALWAYS needs_response = FALSE
+- **Marketing/bulk email domains** (*@send.*, *@email.*, *@marketing.*, *@newsletter.*, *@promo.*): ALWAYS needs_response = FALSE
+- **Automated system emails** (*@notifications.*, *@updates.*, *@alerts.*, *@info.*): ALWAYS needs_response = FALSE
 - **Platform notifications** (LinkedIn, GitHub, Skool, Slack, etc.): ALWAYS needs_response = FALSE
+- **Banking automated emails** (*@send.bank.*, *@email.bank.*, *@info.bank.*): ALWAYS needs_response = FALSE
 - Examples of automated senders that should NEVER get response:
   - noreply@skool.com, notifications@github.com, noreply@linkedin.com
-  - marketing@company.com, newsletter@techcrunch.com
+  - marketing@company.com, newsletter@techcrunch.com, admin@liamottley.com (marketing newsletters)
   - system@alerts.com, updates@platform.com
+  - email@send.vtb.ru, no-reply@gosuslugi.ru (automated bank/government notifications)
 
-**After checking sender address:**
+⚠️ **CRITICAL STEP 2 - Analyze sender_history from RAG Context:**
+- **If sender_history shows >5 emails with NO user responses** → HIGH probability this is a newsletter/automated sender → needs_response = FALSE
+- **If sender_history shows consistent pattern (all marketing, all notifications)** → needs_response = FALSE
+- **If sender_history is empty (0 emails)** → Use sender address patterns from STEP 1
+- **If sender_history shows back-and-forth conversation** → More likely needs_response = TRUE
+- Examples:
+  - 38 emails from Liam Ottley, no user responses → Marketing newsletter → needs_response = FALSE
+  - 6 emails from bank (email@send.vtb.ru), no user responses → Automated notifications → needs_response = FALSE
+  - 3 emails from colleague with 2 user responses → Real conversation → needs_response = TRUE (if current email asks question)
+
+⚠️ **CRITICAL STEP 3 - Final decision:**
 - needs_response = TRUE for: questions, meeting requests, invitations, action requests, follow-ups requiring reply FROM REAL PEOPLE
 - needs_response = FALSE for: newsletters, notifications, automated emails, security updates, informational announcements, marketing campaigns
 - If needs_response=true, ALWAYS generate response_draft using "Full Conversation with Sender" and "Related Emails Context" above
