@@ -333,11 +333,32 @@ async def classify(
                 if folder:
                     state["proposed_folder_id"] = folder.id
                 else:
+                    # Folder not found (e.g., LLM returned "Unclassified") - fallback to "Important"
                     logger.warning(
-                        "proposed_folder_not_found",
+                        "proposed_folder_not_found_using_fallback",
                         email_id=state["email_id"],
                         proposed_folder=classification_result.suggested_folder,
+                        note="LLM suggested invalid folder, falling back to 'Important'",
                     )
+
+                    # Look up "Important" folder as fallback
+                    fallback_result = await db.execute(
+                        select(FolderCategory).where(
+                            FolderCategory.user_id == int(state["user_id"]),
+                            FolderCategory.name == "Important",
+                        )
+                    )
+                    fallback_folder = fallback_result.scalar_one_or_none()
+                    if fallback_folder:
+                        state["proposed_folder_id"] = fallback_folder.id
+                        state["proposed_folder"] = "Important"  # Update state to reflect actual folder
+                    else:
+                        # This should never happen, but if "Important" doesn't exist, we have a bigger problem
+                        logger.error(
+                            "fallback_folder_not_found",
+                            email_id=state["email_id"],
+                            note="'Important' folder not found in database - this is a critical error",
+                        )
 
             # Persist classification results to EmailProcessingQueue for test verification
             from sqlalchemy import update

@@ -102,6 +102,12 @@ Classify the email below into one of the user's predefined folder categories. Co
 
 {user_folder_categories}
 
+🚨 **CRITICAL RULE: You MUST choose a folder from the list above!**
+- The "suggested_folder" field MUST EXACTLY MATCH one of the folder names listed above
+- NEVER EVER use "Unclassified", "Other", "Unknown", or any folder not in the user's list
+- If uncertain, pick the CLOSEST matching folder (usually "Important") and lower the confidence score
+- Invalid folder names will cause system errors - this is NOT optional!
+
 **When classifying, consider:**
 - Sender domain and reputation (e.g., government domains like finanzamt.de, auslaenderbehoerde.de)
 - Subject line keywords (e.g., "WICHTIG", "urgent", "deadline")
@@ -110,10 +116,10 @@ Classify the email below into one of the user's predefined folder categories. Co
 - Time-sensitivity indicators
 
 **If the email doesn't clearly fit any category:**
-- Choose the CLOSEST MATCHING folder from the user's categories above
+- Choose the CLOSEST MATCHING folder from the user's categories above (default to "Important" if very uncertain)
 - Lower your confidence score (<0.7)
 - Explain in reasoning why this was the best available option
-- NEVER use "Unclassified" - always pick one of the user's actual folders
+- Remember: suggested_folder MUST be from the user's folder list - no exceptions!
 
 ---
 
@@ -416,8 +422,10 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 - DO NOT add your name or signature - the system will add it automatically
 
 **Important:**
-- Ensure suggested_folder exactly matches one of the folder names provided above
-- NEVER use "Unclassified" or any folder name not in the user's list - always pick the best matching folder
+- 🚨 CRITICAL: suggested_folder MUST EXACTLY MATCH one of the folder names from the list at the top (Clients, Government, Important, etc.)
+- NEVER EVER use "Unclassified", "Other", "Unknown", "Inbox", or ANY folder name not in the user's list
+- If uncertain which folder, default to "Important" with lower confidence score
+- Invalid folder names cause system errors - this requirement is MANDATORY
 - Keep reasoning under 300 characters (for Telegram message limit)
 - Always provide reasoning in English, regardless of email language
 - Use proper JSON escaping for special characters
