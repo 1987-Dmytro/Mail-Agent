@@ -188,6 +188,9 @@ class Settings:
         self.LOG_FORMAT = os.getenv("LOG_FORMAT", "json")  # "json" or "console"
 
         # Postgres Configuration
+        # Support DATABASE_URL (for cloud platforms like Koyeb, Heroku, etc.)
+        # If DATABASE_URL is set, use it directly. Otherwise, construct from individual variables.
+        self.DATABASE_URL = os.getenv("DATABASE_URL")
         self.POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
         self.POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
         self.POSTGRES_DB = os.getenv("POSTGRES_DB", "food_order_db")

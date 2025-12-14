@@ -7,19 +7,36 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from app.core.config import settings
 
+# Determine database URL
+# If DATABASE_URL is set (e.g., from Koyeb/Heroku), use it directly
+# Otherwise, construct from individual POSTGRES_* variables
+if settings.DATABASE_URL:
+    # DATABASE_URL format: postgres://user:pass@host:port/dbname
+    # Convert postgres:// to postgresql:// for SQLAlchemy compatibility
+    sync_db_url = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    async_db_url = settings.DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+else:
+    # Construct from individual variables (for local development)
+    sync_db_url = (
+        f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+        f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    )
+    async_db_url = (
+        f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+        f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    )
+
 # Create synchronous engine for database operations
 # Used for telegram linking and other sync operations
 engine = create_engine(
-    f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}",
+    sync_db_url,
     echo=False,
     pool_pre_ping=True,
 )
 
 # Create async engine for async operations (Telegram bot handlers, workflows)
 async_engine = create_async_engine(
-    f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}",
+    async_db_url,
     echo=False,
     pool_pre_ping=True,
 )
