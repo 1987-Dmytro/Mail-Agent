@@ -325,10 +325,18 @@ async def health_check(request: Request) -> Dict[str, Any]:
     # Check Redis connectivity (Story 3.2)
     try:
         import redis.asyncio as redis
+        # Use REDIS_URL or extract base URL from CELERY_BROKER_URL (without query params)
+        redis_url = os.getenv("REDIS_URL")
+        if not redis_url:
+            # Fallback: extract base URL from CELERY_BROKER_URL (remove query params)
+            celery_url = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+            redis_url = celery_url.split('?')[0]  # Remove ?ssl_cert_reqs=...
+
         redis_client = redis.from_url(
-            os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
+            redis_url,
             encoding="utf-8",
-            decode_responses=True
+            decode_responses=True,
+            ssl_cert_reqs=None if redis_url.startswith("rediss://") else None
         )
         await redis_client.ping()
         await redis_client.close()
