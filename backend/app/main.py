@@ -119,7 +119,9 @@ async def lifespan(app: FastAPI):
             await telegram_bot.initialize()
 
             # Use webhook in production/staging, polling in development
-            if settings.APP_ENV in ["production", "staging"]:
+            from app.core.config import Environment
+
+            if settings.ENVIRONMENT in [Environment.PRODUCTION, Environment.STAGING]:
                 # Webhook mode for production deployments
                 await telegram_bot.start()  # Start app without polling
 
@@ -167,7 +169,9 @@ async def lifespan(app: FastAPI):
     # Stop Telegram bot gracefully
     if settings.TELEGRAM_BOT_TOKEN:
         try:
-            if settings.APP_ENV in ["production", "staging"]:
+            from app.core.config import Environment
+
+            if settings.ENVIRONMENT in [Environment.PRODUCTION, Environment.STAGING]:
                 # Webhook mode shutdown
                 await telegram_bot.stop()
                 logger.info("application_shutdown", telegram_bot="stopped", mode="webhook")
