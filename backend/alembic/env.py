@@ -23,10 +23,9 @@ from app.models.session import Session
 config = context.config
 
 # Set sqlalchemy.url from environment variables
-# Use DATABASE_URL if available (Koyeb, Fly.io), otherwise build from components
-if settings.DATABASE_URL:
-    database_url = settings.DATABASE_URL
-else:
+# Use DATABASE_URL environment variable if available (Koyeb, Fly.io), otherwise build from components
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
     database_url = (
         f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
         f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
