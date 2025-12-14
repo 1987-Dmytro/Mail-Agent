@@ -1,0 +1,70 @@
+name: Deploy Frontend to Vercel
+
+# Note: Vercel has automatic GitHub integration
+# This workflow is for monitoring and notifications
+# Actual deployment is handled by Vercel automatically
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+jobs:
+  notify-deployment:
+    name: Notify Vercel Deployment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deployment notification
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            ENV="Production"
+            URL="https://mail-agent.vercel.app"
+          else
+            ENV="Preview (Staging)"
+            URL="https://mail-agent-git-develop-yourname.vercel.app"
+          fi
+
+          echo "## 🚀 Frontend Deployment: $ENV" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Vercel will automatically deploy this push." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Expected URL**: $URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⏳ Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "Check Vercel dashboard for deployment progress:" >> $GITHUB_STEP_SUMMARY
+          echo "https://vercel.com/dashboard" >> $GITHUB_STEP_SUMMARY
+
+  build-check:
+    name: Verify Build Locally
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build application
+        working-directory: ./frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ github.ref == 'refs/heads/main' && secrets.PRODUCTION_API_URL || secrets.STAGING_API_URL }}
+        run: npm run build
+
+      - name: Build successful
+        run: |
+          echo "✅ Local build verification passed!" >> $GITHUB_STEP_SUMMARY
+          echo "Vercel deployment should succeed." >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,100 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  pr-info:
+    name: PR Information
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR Details
+        run: |
+          echo "## Pull Request Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.head_ref }} → ${{ github.base_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Author**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+  check-branch-name:
+    name: Validate Branch Name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch naming convention
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          if [[ ! "$BRANCH" =~ ^(feature|fix|hotfix|refactor|docs|test|chore)/.+ ]]; then
+            echo "❌ Branch name must follow pattern: feature/*, fix/*, hotfix/*, refactor/*, docs/*, test/*, or chore/*"
+            echo "Current branch: $BRANCH"
+            exit 1
+          fi
+          echo "✅ Branch name is valid: $BRANCH"
+
+  check-commit-messages:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check conventional commits
+        run: |
+          echo "Checking commit messages..."
+          # Get commits in this PR
+          COMMITS=$(git log --pretty=format:"%s" origin/${{ github.base_ref }}..HEAD)
+
+          while IFS= read -r commit; do
+            if [[ ! "$commit" =~ ^(feat|fix|docs|style|refactor|perf|test|chore|build|ci)(\(.+\))?: ]]; then
+              echo "⚠️  Non-conventional commit found: $commit"
+              echo "Recommended format: type(scope): description"
+              echo "Example: feat(auth): add OAuth login"
+            else
+              echo "✅ Valid commit: $commit"
+            fi
+          done <<< "$COMMITS"
+
+  backend-status:
+    name: Backend CI Status
+    runs-on: ubuntu-latest
+    needs: []
+    if: contains(github.event.pull_request.changed_files, 'backend/')
+    steps:
+      - name: Wait for Backend CI
+        run: |
+          echo "Backend CI checks are running in parallel..."
+          echo "Check the 'Backend CI' workflow for detailed results"
+
+  frontend-status:
+    name: Frontend CI Status
+    runs-on: ubuntu-latest
+    needs: []
+    if: contains(github.event.pull_request.changed_files, 'frontend/')
+    steps:
+      - name: Wait for Frontend CI
+        run: |
+          echo "Frontend CI checks are running in parallel..."
+          echo "Check the 'Frontend CI' workflow for detailed results"
+
+  summary:
+    name: PR Status Summary
+    runs-on: ubuntu-latest
+    needs: [pr-info, check-branch-name, check-commit-messages]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## ✅ PR Checks Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Status Overview" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch naming: ${{ needs.check-branch-name.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit messages: ${{ needs.check-commit-messages.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Ensure all CI checks pass (Backend CI, Frontend CI)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Request review from team members" >> $GITHUB_STEP_SUMMARY
+          echo "3. Address any review comments" >> $GITHUB_STEP_SUMMARY
+          echo "4. Merge when approved ✨" >> $GITHUB_STEP_SUMMARY

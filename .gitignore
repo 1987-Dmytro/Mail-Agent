@@ -103,3 +103,4 @@ celerybeat.pid
 *.crt
 secrets.json
 credentials.json
+.env.secrets

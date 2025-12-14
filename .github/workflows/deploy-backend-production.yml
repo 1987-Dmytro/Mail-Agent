@@ -1,0 +1,169 @@
+name: Deploy Backend to Production
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend-production.yml'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    name: Deploy to Oracle Cloud Production
+    runs-on: ubuntu-latest
+    environment: production  # Requires manual approval in GitHub settings
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: main" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️  **Warning**: This will update the production environment!" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        with:
+          host: ${{ secrets.PRODUCTION_VM_IP }}
+          username: ubuntu
+          key: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          port: 22
+          envs: DATABASE_URL,JWT_SECRET_KEY,ENCRYPTION_KEY,GMAIL_CLIENT_ID,GMAIL_CLIENT_SECRET,GEMINI_API_KEY,GROQ_API_KEY
+          script_stop: true
+          script: |
+            set -e
+
+            echo "🔄 Starting deployment to production..."
+
+            # Navigate to project directory (or clone if first time)
+            if [ ! -d "/home/ubuntu/Mail-Agent" ]; then
+              echo "📦 Cloning repository for the first time..."
+              cd /home/ubuntu
+              git clone https://github.com/1987-Dmytro/Mail-Agent.git
+              cd Mail-Agent
+            else
+              echo "📥 Pulling latest changes..."
+              cd /home/ubuntu/Mail-Agent
+              git fetch origin
+              git checkout main
+              git pull origin main
+            fi
+
+            cd backend
+
+            # Backup current .env
+            echo "💾 Backing up current configuration..."
+            if [ -f .env ]; then
+              cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+            fi
+
+            # Create .env file with secrets
+            echo "🔐 Setting up environment variables..."
+            cat > .env << EOF
+            APP_ENV=production
+            DATABASE_URL=${DATABASE_URL}
+            REDIS_URL=redis://redis:6379/0
+            CELERY_BROKER_URL=redis://redis:6379/0
+            CELERY_RESULT_BACKEND=redis://redis:6379/0
+            JWT_SECRET_KEY=${JWT_SECRET_KEY}
+            ENCRYPTION_KEY=${ENCRYPTION_KEY}
+            GMAIL_CLIENT_ID=${GMAIL_CLIENT_ID}
+            GMAIL_CLIENT_SECRET=${GMAIL_CLIENT_SECRET}
+            GMAIL_REDIRECT_URI=https://yourdomain.com/auth/gmail/callback
+            GEMINI_API_KEY=${GEMINI_API_KEY}
+            GROQ_API_KEY=${GROQ_API_KEY}
+            LOG_LEVEL=WARNING
+            LOG_FORMAT=json
+            DEBUG=false
+            EOF
+
+            # Graceful shutdown of existing containers
+            echo "🛑 Gracefully stopping existing containers..."
+            docker compose down --timeout 30 || true
+
+            # Build new images
+            echo "🐳 Building Docker images..."
+            export APP_ENV=production
+            docker compose build --no-cache
+
+            # Start services
+            echo "🚀 Starting services..."
+            docker compose up -d
+
+            # Wait for services to be healthy
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 20
+
+            # Health check with retry
+            echo "🏥 Performing health checks..."
+            max_retries=5
+            retry_count=0
+            while [ $retry_count -lt $max_retries ]; do
+              if curl -f http://localhost:8000/health; then
+                echo "✅ Health check passed!"
+                break
+              else
+                retry_count=$((retry_count + 1))
+                echo "⚠️  Health check attempt $retry_count/$max_retries failed. Retrying..."
+                sleep 5
+              fi
+            done
+
+            if [ $retry_count -eq $max_retries ]; then
+              echo "❌ Health check failed after $max_retries attempts!"
+              echo "🔄 Rolling back..."
+              docker compose down
+              exit 1
+            fi
+
+            # Show running containers
+            echo "📊 Running containers:"
+            docker compose ps
+
+            # Clean up old Docker images
+            echo "🧹 Cleaning up old Docker images..."
+            docker image prune -f || true
+
+            echo "✅ Production deployment completed successfully!"
+
+      - name: Verify deployment
+        if: success()
+        run: |
+          echo "## ✅ Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Production environment has been updated! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Access Points" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend API: http://${{ secrets.PRODUCTION_VM_IP }}:8000" >> $GITHUB_STEP_SUMMARY
+          echo "- API Docs: http://${{ secrets.PRODUCTION_VM_IP }}:8000/docs" >> $GITHUB_STEP_SUMMARY
+          echo "- Flower (Celery): http://${{ secrets.PRODUCTION_VM_IP }}:5555" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "## ❌ Production Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The production deployment encountered errors!" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the logs and rollback if necessary." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Rollback Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. SSH into production server" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check logs: \`docker compose logs\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Restore previous .env: \`cp .env.backup.* .env\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. Restart services: \`docker compose up -d\`" >> $GITHUB_STEP_SUMMARY

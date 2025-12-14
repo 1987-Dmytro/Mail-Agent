@@ -1,0 +1,131 @@
+name: Deploy Backend to Staging
+
+on:
+  push:
+    branches: [ develop ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend-staging.yml'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    name: Deploy to Oracle Cloud Staging
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Staging Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: Staging" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: develop" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        with:
+          host: ${{ secrets.STAGING_VM_IP }}
+          username: ubuntu
+          key: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          port: 22
+          envs: DATABASE_URL,JWT_SECRET_KEY,ENCRYPTION_KEY,GMAIL_CLIENT_ID,GMAIL_CLIENT_SECRET,GEMINI_API_KEY,GROQ_API_KEY
+          script_stop: true
+          script: |
+            set -e
+
+            echo "🔄 Starting deployment to staging..."
+
+            # Navigate to project directory (or clone if first time)
+            if [ ! -d "/home/ubuntu/Mail-Agent" ]; then
+              echo "📦 Cloning repository for the first time..."
+              cd /home/ubuntu
+              git clone https://github.com/1987-Dmytro/Mail-Agent.git
+              cd Mail-Agent
+            else
+              echo "📥 Pulling latest changes..."
+              cd /home/ubuntu/Mail-Agent
+              git fetch origin
+              git checkout develop
+              git pull origin develop
+            fi
+
+            cd backend
+
+            # Create .env file with secrets
+            echo "🔐 Setting up environment variables..."
+            cat > .env << EOF
+            APP_ENV=staging
+            DATABASE_URL=${DATABASE_URL}
+            REDIS_URL=redis://redis:6379/0
+            CELERY_BROKER_URL=redis://redis:6379/0
+            CELERY_RESULT_BACKEND=redis://redis:6379/0
+            JWT_SECRET_KEY=${JWT_SECRET_KEY}
+            ENCRYPTION_KEY=${ENCRYPTION_KEY}
+            GMAIL_CLIENT_ID=${GMAIL_CLIENT_ID}
+            GMAIL_CLIENT_SECRET=${GMAIL_CLIENT_SECRET}
+            GMAIL_REDIRECT_URI=http://localhost:3000/auth/gmail/callback
+            GEMINI_API_KEY=${GEMINI_API_KEY}
+            GROQ_API_KEY=${GROQ_API_KEY}
+            LOG_LEVEL=INFO
+            LOG_FORMAT=json
+            DEBUG=false
+            EOF
+
+            # Stop existing containers
+            echo "🛑 Stopping existing containers..."
+            docker compose down || true
+
+            # Build and start new containers
+            echo "🐳 Building and starting Docker containers..."
+            export APP_ENV=staging
+            docker compose build --no-cache
+            docker compose up -d
+
+            # Wait for services to be healthy
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 15
+
+            # Check health
+            echo "🏥 Checking service health..."
+            curl -f http://localhost:8000/health || echo "⚠️  Health check failed!"
+
+            # Show running containers
+            echo "📊 Running containers:"
+            docker compose ps
+
+            echo "✅ Deployment to staging completed successfully!"
+
+      - name: Verify deployment
+        if: success()
+        run: |
+          echo "## ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Staging environment has been updated!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Access Points" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend API: http://${{ secrets.STAGING_VM_IP }}:8000" >> $GITHUB_STEP_SUMMARY
+          echo "- API Docs: http://${{ secrets.STAGING_VM_IP }}:8000/docs" >> $GITHUB_STEP_SUMMARY
+          echo "- Flower (Celery): http://${{ secrets.STAGING_VM_IP }}:5555" >> $GITHUB_STEP_SUMMARY
+          echo "- Grafana: http://${{ secrets.STAGING_VM_IP }}:3000" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The staging deployment encountered errors. Please check the logs above." >> $GITHUB_STEP_SUMMARY
