@@ -210,7 +210,11 @@ async def register_user(
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["login"][0])
 async def login(
-    request: Request, username: str = Form(...), password: str = Form(...), grant_type: str = Form(default="password")
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    grant_type: str = Form(default="password"),
+    db_service: DatabaseService = Depends(get_db_service),
 ):
     """Login a user.
 
@@ -255,7 +259,10 @@ async def login(
 
 
 @router.post("/session", response_model=SessionResponse)
-async def create_session(user: User = Depends(get_current_user)):
+async def create_session(
+    user: User = Depends(get_current_user),
+    db_service: DatabaseService = Depends(get_db_service),
+):
     """Create a new chat session for the authenticated user.
 
     Args:
@@ -290,7 +297,10 @@ async def create_session(user: User = Depends(get_current_user)):
 
 @router.patch("/session/{session_id}/name", response_model=SessionResponse)
 async def update_session_name(
-    session_id: str, name: str = Form(...), current_session: Session = Depends(get_current_session)
+    session_id: str,
+    name: str = Form(...),
+    current_session: Session = Depends(get_current_session),
+    db_service: DatabaseService = Depends(get_db_service),
 ):
     """Update a session's name.
 
@@ -325,7 +335,11 @@ async def update_session_name(
 
 
 @router.delete("/session/{session_id}")
-async def delete_session(session_id: str, current_session: Session = Depends(get_current_session)):
+async def delete_session(
+    session_id: str,
+    current_session: Session = Depends(get_current_session),
+    db_service: DatabaseService = Depends(get_db_service),
+):
     """Delete a session for the authenticated user.
 
     Args:
@@ -354,7 +368,10 @@ async def delete_session(session_id: str, current_session: Session = Depends(get
 
 
 @router.get("/sessions", response_model=List[SessionResponse])
-async def get_user_sessions(user: User = Depends(get_current_user)):
+async def get_user_sessions(
+    user: User = Depends(get_current_user),
+    db_service: DatabaseService = Depends(get_db_service),
+):
     """Get all session IDs for the authenticated user.
 
     Args:

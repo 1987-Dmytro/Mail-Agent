@@ -108,3 +108,4 @@ class EmailProcessingQueue(BaseModel, table=True):
 # Avoid circular imports
 from app.models.user import User  # noqa: E402
 from app.models.workflow_mapping import WorkflowMapping  # noqa: E402
+from app.models.dead_letter_queue import DeadLetterQueue  # noqa: E402
