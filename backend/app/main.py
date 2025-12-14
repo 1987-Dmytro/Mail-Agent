@@ -30,7 +30,8 @@ from app.core.logging import logger
 from app.core.metrics import setup_metrics
 from app.core.middleware import MetricsMiddleware, ErrorAlertingMiddleware
 from app.core.telegram_bot import TelegramBotClient
-from app.core.vector_db import VectorDBClient
+from app.core.vector_db import VectorDBClient  # ChromaDB (legacy)
+from app.core.vector_db_pinecone import PineconeVectorDBClient  # Pinecone (production)
 from app.services.database import database_service
 from app.utils.errors import TelegramBotError
 
@@ -48,16 +49,15 @@ load_dotenv()
 # Global Telegram bot instance
 telegram_bot = TelegramBotClient()
 
-# Global Vector DB client instance
-vector_db_client: Optional[VectorDBClient] = None
+# Global Vector DB client instance (Pinecone in production, ChromaDB for local dev)
+vector_db_client: Optional[PineconeVectorDBClient] = None
 
 
 def initialize_email_embeddings_collection() -> None:
-    """Initialize ChromaDB email_embeddings collection on application startup.
+    """Initialize Pinecone vector database for email embeddings.
 
-    Creates the email_embeddings collection with cosine similarity distance metric
-    and metadata schema for storing email context. Collection persists across
-    service restarts via SQLite backend.
+    Creates connection to Pinecone cloud index with namespace isolation for Mail Agent emails.
+    Uses existing "ai-assistant-memories" index with "mail-agent-emails" namespace.
 
     Metadata schema:
         - message_id: Gmail message ID (str)
@@ -69,31 +69,60 @@ def initialize_email_embeddings_collection() -> None:
         - snippet: First 200 chars of email body (str)
 
     Raises:
-        ConnectionError: If ChromaDB initialization fails
+        ConnectionError: If Pinecone initialization fails
     """
     global vector_db_client
 
     try:
-        # Initialize ChromaDB client with persistent storage
-        vector_db_client = VectorDBClient(persist_directory=settings.CHROMADB_PATH)
+        # Check if PINECONE_API_KEY is set
+        pinecone_api_key = os.getenv("PINECONE_API_KEY")
 
-        # Create email_embeddings collection with cosine similarity
-        # This collection will store embeddings for semantic search in RAG system
-        collection = vector_db_client.get_or_create_collection(
-            name="email_embeddings",
-            metadata={
-                "hnsw:space": "cosine",  # Cosine similarity for semantic search
-                "description": "Email embeddings for RAG context retrieval",
-            },
-        )
+        if pinecone_api_key:
+            # Production: Use Pinecone cloud vector database
+            vector_db_client = PineconeVectorDBClient(
+                api_key=pinecone_api_key,
+                index_name="ai-assistant-memories",  # Existing 768-dim index
+                namespace="mail-agent-emails"  # Isolated namespace
+            )
 
-        logger.info(
-            "vector_db_initialized",
-            collection_name="email_embeddings",
-            distance_metric="cosine",
-            persist_directory=settings.CHROMADB_PATH,
-            collection_count=vector_db_client.count_embeddings("email_embeddings"),
-        )
+            # Create email_embeddings collection (namespace)
+            collection = vector_db_client.get_or_create_collection(
+                name="email_embeddings",
+                metadata={
+                    "hnsw:space": "cosine",  # Cosine similarity
+                    "description": "Email embeddings for RAG context retrieval",
+                },
+            )
+
+            logger.info(
+                "vector_db_initialized",
+                provider="pinecone",
+                index_name="ai-assistant-memories",
+                namespace="mail-agent-emails",
+                collection_name="email_embeddings",
+                distance_metric="cosine",
+                collection_count=vector_db_client.count_embeddings("email_embeddings"),
+            )
+        else:
+            # Fallback: Use ChromaDB for local development
+            logger.warning(
+                "pinecone_api_key_missing",
+                note="Falling back to ChromaDB for local development"
+            )
+            vector_db_client = VectorDBClient(persist_directory=settings.CHROMADB_PATH)
+
+            collection = vector_db_client.get_or_create_collection(
+                name="email_embeddings",
+                metadata={"hnsw:space": "cosine"},
+            )
+
+            logger.info(
+                "vector_db_initialized",
+                provider="chromadb",
+                persist_directory=settings.CHROMADB_PATH,
+                collection_count=vector_db_client.count_embeddings("email_embeddings"),
+            )
+
     except Exception as e:
         logger.error("vector_db_initialization_failed", error=str(e))
         # Allow app to start in degraded mode without vector DB
@@ -110,7 +139,7 @@ async def lifespan(app: FastAPI):
         api_prefix=settings.API_V1_STR,
     )
 
-    # Initialize ChromaDB vector database (Epic 3 - Story 3.1)
+    # Initialize Pinecone vector database (Epic 3 - Story 3.1)
     initialize_email_embeddings_collection()
 
     # Initialize and start Telegram bot
