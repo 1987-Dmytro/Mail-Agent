@@ -201,6 +201,9 @@ class Settings:
         self.CHECKPOINT_TABLES = ["checkpoint_blobs", "checkpoint_writes", "checkpoints"]
 
         # Redis Configuration (for Celery and OAuth state management)
+        # Support REDIS_URL (for cloud platforms like Koyeb, Heroku, etc.)
+        # If REDIS_URL is set, use it directly. Otherwise, construct from individual variables.
+        self.REDIS_URL = os.getenv("REDIS_URL")
         self.REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
         self.REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
         self.REDIS_DB = int(os.getenv("REDIS_DB", "0"))

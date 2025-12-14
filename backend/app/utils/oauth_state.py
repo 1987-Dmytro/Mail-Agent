@@ -8,13 +8,25 @@ import redis
 from app.core.config import settings
 from app.core.logging import logger
 
-# Initialize Redis client
-redis_client = redis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    db=settings.REDIS_DB,
-    decode_responses=True,  # Automatically decode bytes to strings
-)
+# Initialize Redis client with REDIS_URL support (similar to DATABASE_URL fix)
+# If REDIS_URL is set (e.g., from Koyeb/Heroku), use it directly
+# Otherwise, construct from individual REDIS_HOST, REDIS_PORT, REDIS_DB variables
+if settings.REDIS_URL:
+    # Use REDIS_URL for cloud deployments (supports both redis:// and rediss:// with TLS)
+    redis_client = redis.from_url(
+        settings.REDIS_URL,
+        decode_responses=True  # Automatically decode bytes to strings
+    )
+    logger.info("Redis client initialized from REDIS_URL", url_prefix=settings.REDIS_URL[:20] + "...")
+else:
+    # Fallback to individual variables for local development
+    redis_client = redis.Redis(
+        host=settings.REDIS_HOST,
+        port=settings.REDIS_PORT,
+        db=settings.REDIS_DB,
+        decode_responses=True
+    )
+    logger.info("Redis client initialized from individual variables", host=settings.REDIS_HOST, port=settings.REDIS_PORT)
 
 # OAuth state TTL: 10 minutes (enough for user to complete OAuth flow)
 OAUTH_STATE_TTL = 600

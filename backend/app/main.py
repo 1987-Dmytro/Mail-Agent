@@ -79,35 +79,68 @@ def initialize_email_embeddings_collection() -> None:
 
         if pinecone_api_key:
             # Production: Use Pinecone cloud vector database
-            vector_db_client = PineconeVectorDBClient(
-                api_key=pinecone_api_key,
-                index_name="ai-assistant-memories",  # Existing 768-dim index
-                namespace="mail-agent-emails"  # Isolated namespace
-            )
-
-            # Create email_embeddings collection (namespace)
-            collection = vector_db_client.get_or_create_collection(
-                name="email_embeddings",
-                metadata={
-                    "hnsw:space": "cosine",  # Cosine similarity
-                    "description": "Email embeddings for RAG context retrieval",
-                },
-            )
-
             logger.info(
-                "vector_db_initialized",
-                provider="pinecone",
+                "pinecone_initialization_started",
                 index_name="ai-assistant-memories",
                 namespace="mail-agent-emails",
-                collection_name="email_embeddings",
-                distance_metric="cosine",
-                collection_count=vector_db_client.count_embeddings("email_embeddings"),
+                api_key_prefix=pinecone_api_key[:10] + "..."
             )
+
+            try:
+                vector_db_client = PineconeVectorDBClient(
+                    api_key=pinecone_api_key,
+                    index_name="ai-assistant-memories",  # Existing 768-dim index
+                    namespace="mail-agent-emails"  # Isolated namespace
+                )
+
+                # Verify Pinecone connection health
+                if not vector_db_client.health_check():
+                    raise ConnectionError("Pinecone health check failed - connection not working")
+
+                # Create email_embeddings collection (namespace)
+                collection = vector_db_client.get_or_create_collection(
+                    name="email_embeddings",
+                    metadata={
+                        "hnsw:space": "cosine",  # Cosine similarity
+                        "description": "Email embeddings for RAG context retrieval",
+                    },
+                )
+
+                embedding_count = vector_db_client.count_embeddings("email_embeddings")
+
+                logger.info(
+                    "vector_db_initialized",
+                    provider="pinecone",
+                    index_name="ai-assistant-memories",
+                    namespace="mail-agent-emails",
+                    collection_name="email_embeddings",
+                    distance_metric="cosine",
+                    collection_count=embedding_count,
+                    status="SUCCESS"
+                )
+
+            except Exception as pinecone_error:
+                # CRITICAL: Log Pinecone initialization failure with full traceback
+                logger.error(
+                    "pinecone_initialization_failed",
+                    error=str(pinecone_error),
+                    error_type=type(pinecone_error).__name__,
+                    exc_info=True  # Include full traceback
+                )
+                logger.critical(
+                    "falling_back_to_chromadb_due_to_pinecone_failure",
+                    reason=str(pinecone_error),
+                    warning="ChromaDB in cloud deployment = EPHEMERAL STORAGE! Data will be lost on restart!"
+                )
+                # Re-raise to prevent silent fallback in production
+                raise
+
         else:
             # Fallback: Use ChromaDB for local development
             logger.warning(
                 "pinecone_api_key_missing",
-                note="Falling back to ChromaDB for local development"
+                note="Falling back to ChromaDB for local development. "
+                     "Set PINECONE_API_KEY environment variable for production!"
             )
             vector_db_client = VectorDBClient(persist_directory=settings.CHROMADB_PATH)
 
@@ -121,12 +154,19 @@ def initialize_email_embeddings_collection() -> None:
                 provider="chromadb",
                 persist_directory=settings.CHROMADB_PATH,
                 collection_count=vector_db_client.count_embeddings("email_embeddings"),
+                warning="Using local ChromaDB - not suitable for production!"
             )
 
     except Exception as e:
-        logger.error("vector_db_initialization_failed", error=str(e))
+        logger.error(
+            "vector_db_initialization_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True
+        )
         # Allow app to start in degraded mode without vector DB
         # (similar to Telegram bot handling)
+        logger.warning("application_starting_without_vector_db", degraded_mode=True)
 
 
 @asynccontextmanager
