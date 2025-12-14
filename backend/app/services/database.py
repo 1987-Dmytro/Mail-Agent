@@ -44,10 +44,23 @@ class DatabaseService:
 
             # Create async engine with appropriate pool configuration
             # Use postgresql+psycopg for async driver (psycopg3)
-            connection_url = (
-                f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-                f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
-            )
+            # Prefer DATABASE_URL (Koyeb, Fly.io) over individual settings
+            import os
+            database_url = os.getenv("DATABASE_URL")
+            if database_url:
+                # Fix postgres:// -> postgresql:// for SQLAlchemy 2.0+
+                database_url = database_url.replace("postgres://", "postgresql://")
+                # Add async driver
+                if "postgresql://" in database_url and "+psycopg" not in database_url:
+                    connection_url = database_url.replace("postgresql://", "postgresql+psycopg://")
+                else:
+                    connection_url = database_url
+            else:
+                # Fallback to individual settings for local development
+                connection_url = (
+                    f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+                    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+                )
 
             self.engine = create_async_engine(
                 connection_url,
