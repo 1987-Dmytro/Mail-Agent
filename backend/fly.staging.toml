@@ -18,6 +18,14 @@ primary_region = "fra" # Frankfurt (or your preferred region)
   cpu_kind = 'shared'
   cpus = 1
 
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true  # Stop when idle to save money
+  auto_start_machines = true # Start on incoming requests
+  min_machines_running = 0   # Allow all machines to stop
+  processes = ["app"]
+
 [[services]]
   protocol = "tcp"
   internal_port = 8000
