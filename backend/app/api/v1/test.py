@@ -626,9 +626,9 @@ class VectorDBTestResponse(BaseModel):
 
 @router.get("/vector-db", status_code=status.HTTP_200_OK, response_model=VectorDBTestResponse)
 def test_vector_db_connectivity():
-    """Test ChromaDB vector database connectivity and health.
+    """Test vector database connectivity and health (ChromaDB or Pinecone).
 
-    This endpoint verifies that the ChromaDB vector database is accessible and
+    This endpoint verifies that the vector database is accessible and
     returns statistics about the email_embeddings collection. No authentication
     required for health check.
 
@@ -639,17 +639,26 @@ def test_vector_db_connectivity():
             "collection_name": "email_embeddings",
             "total_embeddings": 127,
             "distance_metric": "cosine",
-            "persist_directory": "./backend/data/chromadb",
+            "persist_directory": "pinecone://ai-assistant-memories/mail-agent-emails",
             "error": null
         }
 
     Raises:
-        HTTPException 500: ChromaDB connection failed or not initialized
+        HTTPException 500: Vector DB connection failed or not initialized
 
     Example:
         GET /api/v1/test/vector-db
 
-        Success Response (200):
+        Success Response (200) - Pinecone:
+        {
+            "status": "connected",
+            "collection_name": "email_embeddings",
+            "total_embeddings": 127,
+            "distance_metric": "cosine",
+            "persist_directory": "pinecone://ai-assistant-memories/mail-agent-emails"
+        }
+
+        Success Response (200) - ChromaDB:
         {
             "status": "connected",
             "collection_name": "email_embeddings",
@@ -664,8 +673,8 @@ def test_vector_db_connectivity():
             "collection_name": "email_embeddings",
             "total_embeddings": 0,
             "distance_metric": "cosine",
-            "persist_directory": "./backend/data/chromadb",
-            "error": "ChromaDB client not initialized"
+            "persist_directory": "unknown",
+            "error": "Vector DB client not initialized"
         }
     """
     logger.info("vector_db_test_requested")
@@ -680,7 +689,7 @@ def test_vector_db_connectivity():
             logger.error("vector_db_test_not_initialized")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="ChromaDB client not initialized. Check application startup logs.",
+                detail="Vector DB client not initialized. Check application startup logs.",
             )
 
         # Perform health check
@@ -688,11 +697,22 @@ def test_vector_db_connectivity():
             logger.error("vector_db_test_health_check_failed")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="ChromaDB health check failed. Database may be unavailable.",
+                detail="Vector DB health check failed. Database may be unavailable.",
             )
 
         # Get collection statistics
         total_embeddings = vector_db_client.count_embeddings("email_embeddings")
+
+        # Determine vector DB type and persistence location
+        if hasattr(vector_db_client, 'index_name') and hasattr(vector_db_client, 'namespace'):
+            # Pinecone client
+            persist_directory = f"pinecone://{vector_db_client.index_name}/{vector_db_client.namespace}"
+        elif hasattr(vector_db_client, 'persist_directory'):
+            # ChromaDB client
+            persist_directory = vector_db_client.persist_directory
+        else:
+            # Unknown client type
+            persist_directory = "unknown"
 
         logger.info(
             "vector_db_test_completed",
@@ -705,7 +725,7 @@ def test_vector_db_connectivity():
             collection_name="email_embeddings",
             total_embeddings=total_embeddings,
             distance_metric="cosine",
-            persist_directory=settings.CHROMADB_PATH,
+            persist_directory=persist_directory,
             error=None,
         )
 
@@ -722,7 +742,7 @@ def test_vector_db_connectivity():
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"ChromaDB connectivity test failed: {str(e)}",
+            detail=f"Vector DB connectivity test failed: {str(e)}",
         )
 
 
