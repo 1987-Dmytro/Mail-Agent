@@ -102,6 +102,12 @@ Classify the email below into one of the user's predefined folder categories. Co
 
 {user_folder_categories}
 
+🚨 **CRITICAL RULE: You MUST choose a folder from the list above!**
+- The "suggested_folder" field MUST EXACTLY MATCH one of the folder names listed above
+- NEVER EVER use "Unclassified", "Other", "Unknown", or any folder not in the user's list
+- If uncertain, pick the CLOSEST matching folder (usually "Important") and lower the confidence score
+- Invalid folder names will cause system errors - this is NOT optional!
+
 **When classifying, consider:**
 - Sender domain and reputation (e.g., government domains like finanzamt.de, auslaenderbehoerde.de)
 - Subject line keywords (e.g., "WICHTIG", "urgent", "deadline")
@@ -110,10 +116,10 @@ Classify the email below into one of the user's predefined folder categories. Co
 - Time-sensitivity indicators
 
 **If the email doesn't clearly fit any category:**
-- Choose the CLOSEST MATCHING folder from the user's categories above
+- Choose the CLOSEST MATCHING folder from the user's categories above (default to "Important" if very uncertain)
 - Lower your confidence score (<0.7)
 - Explain in reasoning why this was the best available option
-- NEVER use "Unclassified" - always pick one of the user's actual folders
+- Remember: suggested_folder MUST be from the user's folder list - no exceptions!
 
 ---
 
@@ -142,116 +148,6 @@ Body Preview (first 500 characters):
 - Check "Full Conversation with Sender" section above for mentions of locations (Frankfurt, Switzerland, etc.)
 - Reference specific plans found in sender_history (e.g., "meeting at Hauptbahnhof Frankfurt")
 - DO NOT say "I don't have specific information" if plans ARE mentioned in sender_history above!
-
----
-
-**Few-Shot Examples:**
-
-Example 1: Government Email (German)
-Input:
-From: finanzamt@berlin.de
-Subject: Steuererklärung 2024 - Frist
-Body: Sehr geehrte Damen und Herren, bitte beachten Sie die Abgabefrist...
-
-Output:
-{{
-  "suggested_folder": "Government",
-  "reasoning": "Official communication from Finanzamt (Tax Office) regarding tax return deadline",
-  "priority_score": 85,
-  "confidence": 0.95,
-  "needs_response": false,
-  "response_draft": null,
-  "detected_language": "de",
-  "tone": "formal"
-}}
-
-Example 2: Client Email (English)
-Input:
-From: john.smith@acmecorp.com
-Subject: Re: Project timeline update
-Body: Hi, I wanted to follow up on our discussion about the Q4 deliverables...
-
-Output:
-{{
-  "suggested_folder": "Clients",
-  "reasoning": "Business correspondence from client discussing project deliverables",
-  "priority_score": 60,
-  "confidence": 0.90,
-  "needs_response": true,
-  "response_draft": "Hi John, thanks for following up. I'll review the Q4 deliverables timeline and get back to you with an update by end of week.",
-  "detected_language": "en",
-  "tone": "professional"
-}}
-
-Example 3: Marketing Email (English)
-Input:
-From: newsletter@techcrunch.com
-Subject: TechCrunch Daily: Top tech news
-Body: Welcome to TechCrunch Daily! Here are today's top stories...
-
-Output:
-{{
-  "suggested_folder": "Important",
-  "reasoning": "Automated newsletter/marketing email. Classified as Important (lowest priority) since no dedicated newsletter folder exists",
-  "priority_score": 10,
-  "confidence": 0.60,
-  "needs_response": false,
-  "response_draft": null
-}}
-
-Example 3b: Platform Notification with noreply (English)
-Input:
-From: AI Automation Agency Hub <noreply@skool.com>
-Subject: New post: "UPCOMING MASTERCLASS"
-Body: Liam Ottley posted in your community about upcoming masterclass...
-
-Output:
-{{
-  "suggested_folder": "Important",
-  "reasoning": "Automated platform notification from Skool (noreply address). No response possible or needed",
-  "priority_score": 15,
-  "confidence": 0.95,
-  "needs_response": false,
-  "response_draft": null,
-  "detected_language": "en",
-  "tone": "professional"
-}}
-
-Example 4: Unclear Email (Russian)
-Input:
-From: info@random-company.ru
-Subject: Возможность сотрудничества
-Body: Здравствуйте, мы бы хотели обсудить возможность...
-
-Output:
-{{
-  "suggested_folder": "Clients",
-  "reasoning": "Unknown sender proposing business collaboration - best fits Clients folder as potential business inquiry. Low confidence due to unclear sender",
-  "priority_score": 40,
-  "confidence": 0.45,
-  "needs_response": true,
-  "response_draft": "Здравствуйте, спасибо за ваше предложение. Мог бы узнать больше деталей о возможности сотрудничества?",
-  "detected_language": "ru",
-  "tone": "formal"
-}}
-
-Example 5: Priority Government Email (German)
-Input:
-From: auslaenderbehoerde@berlin.de
-Subject: WICHTIG: Termin für Aufenthaltstitel
-Body: Sehr geehrte/r ..., Ihr Termin für die Verlängerung...
-
-Output:
-{{
-  "suggested_folder": "Government",
-  "reasoning": "Urgent communication from immigration office (Ausländerbehörde) regarding residence permit appointment",
-  "priority_score": 95,
-  "confidence": 0.98,
-  "needs_response": false,
-  "response_draft": null,
-  "detected_language": "de",
-  "tone": "formal"
-}}
 
 ---
 
@@ -296,16 +192,29 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 
 **Response Classification Rules:**
 
-⚠️ **CRITICAL - Check sender address FIRST:**
+⚠️ **CRITICAL STEP 1 - Check sender address patterns FIRST:**
 - **noreply addresses** (noreply@*, no-reply@*, donotreply@*): ALWAYS needs_response = FALSE
-- **automated system emails** (*@notifications.*, *@updates.*, *@alerts.*): ALWAYS needs_response = FALSE
+- **Marketing/bulk email domains** (*@send.*, *@email.*, *@marketing.*, *@newsletter.*, *@promo.*): ALWAYS needs_response = FALSE
+- **Automated system emails** (*@notifications.*, *@updates.*, *@alerts.*, *@info.*): ALWAYS needs_response = FALSE
 - **Platform notifications** (LinkedIn, GitHub, Skool, Slack, etc.): ALWAYS needs_response = FALSE
+- **Banking automated emails** (*@send.bank.*, *@email.bank.*, *@info.bank.*): ALWAYS needs_response = FALSE
 - Examples of automated senders that should NEVER get response:
   - noreply@skool.com, notifications@github.com, noreply@linkedin.com
-  - marketing@company.com, newsletter@techcrunch.com
+  - marketing@company.com, newsletter@techcrunch.com, admin@liamottley.com (marketing newsletters)
   - system@alerts.com, updates@platform.com
+  - email@send.vtb.ru, no-reply@gosuslugi.ru (automated bank/government notifications)
 
-**After checking sender address:**
+⚠️ **CRITICAL STEP 2 - Analyze sender_history from RAG Context:**
+- **If sender_history shows >5 emails with NO user responses** → HIGH probability this is a newsletter/automated sender → needs_response = FALSE
+- **If sender_history shows consistent pattern (all marketing, all notifications)** → needs_response = FALSE
+- **If sender_history is empty (0 emails)** → Use sender address patterns from STEP 1
+- **If sender_history shows back-and-forth conversation** → More likely needs_response = TRUE
+- Examples:
+  - 38 emails from Liam Ottley, no user responses → Marketing newsletter → needs_response = FALSE
+  - 6 emails from bank (email@send.vtb.ru), no user responses → Automated notifications → needs_response = FALSE
+  - 3 emails from colleague with 2 user responses → Real conversation → needs_response = TRUE (if current email asks question)
+
+⚠️ **CRITICAL STEP 3 - Final decision:**
 - needs_response = TRUE for: questions, meeting requests, invitations, action requests, follow-ups requiring reply FROM REAL PEOPLE
 - needs_response = FALSE for: newsletters, notifications, automated emails, security updates, informational announcements, marketing campaigns
 - If needs_response=true, ALWAYS generate response_draft using "Full Conversation with Sender" and "Related Emails Context" above
@@ -321,8 +230,10 @@ Return ONLY valid JSON matching this schema (no markdown code fences, no additio
 - DO NOT add your name or signature - the system will add it automatically
 
 **Important:**
-- Ensure suggested_folder exactly matches one of the folder names provided above
-- NEVER use "Unclassified" or any folder name not in the user's list - always pick the best matching folder
+- 🚨 CRITICAL: suggested_folder MUST EXACTLY MATCH one of the folder names from the list at the top (Clients, Government, Important, etc.)
+- NEVER EVER use "Unclassified", "Other", "Unknown", "Inbox", or ANY folder name not in the user's list
+- If uncertain which folder, default to "Important" with lower confidence score
+- Invalid folder names cause system errors - this requirement is MANDATORY
 - Keep reasoning under 300 characters (for Telegram message limit)
 - Always provide reasoning in English, regardless of email language
 - Use proper JSON escaping for special characters

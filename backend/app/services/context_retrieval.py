@@ -234,9 +234,9 @@ class ContextRetrievalService:
         sender: str,
         user_id: int,
         days: int = 90,
-        max_emails: int = 100  # Increased from 50 to ensure we get ALL emails
+        max_emails: int = 10  # Limited to 10 most recent emails for token budget
     ) -> Tuple[List[EmailMessage], int]:
-        """Retrieve ALL emails from a specific sender over last N days.
+        """Retrieve recent emails from a specific sender over last N days.
 
         This provides complete conversation context across multiple threads,
         enabling chronological understanding of the full correspondence.
@@ -341,13 +341,19 @@ class ContextRetrievalService:
             # Sort chronologically (oldest → newest) using Gmail's received_at timestamp
             email_messages.sort(key=lambda x: x.get("_timestamp", 0))
 
+            # Limit to max_emails most recent emails (take last N after sorting)
+            # This keeps token usage within Groq 12k limit while preserving chronological order
+            if len(email_messages) > max_emails:
+                email_messages = email_messages[-max_emails:]  # Keep last N (most recent)
+
             self.logger.info(
                 "sender_history_retrieval_completed",
                 sender=sender,
                 user_id=user_id,
                 count=len(email_messages),
                 total_count=total_count,
-                days=days
+                days=days,
+                limited_to=max_emails if total_count > max_emails else None
             )
 
             return email_messages, total_count
@@ -1004,13 +1010,13 @@ class ContextRetrievalService:
             # NOTE: Must complete before Step 3 to enable adaptive k calculation (AC #5)
             thread_history, original_thread_length = await self._get_thread_history(gmail_thread_id)
 
-            # Step 2.5: Fetch FULL sender conversation history (last 90 days)
-            # This provides complete chronological context across ALL threads with this sender
+            # Step 2.5: Fetch sender conversation history (last 90 days, max 10 emails)
+            # Limited to 10 most recent emails to fit within Groq 12k token limit
             sender_history, sender_history_count = await self._get_sender_history(
                 sender=email.sender,
                 user_id=self.user_id,
                 days=90,
-                max_emails=50
+                max_emails=10,  # Limit to 10 most recent emails for token budget
             )
 
             self.logger.info(
