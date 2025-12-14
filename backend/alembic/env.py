@@ -30,6 +30,9 @@ if not database_url:
         f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
         f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
     )
+else:
+    # Fix for SQLAlchemy 2.0+: replace 'postgres://' with 'postgresql://'
+    database_url = database_url.replace("postgres://", "postgresql://")
 config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
