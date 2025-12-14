@@ -77,9 +77,8 @@ export default function DashboardPage() {
   );
 
   // Extract stats from response
-  // NOTE: apiClient.get() wraps response in ApiResponse<T>, so we need to access .data
-  // But the actual data might already be unwrapped by apiClient
-  const stats = statsResponse?.data || statsResponse;
+  // NOTE: apiClient.getDashboardStats() returns ApiResponse<T>, so we need to access .data
+  const stats = statsResponse?.data;
 
   // Show error toast when stats fail to load
   useEffect(() => {
