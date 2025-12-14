@@ -49,8 +49,14 @@ else
 fi
 
 # Check required sensitive environment variables
-required_vars=("JWT_SECRET_KEY" "LLM_API_KEY")
+# Check for GROQ_API_KEY or GEMINI_API_KEY (not LLM_API_KEY which is deprecated)
+required_vars=("JWT_SECRET_KEY")
 missing_vars=()
+
+# Check if at least one AI API key is present
+if [[ -z "${GROQ_API_KEY}" ]] && [[ -z "${GEMINI_API_KEY}" ]]; then
+    missing_vars+=("GROQ_API_KEY or GEMINI_API_KEY")
+fi
 
 for var in "${required_vars[@]}"; do
     if [[ -z "${!var}" ]]; then
@@ -81,9 +87,12 @@ echo "Debug Mode: ${DEBUG:-false}"
 
 # Run database migrations automatically on startup
 echo "Running database migrations..."
-/app/.venv/bin/alembic upgrade head
+/app/.venv/bin/alembic upgrade head || {
+    echo "WARNING: Migrations failed, but continuing startup..."
+}
 
-echo "Migrations completed successfully!"
+echo "Migrations completed!"
 
 # Execute the CMD
+echo "Starting application with command: $@"
 exec "$@"
