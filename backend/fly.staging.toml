@@ -1,0 +1,58 @@
+# Fly.io configuration for Mail Agent Backend - STAGING
+# Deploy: flyctl deploy --config fly.staging.toml
+
+app = "mailagent-backend-staging"
+primary_region = "fra" # Frankfurt (or your preferred region)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  APP_ENV = "staging"
+  LOG_LEVEL = "INFO"
+  LOG_FORMAT = "json"
+  DEBUG = "false"
+
+[vm]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8000
+  processes = ["app"]  # Only app process handles HTTP
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "5s"
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "get"
+    path = "/health"
+    protocol = "http"
+
+# Process definitions
+[processes]
+  app = "/app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000"
+  worker = "/app/.venv/bin/celery -A app.celery worker --loglevel=info --concurrency=1"
+  beat = "/app/.venv/bin/celery -A app.celery beat --loglevel=info"
+

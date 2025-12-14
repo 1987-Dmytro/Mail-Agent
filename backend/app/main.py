@@ -117,8 +117,38 @@ async def lifespan(app: FastAPI):
     if settings.TELEGRAM_BOT_TOKEN:
         try:
             await telegram_bot.initialize()
-            await telegram_bot.start_polling()
-            logger.info("application_startup", telegram_bot="started")
+
+            # Use webhook in production/staging, polling in development
+            if settings.APP_ENV in ["production", "staging"]:
+                # Webhook mode for production deployments
+                await telegram_bot.start()  # Start app without polling
+
+                # Configure webhook if URL is set
+                if settings.TELEGRAM_WEBHOOK_URL:
+                    await telegram_bot.set_webhook(
+                        webhook_url=settings.TELEGRAM_WEBHOOK_URL,
+                        secret_token=settings.TELEGRAM_WEBHOOK_SECRET,
+                    )
+                    logger.info(
+                        "application_startup",
+                        telegram_bot="started",
+                        mode="webhook",
+                        webhook_url=settings.TELEGRAM_WEBHOOK_URL,
+                    )
+                else:
+                    logger.warning(
+                        "telegram_webhook_url_not_configured",
+                        note="TELEGRAM_WEBHOOK_URL not set - bot will not receive updates",
+                    )
+            else:
+                # Polling mode for local development
+                await telegram_bot.start_polling()
+                logger.info(
+                    "application_startup",
+                    telegram_bot="started",
+                    mode="polling",
+                )
+
         except TelegramBotError as e:
             logger.error(
                 "telegram_bot_startup_failed",
@@ -137,8 +167,14 @@ async def lifespan(app: FastAPI):
     # Stop Telegram bot gracefully
     if settings.TELEGRAM_BOT_TOKEN:
         try:
-            await telegram_bot.stop_polling()
-            logger.info("application_shutdown", telegram_bot="stopped")
+            if settings.APP_ENV in ["production", "staging"]:
+                # Webhook mode shutdown
+                await telegram_bot.stop()
+                logger.info("application_shutdown", telegram_bot="stopped", mode="webhook")
+            else:
+                # Polling mode shutdown
+                await telegram_bot.stop_polling()
+                logger.info("application_shutdown", telegram_bot="stopped", mode="polling")
         except Exception as e:
             logger.error("telegram_bot_shutdown_failed", error=str(e))
 

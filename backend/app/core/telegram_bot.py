@@ -490,11 +490,86 @@ class TelegramBotClient:
             )
             return False
 
+    async def set_webhook(self, webhook_url: str, secret_token: str = None):
+        """Configure Telegram webhook for production deployments.
+
+        Sets up Telegram to send updates to the specified webhook URL.
+        This is the recommended approach for production with multiple instances.
+
+        Args:
+            webhook_url: Full HTTPS URL where Telegram will send updates
+            secret_token: Optional secret token for webhook validation
+
+        Raises:
+            TelegramBotError: If webhook setup fails
+        """
+        if not self.bot:
+            raise TelegramBotError("Bot not initialized. Call initialize() first.")
+
+        try:
+            await self.bot.set_webhook(
+                url=webhook_url,
+                allowed_updates=["message", "callback_query"],
+                drop_pending_updates=True,
+                secret_token=secret_token,
+            )
+            logger.info(
+                "telegram_webhook_set",
+                webhook_url=webhook_url,
+                has_secret=bool(secret_token),
+            )
+
+        except TelegramError as e:
+            logger.error("telegram_webhook_setup_failed", error=str(e), webhook_url=webhook_url)
+            raise TelegramBotError(f"Failed to set webhook: {str(e)}") from e
+
+    async def delete_webhook(self):
+        """Remove webhook and switch back to polling mode.
+
+        Useful for local development or when switching from production to development.
+
+        Raises:
+            TelegramBotError: If webhook deletion fails
+        """
+        if not self.bot:
+            raise TelegramBotError("Bot not initialized. Call initialize() first.")
+
+        try:
+            await self.bot.delete_webhook(drop_pending_updates=True)
+            logger.info("telegram_webhook_deleted")
+
+        except TelegramError as e:
+            logger.error("telegram_webhook_deletion_failed", error=str(e))
+            raise TelegramBotError(f"Failed to delete webhook: {str(e)}") from e
+
+    async def start(self):
+        """Start the bot application (for webhook mode).
+
+        Starts the application without polling. Use this when webhooks are configured.
+        The application will receive updates via webhook endpoint instead of polling.
+
+        Raises:
+            TelegramBotError: If application start fails
+        """
+        if not self.application:
+            raise TelegramBotError("Application not initialized. Call initialize() first.")
+
+        try:
+            await self.application.start()
+            logger.info("telegram_bot_started", mode="webhook")
+
+        except TelegramError as e:
+            logger.error("telegram_bot_start_failed", error=str(e))
+            raise TelegramBotError(f"Failed to start bot: {str(e)}") from e
+
     async def start_polling(self):
         """Start the bot with long polling (getUpdates mode).
 
         Begins polling Telegram servers for updates (messages, commands, button clicks).
         This is a non-blocking call that starts background polling.
+
+        IMPORTANT: Only use for local development. For production with multiple instances,
+        use webhook mode instead to avoid conflicts.
 
         Updates handled:
         - message: Text messages from users
@@ -534,6 +609,25 @@ class TelegramBotClient:
             await self.application.stop()
             await self.application.shutdown()
             logger.info("telegram_bot_stopped")
+
+        except Exception as e:
+            logger.error("telegram_bot_stop_failed", error=str(e))
+            # Don't raise - shutdown should be graceful even if errors occur
+
+    async def stop(self):
+        """Stop the bot gracefully (for webhook mode).
+
+        Shuts down the application cleanly without stopping updater.
+        Use this for webhook mode shutdown.
+        """
+        if not self.application:
+            logger.warning("telegram_bot_stop_called_but_not_initialized")
+            return
+
+        try:
+            await self.application.stop()
+            await self.application.shutdown()
+            logger.info("telegram_bot_stopped", mode="webhook")
 
         except Exception as e:
             logger.error("telegram_bot_stop_failed", error=str(e))

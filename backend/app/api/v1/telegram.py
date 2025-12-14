@@ -2,9 +2,10 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
+from telegram import Update
 
 from app.api.deps import get_db
 from app.api.v1.auth import get_current_user
@@ -364,3 +365,71 @@ async def verify_linking_code(
             status_code=500,
             detail="An error occurred while verifying linking code. Please try again."
         )
+
+
+@router.post("/webhook", include_in_schema=False)
+async def telegram_webhook(
+    request: Request,
+    x_telegram_bot_api_secret_token: str = Header(None),
+):
+    """Telegram webhook endpoint for receiving bot updates.
+
+    This endpoint receives updates from Telegram servers when webhook mode is enabled.
+    Only used in production deployments with multiple instances.
+
+    Security:
+    - Validates secret token from Telegram headers
+    - Rejects requests without valid secret token
+
+    Args:
+        request: FastAPI request object with JSON body
+        x_telegram_bot_api_secret_token: Secret token from Telegram
+
+    Returns:
+        Response with 200 OK if update processed successfully
+
+    Raises:
+        HTTPException 403: If secret token is invalid or missing
+    """
+    # Validate secret token (if configured)
+    if settings.TELEGRAM_WEBHOOK_SECRET:
+        if x_telegram_bot_api_secret_token != settings.TELEGRAM_WEBHOOK_SECRET:
+            logger.warning(
+                "telegram_webhook_invalid_secret",
+                received_token=x_telegram_bot_api_secret_token[:10] if x_telegram_bot_api_secret_token else None,
+            )
+            raise HTTPException(status_code=403, detail="Invalid secret token")
+
+    try:
+        # Get telegram_bot instance from app state
+        from app.main import telegram_bot
+
+        if not telegram_bot or not telegram_bot.application:
+            logger.error("telegram_webhook_bot_not_initialized")
+            raise HTTPException(status_code=500, detail="Bot not initialized")
+
+        # Parse update from request body
+        body = await request.json()
+        update = Update.de_json(body, telegram_bot.bot)
+
+        # Process update through application handlers
+        await telegram_bot.application.process_update(update)
+
+        logger.info(
+            "telegram_webhook_update_processed",
+            update_id=update.update_id,
+            has_message=bool(update.message),
+            has_callback_query=bool(update.callback_query),
+        )
+
+        return Response(status_code=200)
+
+    except Exception as e:
+        logger.error(
+            "telegram_webhook_processing_failed",
+            error=str(e),
+            exc_info=True,
+        )
+        # Return 200 to prevent Telegram from retrying
+        # Log error for investigation
+        return Response(status_code=200)
