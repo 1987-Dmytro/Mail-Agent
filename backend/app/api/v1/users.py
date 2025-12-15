@@ -193,3 +193,78 @@ async def complete_onboarding(
             status_code=500,
             detail=f"Failed to complete onboarding: {str(e)}",
         )
+
+
+@router.post("/me/restart-indexing")
+async def restart_indexing(
+    current_user: User = Depends(get_current_user),
+):
+    """Restart email history indexing by deleting old progress and triggering fresh start.
+
+    This endpoint is useful when indexing gets stuck at 0% or encounters errors.
+    It will:
+    1. Delete existing IndexingProgress record
+    2. Trigger new indexing job via Celery
+    3. Return immediately (indexing runs in background)
+
+    Returns:
+        dict with success status and task_id
+
+    Raises:
+        HTTPException: If restart fails
+    """
+    try:
+        from sqlmodel import select
+        from app.models.indexing_progress import IndexingProgress
+
+        # Delete existing indexing progress
+        async with database_service.async_session() as session:
+            result = await session.execute(
+                select(IndexingProgress).where(IndexingProgress.user_id == current_user.id)
+            )
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                logger.info(
+                    "deleting_old_indexing_progress",
+                    user_id=current_user.id,
+                    status=existing.status.value,
+                    processed=existing.processed_count,
+                    total=existing.total_emails,
+                )
+                await session.delete(existing)
+                await session.commit()
+            else:
+                logger.info(
+                    "no_existing_indexing_progress",
+                    user_id=current_user.id,
+                )
+
+        # Trigger fresh indexing job
+        from app.tasks.indexing_tasks import index_user_emails
+        task = index_user_emails.delay(user_id=current_user.id, days_back=90)
+
+        logger.info(
+            "indexing_restarted",
+            user_id=current_user.id,
+            task_id=task.id,
+        )
+
+        return {
+            "success": True,
+            "message": "Indexing restarted successfully",
+            "task_id": task.id,
+            "note": "Indexing will complete in 5-10 minutes for 90 days of email history"
+        }
+
+    except Exception as e:
+        logger.error(
+            "restart_indexing_failed",
+            user_id=current_user.id,
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to restart indexing: {str(e)}",
+        )
