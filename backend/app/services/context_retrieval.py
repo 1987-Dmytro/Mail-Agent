@@ -39,7 +39,7 @@ from sqlmodel import select
 
 from app.core.embedding_service import EmbeddingService
 from app.core.gmail_client import GmailClient
-from app.core.vector_db import VectorDBClient
+from app.core.vector_db_pinecone import PineconeVectorDBClient
 from app.models.context_models import EmailMessage, RAGContext
 from app.models.email import EmailProcessingQueue
 from app.services.database import DatabaseService, database_service
@@ -99,7 +99,7 @@ class ContextRetrievalService:
         db_service: DatabaseService = None,
         gmail_client: GmailClient = None,
         embedding_service: EmbeddingService = None,
-        vector_db_client: VectorDBClient = None,
+        vector_db_client: PineconeVectorDBClient = None,
     ):
         """Initialize context retrieval service for specific user.
 
@@ -126,10 +126,11 @@ class ContextRetrievalService:
         self.db_service = db_service or database_service
         self.gmail_client = gmail_client or GmailClient(user_id=user_id, db_service=self.db_service)
         self.embedding_service = embedding_service or EmbeddingService()
-        # Use ChromaDB persist directory from settings
+        # Use Pinecone for cloud-native persistent storage
         from app.core.config import settings
-        self.vector_db_client = vector_db_client or VectorDBClient(
-            persist_directory=settings.CHROMADB_PATH
+        self.vector_db_client = vector_db_client or PineconeVectorDBClient(
+            api_key=settings.PINECONE_API_KEY,
+            index_name="ai-assistant-memories"
         )
         self.logger = structlog.get_logger(__name__)
 

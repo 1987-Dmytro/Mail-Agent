@@ -27,7 +27,7 @@ from telegram.ext import ContextTypes
 from app.core.gmail_client import GmailClient
 from app.core.telegram_bot import TelegramBotClient
 from app.core.embedding_service import EmbeddingService
-from app.core.vector_db import VectorDBClient
+from app.core.vector_db_pinecone import PineconeVectorDBClient
 from app.models.email import EmailProcessingQueue
 from app.models.workflow_mapping import WorkflowMapping
 from app.models.user import User
@@ -65,7 +65,7 @@ class ResponseSendingService:
         self,
         telegram_bot: TelegramBotClient,
         embedding_service: EmbeddingService,
-        vector_db_client: VectorDBClient,
+        vector_db_client: PineconeVectorDBClient,
         db_service: DatabaseService = None
     ):
         """Initialize response sending service.
@@ -73,7 +73,7 @@ class ResponseSendingService:
         Args:
             telegram_bot: Initialized TelegramBotClient instance
             embedding_service: EmbeddingService for generating embeddings
-            vector_db_client: VectorDBClient for storing embeddings
+            vector_db_client: PineconeVectorDBClient for storing embeddings in Pinecone
             db_service: DatabaseService for creating database sessions (defaults to global instance)
         """
         self.telegram_bot = telegram_bot

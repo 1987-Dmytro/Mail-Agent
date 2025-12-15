@@ -43,7 +43,7 @@ from app.core.embedding_service import EmbeddingService
 from app.core.gmail_client import GmailClient
 from app.core.preprocessing import extract_email_text, strip_html, truncate_to_tokens
 from app.core.telegram_bot import TelegramBotClient
-from app.core.vector_db import VectorDBClient
+from app.core.vector_db_pinecone import PineconeVectorDBClient
 from app.models.indexing_progress import IndexingProgress, IndexingStatus
 from app.models.user import User
 from app.services.database import DatabaseService, database_service
@@ -121,10 +121,11 @@ class EmailIndexingService:
         self.db_service = db_service or database_service
         self.gmail_client = gmail_client or GmailClient(user_id=user_id, db_service=self.db_service)
         self.embedding_service = embedding_service or EmbeddingService()
-        # Use ChromaDB persist directory from settings
+        # Use Pinecone for cloud-native persistent storage
         from app.core.config import settings
-        self.vector_db_client = vector_db_client or VectorDBClient(
-            persist_directory=settings.CHROMADB_PATH
+        self.vector_db_client = vector_db_client or PineconeVectorDBClient(
+            api_key=settings.PINECONE_API_KEY,
+            index_name="ai-assistant-memories"
         )
         self.telegram_bot = telegram_bot or TelegramBotClient()
         self.logger = structlog.get_logger(__name__)

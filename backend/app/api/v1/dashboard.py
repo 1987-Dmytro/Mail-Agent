@@ -14,7 +14,6 @@ from app.api.deps import get_async_db
 from app.models.user import User
 from app.models.email import EmailProcessingQueue
 from app.models.indexing_progress import IndexingProgress, IndexingStatus
-from app.core.vector_db import VectorDBClient
 import structlog
 
 
@@ -33,7 +32,7 @@ class DashboardStatsResponse(BaseModel):
     telegram_connected: bool = Field(False, description="Telegram connection status")
 
     # Vector database status
-    vector_db_connected: bool = Field(False, description="ChromaDB vector database connection status")
+    vector_db_connected: bool = Field(False, description="Pinecone vector database connection status")
 
     # RAG indexing progress
     indexing_in_progress: bool = Field(False, description="Whether email indexing is currently running")
@@ -139,12 +138,14 @@ async def get_dashboard_stats(
         # Check Telegram connection (telegram_id exists)
         telegram_connected = current_user.telegram_id is not None
 
-        # Check ChromaDB vector database connection
+        # Check Pinecone vector database connection
         vector_db_connected = False
         try:
             from app.core.config import settings
-            vector_db_client = VectorDBClient(
-                persist_directory=settings.CHROMADB_PATH
+            from app.core.vector_db_pinecone import PineconeVectorDBClient
+            vector_db_client = PineconeVectorDBClient(
+                api_key=settings.PINECONE_API_KEY,
+                index_name="ai-assistant-memories"
             )
             vector_db_connected = vector_db_client.health_check()
             logger.debug(
