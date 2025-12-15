@@ -45,7 +45,8 @@ export function LoginForm() {
       const response = await apiClient.login(email, password);
 
       // Backend returns token directly without {data: {...}} wrapper
-      const access_token = response.access_token || response.data?.access_token;
+      // Type cast to handle mismatch between backend response and ApiResponse type
+      const access_token = (response as any).access_token || (response as any).data?.access_token;
 
       if (access_token) {
         // Store JWT token
