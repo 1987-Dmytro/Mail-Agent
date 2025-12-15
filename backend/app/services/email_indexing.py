@@ -35,7 +35,6 @@ from datetime import datetime, timedelta, UTC
 from typing import Dict, List, Optional
 
 import structlog
-from langdetect import detect, LangDetectException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -678,43 +677,14 @@ class EmailIndexingService:
             subject=email.get("subject", "")[:50]
         )
 
-        # Detect language from body
-        language = "en"  # Default fallback
-        try:
-            body = email.get("body", "")
-            body_size_kb = len(body) / 1024 if body else 0
-            self.logger.info(
-                "language_detection_started",
-                message_id=message_id,
-                body_size_kb=round(body_size_kb, 2)
-            )
-
-            if body and len(body.strip()) > 10:
-                language = detect(body)
-
-            self.logger.info(
-                "language_detection_completed",
-                message_id=message_id,
-                language=language
-            )
-        except LangDetectException as e:
-            # Detection failed - use default
-            self.logger.warning(
-                "language_detection_failed",
-                message_id=message_id,
-                error=str(e)
-            )
-            pass
-        except Exception as e:
-            # Unexpected error during language detection
-            self.logger.error(
-                "language_detection_unexpected_error",
-                message_id=message_id,
-                error=str(e),
-                error_type=type(e).__name__
-            )
-            # Continue with default language
-            pass
+        # Language will be detected during classification workflow by Groq LLM
+        # This avoids loading heavy langdetect models into memory (OOM on 512MB instance)
+        language = "unknown"  # Will be set during email classification
+        self.logger.info(
+            "language_detection_deferred",
+            message_id=message_id,
+            note="Language will be detected by Groq during classification workflow"
+        )
 
         # Extract snippet (first 200 chars of body)
         self.logger.info("snippet_extraction_started", message_id=message_id)
