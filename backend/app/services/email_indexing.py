@@ -792,32 +792,121 @@ class EmailIndexingService:
             checkpoint=progress.last_processed_message_id,
         )
 
-        # Retrieve remaining emails (simplified - in production would use checkpoint)
-        # For now, retrieve all and skip already processed
-        all_emails = await self.retrieve_gmail_emails(days_back=90)
+        # STREAMING MODE: Retrieve and process Gmail pages immediately (prevents OOM)
+        # Calculate cutoff date (90 days ago)
+        cutoff_date = datetime.now(UTC) - timedelta(days=90)
+        cutoff_timestamp = int(cutoff_date.timestamp())
+        query = f"after:{cutoff_timestamp}"
 
-        # Filter to only unprocessed emails
-        # (In production, would use last_processed_message_id to query Gmail efficiently)
-        remaining_emails = all_emails[progress.processed_count :]
+        self.logger.info(
+            "gmail_retrieval_started",
+            user_id=self.user_id,
+            days_back=90,
+            cutoff_date=cutoff_date.isoformat(),
+            query=query,
+        )
 
-        # Process remaining batches
-        for i in range(0, len(remaining_emails), self.EMBEDDING_BATCH_SIZE):
-            batch = remaining_emails[i : i + self.EMBEDDING_BATCH_SIZE]
+        current_page_token = None
+        page_count = 0
+        emails_skipped = 0  # Track emails already processed
+        emails_processed_this_run = 0  # Track new emails processed in this resume session
+        gmail_page_buffer = []  # Buffer for current Gmail page (max 100 emails)
 
-            # Process batch
-            processed_count = await self.process_batch(batch)
+        # Pagination loop - process each page immediately
+        while True:
+            page_count += 1
 
-            # Update progress
-            total_processed = progress.processed_count + i + processed_count
-            last_message_id = batch[-1]["message_id"] if batch else None
-            await self.update_progress(
-                processed_count=total_processed,
-                last_message_id=last_message_id,
+            # Get page of message IDs from Gmail
+            service = await self.gmail_client._get_gmail_service()
+            list_params = {
+                "userId": "me",
+                "q": query,
+                "maxResults": self.GMAIL_PAGE_SIZE,
+            }
+            if current_page_token:
+                list_params["pageToken"] = current_page_token
+
+            try:
+                list_result = service.users().messages().list(**list_params).execute()
+            except Exception as e:
+                raise GmailAPIError(f"Failed to list messages: {str(e)}") from e
+
+            messages = list_result.get("messages", [])
+
+            if not messages:
+                break  # No more messages
+
+            self.logger.info(
+                "gmail_page_retrieved",
+                user_id=self.user_id,
+                page_count=page_count,
+                messages_in_page=len(messages),
             )
 
-            # Rate limiting
-            if i + self.EMBEDDING_BATCH_SIZE < len(remaining_emails):
-                await asyncio.sleep(self.RATE_LIMIT_DELAY_SECONDS)
+            # Fetch full details for each message in page and add to buffer
+            gmail_page_buffer = []
+            for msg in messages:
+                try:
+                    message_detail = service.users().messages().get(
+                        userId="me",
+                        id=msg["id"],
+                        format="full",
+                    ).execute()
+                    email_data = await self._parse_gmail_message(message_detail)
+
+                    # Skip already processed emails (based on progress.processed_count)
+                    if emails_skipped < progress.processed_count:
+                        emails_skipped += 1
+                        continue
+
+                    gmail_page_buffer.append(email_data)
+                except Exception as e:
+                    self.logger.warning(
+                        "failed_to_fetch_message_detail",
+                        user_id=self.user_id,
+                        message_id=msg["id"],
+                        error=str(e),
+                    )
+                    continue
+
+            # Process this Gmail page immediately (embeddings + Pinecone)
+            # Split into 50-email batches if needed
+            for i in range(0, len(gmail_page_buffer), self.EMBEDDING_BATCH_SIZE):
+                batch = gmail_page_buffer[i : i + self.EMBEDDING_BATCH_SIZE]
+
+                if not batch:
+                    continue
+
+                self.logger.info(
+                    "processing_batch_resume",
+                    user_id=self.user_id,
+                    page_count=page_count,
+                    batch_size=len(batch),
+                    processed_so_far=progress.processed_count + emails_processed_this_run,
+                )
+
+                # Process batch (embed + store)
+                batch_processed = await self.process_batch(batch)
+                emails_processed_this_run += batch_processed
+
+                # Update progress (total = initial progress + new emails processed)
+                total_processed = progress.processed_count + emails_processed_this_run
+                last_message_id = batch[-1]["message_id"] if batch else None
+                await self.update_progress(
+                    processed_count=total_processed,
+                    last_message_id=last_message_id,
+                )
+
+            # Clear buffer to free memory
+            gmail_page_buffer = []
+
+            # Check for next page
+            current_page_token = list_result.get("nextPageToken")
+            if not current_page_token:
+                break  # No more pages
+
+            # Rate limiting between pages
+            await asyncio.sleep(1)
 
         # Mark complete
         await self.mark_complete()
