@@ -352,6 +352,93 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                     exc_info=True,
                 )
 
+        # AUTOMATIC REPROCESSING: Check for pending emails that were blocked before indexing completed
+        # This runs ONCE per polling cycle, AFTER new emails are processed
+        # If indexing is now complete, we reprocess stuck pending emails
+        if indexing_ready:
+            # Query for pending emails (emails that were added before indexing completed)
+            pending_statement = select(EmailProcessingQueue).where(
+                EmailProcessingQueue.user_id == user_id,
+                EmailProcessingQueue.status == "pending"
+            ).order_by(EmailProcessingQueue.received_at)
+
+            pending_result = await session.execute(pending_statement)
+            pending_emails = pending_result.scalars().all()
+
+            if pending_emails:
+                logger.info(
+                    "reprocessing_pending_emails",
+                    user_id=user_id,
+                    count=len(pending_emails),
+                    note="Starting workflows for emails that were blocked before indexing completed"
+                )
+
+                reprocessed_count = 0
+                for pending_email in pending_emails:
+                    try:
+                        # Create new session for workflow
+                        async with database_service.async_session() as workflow_session:
+                            # Initialize workflow tracker
+                            llm_client = LLMClient()
+                            telegram_bot_client = TelegramBotClient()
+                            database_url = os.getenv("DATABASE_URL")
+
+                            workflow_tracker = WorkflowInstanceTracker(
+                                db=workflow_session,
+                                gmail_client=gmail_client,
+                                llm_client=llm_client,
+                                telegram_bot_client=telegram_bot_client,
+                                database_url=database_url,
+                            )
+
+                            # Start workflow
+                            thread_id = await workflow_tracker.start_workflow(
+                                email_id=pending_email.id,
+                                user_id=user_id,
+                            )
+
+                            await workflow_session.commit()
+
+                            logger.info(
+                                "pending_email_reprocessed",
+                                email_id=pending_email.id,
+                                user_id=user_id,
+                                thread_id=thread_id,
+                                sender=pending_email.sender,
+                                subject=pending_email.subject,
+                            )
+                            reprocessed_count += 1
+
+                            # Queue incremental indexing if not already done
+                            try:
+                                index_new_email_background.delay(
+                                    user_id=user_id,
+                                    message_id=pending_email.gmail_message_id
+                                )
+                            except Exception as indexing_error:
+                                logger.warning(
+                                    "reprocess_indexing_queue_failed",
+                                    email_id=pending_email.id,
+                                    error=str(indexing_error)
+                                )
+
+                    except Exception as reprocess_error:
+                        logger.error(
+                            "pending_email_reprocessing_failed",
+                            email_id=pending_email.id,
+                            user_id=user_id,
+                            error=str(reprocess_error),
+                            exc_info=True,
+                        )
+
+                if reprocessed_count > 0:
+                    logger.info(
+                        "reprocessing_complete",
+                        user_id=user_id,
+                        reprocessed=reprocessed_count,
+                        total_pending=len(pending_emails)
+                    )
+
     logger.info("email_processing_summary", user_id=user_id, new_emails=new_count, duplicates=skip_count)
 
     return new_count, skip_count
