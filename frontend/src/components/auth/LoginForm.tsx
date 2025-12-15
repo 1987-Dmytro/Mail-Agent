@@ -44,9 +44,10 @@ export function LoginForm() {
       // Call login API
       const response = await apiClient.login(email, password);
 
-      if (response.data && response.data.access_token) {
-        const { access_token } = response.data;
+      // Backend returns token directly without {data: {...}} wrapper
+      const access_token = response.access_token || response.data?.access_token;
 
+      if (access_token) {
         // Store JWT token
         setToken(access_token);
 
