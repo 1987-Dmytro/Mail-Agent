@@ -557,20 +557,50 @@ class EmailIndexingService:
             batch_size=len(emails),
         )
 
-        # Preprocess email bodies
+        # Preprocess email bodies with detailed logging to identify OOM cause
         preprocessed_bodies = []
-        for email in emails:
-            body = email["body"]
-            # Strip HTML and truncate
-            preprocessed = truncate_to_tokens(strip_html(body), max_tokens=2048)
-            preprocessed_bodies.append(preprocessed)
+        self.logger.info("preprocessing_started", batch_size=len(emails))
+
+        for i, email in enumerate(emails):
+            try:
+                body = email["body"]
+                body_size_kb = len(body) / 1024 if body else 0
+
+                self.logger.info(
+                    "preprocessing_email",
+                    email_index=i,
+                    body_size_kb=round(body_size_kb, 2),
+                    subject=email.get("subject", "")[:50]
+                )
+
+                # Strip HTML and truncate
+                preprocessed = truncate_to_tokens(strip_html(body), max_tokens=2048)
+                preprocessed_bodies.append(preprocessed)
+
+                self.logger.info(
+                    "preprocessing_email_completed",
+                    email_index=i,
+                    preprocessed_size_kb=round(len(preprocessed) / 1024, 2)
+                )
+            except Exception as e:
+                self.logger.error(
+                    "preprocessing_email_failed",
+                    email_index=i,
+                    error=str(e),
+                    error_type=type(e).__name__
+                )
+                raise
+
+        self.logger.info("preprocessing_completed", count=len(preprocessed_bodies))
 
         # Generate embeddings (batch call)
+        self.logger.info("embedding_generation_started", batch_size=len(preprocessed_bodies))
         try:
             embeddings = self.embedding_service.embed_batch(
                 texts=preprocessed_bodies,
                 batch_size=self.EMBEDDING_BATCH_SIZE,
             )
+            self.logger.info("embedding_generation_completed", count=len(embeddings))
         except Exception as e:
             raise GeminiAPIError(f"Failed to generate embeddings: {str(e)}") from e
 
@@ -582,7 +612,8 @@ class EmailIndexingService:
             metadatas.append(metadata)
             ids.append(email["message_id"])  # Use Gmail message_id as unique identifier
 
-        # Store in ChromaDB
+        # Store in Pinecone
+        self.logger.info("pinecone_upsert_started", batch_size=len(embeddings))
         try:
             self.vector_db_client.insert_embeddings_batch(
                 collection_name="email_embeddings",
@@ -590,11 +621,11 @@ class EmailIndexingService:
                 metadatas=metadatas,
                 ids=ids,
             )
-            # Note: insert_embeddings_batch returns None on success, raises exception on failure
+            self.logger.info("pinecone_upsert_completed", batch_size=len(ids))
 
         except Exception as e:
             self.logger.error(
-                "chromadb_insertion_failed",
+                "pinecone_upsert_failed",
                 user_id=self.user_id,
                 batch_size=len(emails),
                 error=str(e),
