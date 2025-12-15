@@ -382,6 +382,8 @@ def check_and_resume_interrupted_indexing() -> dict:
     logger.info("checking_for_interrupted_indexing_jobs")
 
     async def find_and_resume():
+        from datetime import datetime, timezone, timedelta
+
         async with database_service.async_session() as session:
             # Find all users with interrupted indexing (status=IN_PROGRESS but not completed)
             result = await session.execute(
@@ -396,30 +398,35 @@ def check_and_resume_interrupted_indexing() -> dict:
             inspect = celery_app.control.inspect()
             active_tasks = inspect.active() or {}
 
-            # Extract user_ids from active resume tasks
-            active_resume_user_ids = set()
+            # Extract user_ids from active indexing/resume tasks
+            active_indexing_user_ids = set()
             for worker, tasks in active_tasks.items():
                 for task in tasks:
-                    if task['name'] == 'app.tasks.indexing_tasks.resume_user_indexing':
+                    if task['name'] in [
+                        'app.tasks.indexing_tasks.resume_user_indexing',
+                        'app.tasks.indexing_tasks.index_user_emails'
+                    ]:
                         # Extract user_id from task args or kwargs
                         user_id = task.get('kwargs', {}).get('user_id') or (task.get('args', [None])[0] if task.get('args') else None)
                         if user_id:
-                            active_resume_user_ids.add(user_id)
+                            active_indexing_user_ids.add(user_id)
 
             logger.info(
-                "active_resume_tasks_detected",
-                active_user_ids=list(active_resume_user_ids),
-                count=len(active_resume_user_ids)
+                "active_indexing_tasks_detected",
+                active_user_ids=list(active_indexing_user_ids),
+                count=len(active_indexing_user_ids)
             )
 
             resumed_count = 0
+            restarted_count = 0
             skipped_count = 0
+
             for job in interrupted_jobs:
                 try:
-                    # Skip if resume task already running for this user
-                    if job.user_id in active_resume_user_ids:
+                    # Skip if indexing task already running for this user
+                    if job.user_id in active_indexing_user_ids:
                         logger.info(
-                            "skipping_resume_task_already_active",
+                            "skipping_indexing_task_already_active",
                             user_id=job.user_id,
                             processed=job.processed_count,
                             total=job.total_emails,
@@ -427,15 +434,53 @@ def check_and_resume_interrupted_indexing() -> dict:
                         skipped_count += 1
                         continue
 
-                    # Trigger resume task only if not already running
-                    resume_user_indexing.delay(user_id=job.user_id)
-                    resumed_count += 1
-                    logger.info(
-                        "auto_resumed_interrupted_indexing",
-                        user_id=job.user_id,
-                        processed=job.processed_count,
-                        total=job.total_emails,
+                    # SMART DETECTION: Check if indexing is "stuck" at 0%
+                    # If processed_count=0 and job is older than 15 minutes, it's stuck on Gmail retrieval
+                    now = datetime.now(timezone.utc)
+                    job_age_minutes = (now - job.created_at).total_seconds() / 60
+
+                    is_stuck = (
+                        job.processed_count == 0 and
+                        job_age_minutes > 15 and
+                        job.total_emails > 0  # Ensure total was set
                     )
+
+                    if is_stuck:
+                        # AUTO-RESTART: Delete stuck job and start fresh
+                        logger.warning(
+                            "stuck_indexing_detected_auto_restarting",
+                            user_id=job.user_id,
+                            processed=job.processed_count,
+                            total=job.total_emails,
+                            job_age_minutes=job_age_minutes,
+                            reason="Indexing stuck at 0% for >15 minutes - likely Gmail retrieval issue",
+                        )
+
+                        # Delete the stuck record
+                        await session.delete(job)
+                        await session.commit()
+
+                        # Trigger FRESH indexing (not resume)
+                        index_user_emails.delay(user_id=job.user_id, days_back=90)
+                        restarted_count += 1
+
+                        logger.info(
+                            "stuck_indexing_restarted",
+                            user_id=job.user_id,
+                            action="deleted_old_record_and_triggered_fresh_start",
+                        )
+                    else:
+                        # Normal resume: Job has some progress or is young enough
+                        resume_user_indexing.delay(user_id=job.user_id)
+                        resumed_count += 1
+                        logger.info(
+                            "auto_resumed_interrupted_indexing",
+                            user_id=job.user_id,
+                            processed=job.processed_count,
+                            total=job.total_emails,
+                            job_age_minutes=job_age_minutes,
+                        )
+
                 except Exception as e:
                     logger.error(
                         "auto_resume_failed",
@@ -443,26 +488,28 @@ def check_and_resume_interrupted_indexing() -> dict:
                         error=str(e),
                     )
 
-            return resumed_count, skipped_count
+            return resumed_count, restarted_count, skipped_count
 
     # Run async code in sync context
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        resumed_count, skipped_count = loop.run_until_complete(find_and_resume())
+        resumed_count, restarted_count, skipped_count = loop.run_until_complete(find_and_resume())
     finally:
         loop.close()
 
-    if resumed_count > 0 or skipped_count > 0:
+    if resumed_count > 0 or restarted_count > 0 or skipped_count > 0:
         logger.info(
             "auto_resume_check_completed",
             resumed_count=resumed_count,
+            restarted_count=restarted_count,
             skipped_count=skipped_count,
         )
 
     return {
         "success": True,
         "resumed_count": resumed_count,
+        "restarted_count": restarted_count,
         "skipped_count": skipped_count,
     }
 
