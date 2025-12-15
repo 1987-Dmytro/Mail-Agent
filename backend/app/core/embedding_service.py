@@ -365,30 +365,24 @@ class EmbeddingService:
                 model=self.model_name,
             )
 
-            # Generate embeddings for all texts
-            embeddings = []
-            for i, text in enumerate(preprocessed_texts):
-                # Call embed_content for each text
-                result = genai.embed_content(
-                    model=self.model_name,
-                    content=text,
-                    task_type="retrieval_document",
-                )
+            # Generate embeddings using BATCH API (much faster and avoids rate limits!)
+            # Gemini API supports batch embedding - process all texts in single request
+            result = genai.embed_content(
+                model=self.model_name,
+                content=preprocessed_texts,  # Pass entire list!
+                task_type="retrieval_document",
+            )
 
-                embedding = result["embedding"]
+            # Extract embeddings from batch result
+            embeddings = result["embedding"]
 
-                # Validate dimensions
+            # Validate all dimensions
+            for i, embedding in enumerate(embeddings):
                 if not self.validate_dimensions(embedding):
                     raise GeminiAPIError(
                         f"Invalid embedding dimensions at index {i}: "
                         f"expected {self.EXPECTED_DIMENSIONS}, got {len(embedding)}"
                     )
-
-                embeddings.append(embedding)
-
-                # Rate limiting: sleep briefly between requests if batch is large
-                if len(preprocessed_texts) > 10 and i < len(preprocessed_texts) - 1:
-                    time.sleep(0.1)  # 100ms between requests = max 600/min (safe margin)
 
             # Track metrics
             latency_ms = (time.perf_counter() - start_time) * 1000

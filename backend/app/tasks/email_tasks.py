@@ -179,25 +179,14 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
 
     logger.info("emails_fetched", user_id=user_id, count=len(emails))
 
-    # Check indexing progress threshold (60% minimum required for workflow processing)
-    # This prevents incorrect AI responses due to insufficient RAG context
-    async with database_service.async_session() as threshold_session:
-        indexing_ready, progress_percent = await _check_indexing_threshold(user_id, threshold_session)
-
-    if not indexing_ready:
-        logger.warning(
-            "indexing_threshold_not_met",
-            user_id=user_id,
-            progress_percent=progress_percent,
-            threshold_percent=60.0,
-            note="Emails will be saved but workflow skipped until indexing reaches 60%",
-        )
-
     # Process each email (check for duplicates, extract metadata)
     new_count = 0
     skip_count = 0
 
     async with database_service.async_session() as session:
+        # Check indexing progress threshold ONCE per user (60% minimum required for workflow processing)
+        # This prevents incorrect AI responses due to insufficient RAG context
+        indexing_ready, progress_percent = await _check_indexing_threshold(user_id, session)
         for email in emails:
             message_id = email.get("message_id")
             if not message_id:
