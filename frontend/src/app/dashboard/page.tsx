@@ -288,7 +288,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* ChromaDB Connection Status */}
+            {/* Pinecone Connection Status */}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="flex items-center gap-2">
                 <div
@@ -296,7 +296,7 @@ export default function DashboardPage() {
                     stats?.vector_db_connected ? 'bg-green-500' : 'bg-red-500'
                   }`}
                 />
-                <span className="text-sm font-medium">ChromaDB Vector Database</span>
+                <span className="text-sm font-medium">Pinecone Vector Database</span>
               </div>
               <span className={`text-sm ${
                 stats?.vector_db_connected
