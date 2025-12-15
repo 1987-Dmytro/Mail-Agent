@@ -272,6 +272,32 @@ class ApiClient {
   // ============================================
 
   /**
+   * Login with email and password
+   * Returns JWT access token for authenticated requests
+   * @param email - User's email address
+   * @param password - User's password
+   */
+  async login(email: string, password: string) {
+    // Backend expects form data (application/x-www-form-urlencoded)
+    const formData = new URLSearchParams();
+    formData.append('username', email);
+    formData.append('password', password);
+    formData.append('grant_type', 'password');
+
+    const response = await this.client.post<ApiResponse<{
+      access_token: string;
+      token_type: string;
+      expires_at: string;
+    }>>('/api/v1/auth/login', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+
+    return response.data;
+  }
+
+  /**
    * Get Gmail OAuth configuration
    * Returns authorization URL with client_id and scopes
    * AC: 4 - Response validation with typed interface
