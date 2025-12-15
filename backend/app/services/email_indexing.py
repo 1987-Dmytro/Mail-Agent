@@ -200,8 +200,8 @@ class EmailIndexingService:
             progress_id=progress.id,
         )
 
-        # Retrieve emails from Gmail
-        emails = await self.retrieve_gmail_emails(days_back=days_back)
+        # Retrieve emails from Gmail (progressively updates total_emails during fetch)
+        emails = await self.retrieve_gmail_emails(days_back=days_back, progress_id=progress.id)
         total_emails = len(emails)
 
         self.logger.info(
@@ -211,14 +211,22 @@ class EmailIndexingService:
             days_back=days_back,
         )
 
-        # Update progress record with actual total_emails count
+        # Verify final total_emails count matches (should already be set by progressive updates)
         async with self.db_service.async_session() as session:
             result = await session.execute(
                 select(IndexingProgress).where(IndexingProgress.id == progress.id)
             )
             progress = result.scalar_one()
-            progress.total_emails = total_emails
-            await session.commit()
+            # Final verification - should match unless some messages failed to fetch
+            if progress.total_emails != total_emails:
+                self.logger.warning(
+                    "gmail_total_mismatch",
+                    user_id=self.user_id,
+                    progressive_total=progress.total_emails,
+                    final_total=total_emails,
+                )
+                progress.total_emails = total_emails
+                await session.commit()
             await session.refresh(progress)
 
         # Process emails in batches
@@ -284,6 +292,7 @@ class EmailIndexingService:
         self,
         days_back: int = 90,
         page_token: Optional[str] = None,
+        progress_id: Optional[int] = None,
     ) -> List[Dict]:
         """Retrieve emails from Gmail API with 90-day filtering and pagination.
 
@@ -292,10 +301,12 @@ class EmailIndexingService:
         - Use nextPageToken for pagination
         - Filter by date: after:{90_days_ago_unix_timestamp}
         - Continue until no more pages or cutoff date reached
+        - Progressively updates total_emails in IndexingProgress for UX feedback
 
         Args:
             days_back: Number of days to look back (default: 90)
             page_token: Optional pagination token for resuming
+            progress_id: Optional IndexingProgress ID for progressive total_emails updates
 
         Returns:
             List of email dicts with full message details:
@@ -311,7 +322,7 @@ class EmailIndexingService:
             GmailAPIError: If Gmail API fails
 
         Example:
-            emails = await service.retrieve_gmail_emails(days_back=90)
+            emails = await service.retrieve_gmail_emails(days_back=90, progress_id=progress.id)
             # Returns: [{message_id: "abc", thread_id: "xyz", ...}, ...]
         """
         # Calculate cutoff date (90 days ago)
@@ -365,6 +376,33 @@ class EmailIndexingService:
                 page_count=page_count,
                 messages_in_page=len(messages),
             )
+
+            # Progressively update total_emails for UX feedback (if progress_id provided)
+            if progress_id:
+                try:
+                    async with self.db_service.async_session() as session:
+                        result = await session.execute(
+                            select(IndexingProgress).where(IndexingProgress.id == progress_id)
+                        )
+                        progress = result.scalar_one_or_none()
+                        if progress:
+                            # Increment total_emails by actual messages in this page
+                            progress.total_emails += len(messages)
+                            await session.commit()
+
+                            self.logger.debug(
+                                "gmail_progress_updated",
+                                user_id=self.user_id,
+                                page_count=page_count,
+                                total_emails_so_far=progress.total_emails,
+                            )
+                except Exception as e:
+                    # Don't fail retrieval if progress update fails
+                    self.logger.warning(
+                        "gmail_progress_update_failed",
+                        user_id=self.user_id,
+                        error=str(e),
+                    )
 
             # Fetch full details for each message in page
             for msg in messages:
