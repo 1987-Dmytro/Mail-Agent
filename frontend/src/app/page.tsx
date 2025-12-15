@@ -35,7 +35,7 @@ export default function Home() {
               <Link href="/onboarding">Get Started</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link href="/dashboard">View Dashboard</Link>
+              <Link href="/login">Sign In</Link>
             </Button>
           </div>
         </section>
