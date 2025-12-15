@@ -382,6 +382,8 @@ def check_and_resume_interrupted_indexing() -> dict:
     logger.info("checking_for_interrupted_indexing_jobs")
 
     async def find_and_resume():
+        from datetime import datetime, UTC, timedelta
+
         async with database_service.async_session() as session:
             # Find all users with interrupted indexing (status=IN_PROGRESS but not completed)
             result = await session.execute(
@@ -392,42 +394,31 @@ def check_and_resume_interrupted_indexing() -> dict:
             )
             interrupted_jobs = result.scalars().all()
 
-            # Get currently active tasks to avoid duplicates
-            inspect = celery_app.control.inspect()
-            active_tasks = inspect.active() or {}
-
-            # Extract user_ids from active resume tasks
-            active_resume_user_ids = set()
-            for worker, tasks in active_tasks.items():
-                for task in tasks:
-                    if task['name'] == 'app.tasks.indexing_tasks.resume_user_indexing':
-                        # Extract user_id from task args or kwargs
-                        user_id = task.get('kwargs', {}).get('user_id') or (task.get('args', [None])[0] if task.get('args') else None)
-                        if user_id:
-                            active_resume_user_ids.add(user_id)
-
-            logger.info(
-                "active_resume_tasks_detected",
-                active_user_ids=list(active_resume_user_ids),
-                count=len(active_resume_user_ids)
-            )
+            # DB-BASED LOCKING: Check updated_at timestamp instead of Celery inspect
+            # This prevents race conditions with solo pool where inspect.active() doesn't work
+            now = datetime.now(UTC)
+            cooldown_seconds = 30  # Minimum 30 seconds between resume attempts
 
             resumed_count = 0
             skipped_count = 0
             for job in interrupted_jobs:
                 try:
-                    # Skip if resume task already running for this user
-                    if job.user_id in active_resume_user_ids:
+                    # Check if job was updated recently (within cooldown period)
+                    time_since_update = (now - job.updated_at).total_seconds()
+
+                    if time_since_update < cooldown_seconds:
                         logger.info(
-                            "skipping_resume_task_already_active",
+                            "skipping_resume_cooldown_active",
                             user_id=job.user_id,
+                            time_since_update_sec=round(time_since_update, 1),
+                            cooldown_sec=cooldown_seconds,
                             processed=job.processed_count,
                             total=job.total_emails,
                         )
                         skipped_count += 1
                         continue
 
-                    # Trigger resume task only if not already running
+                    # Trigger resume task only if cooldown passed
                     resume_user_indexing.delay(user_id=job.user_id)
                     resumed_count += 1
                     logger.info(
@@ -435,6 +426,7 @@ def check_and_resume_interrupted_indexing() -> dict:
                         user_id=job.user_id,
                         processed=job.processed_count,
                         total=job.total_emails,
+                        last_update=job.updated_at.isoformat(),
                     )
                 except Exception as e:
                     logger.error(
