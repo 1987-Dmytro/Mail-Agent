@@ -70,19 +70,19 @@ class ContextRetrievalService:
         tokenizer: tiktoken encoding for GPT-4 (compatible with Gemini)
     """
 
-    # Token budget constants (AC #8, #9)
-    MAX_CONTEXT_TOKENS = 6500  # Conservative limit (~6.5K tokens)
+    # Token budget constants (AC #8, #9) - REDUCED for memory optimization
+    MAX_CONTEXT_TOKENS = 3000  # Reduced from 6500 to lower memory usage
     GEMINI_TOTAL_CONTEXT = 32000  # Gemini's actual limit
-    RESERVED_FOR_RESPONSE = 25000  # Leave room for response generation
+    RESERVED_FOR_RESPONSE = 29000  # Leave more room for response generation
 
-    # Thread history constants (AC #2)
-    MAX_THREAD_HISTORY_LENGTH = 5  # Last 5 emails from thread
+    # Thread history constants (AC #2) - REDUCED
+    MAX_THREAD_HISTORY_LENGTH = 3  # Reduced from 5 to save memory
 
-    # Adaptive k thresholds (AC #5)
+    # Adaptive k thresholds (AC #5) - REDUCED for memory optimization
     SHORT_THREAD_THRESHOLD = 3  # <3 emails = short thread
     LONG_THREAD_THRESHOLD = 5  # >5 emails = long thread
-    SHORT_THREAD_K = 7  # k=7 for short threads (need more context)
-    STANDARD_THREAD_K = 3  # k=3 for standard threads (balanced)
+    SHORT_THREAD_K = 3  # Reduced from 7 to save memory
+    STANDARD_THREAD_K = 2  # Reduced from 3 to save memory
     LONG_THREAD_K = 0  # k=0 for long threads (skip semantic)
 
     # Performance target (AC #11)
