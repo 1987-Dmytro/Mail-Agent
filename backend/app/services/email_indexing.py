@@ -78,7 +78,7 @@ class EmailIndexingService:
     """
 
     # Batch processing constants
-    GMAIL_PAGE_SIZE = 100  # Max messages per Gmail API page
+    GMAIL_PAGE_SIZE = 10  # Reduced from 100 to prevent OOM on Nano instance (512MB)
     EMBEDDING_BATCH_SIZE = 50  # Max emails per embedding batch (rate limit)
     RATE_LIMIT_DELAY_SECONDS = 60  # Delay between batches (50 emails/min)
 
