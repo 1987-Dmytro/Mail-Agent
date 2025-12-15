@@ -51,7 +51,7 @@ class FolderResponse(BaseModel):
         from_attributes = True
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 async def create_folder(
     folder_data: FolderCreateRequest,
     current_user: User = Depends(get_current_user),
@@ -153,7 +153,7 @@ async def create_folder(
         )
 
 
-@router.get("/")
+@router.get("")
 async def list_folders(
     current_user: User = Depends(get_current_user),
 ):
