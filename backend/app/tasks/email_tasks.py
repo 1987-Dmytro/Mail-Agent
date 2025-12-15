@@ -170,6 +170,34 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
     skip_count = 0
 
     async with database_service.async_session() as session:
+        # RECOVERY: Check if indexing is complete in Pinecone but DB not updated
+        # This handles edge cases where worker crashes/restarts prevented mark_complete() from running
+        try:
+            from app.core.vector_db_pinecone import PineconeVectorDBClient
+            from app.services.indexing_recovery import IndexingRecoveryService
+            import os
+
+            pinecone_client = PineconeVectorDBClient(
+                api_key=os.getenv("PINECONE_API_KEY"),
+                index_name="ai-assistant-memories"
+            )
+            recovery_service = IndexingRecoveryService(pinecone_client)
+            recovered = await recovery_service.check_and_recover_user(user_id)
+
+            if recovered:
+                logger.info(
+                    "indexing_state_recovered_from_pinecone",
+                    user_id=user_id,
+                    note="Database synced with Pinecone reality"
+                )
+        except Exception as recovery_error:
+            # Recovery failure shouldn't block email polling
+            logger.warning(
+                "indexing_recovery_failed",
+                user_id=user_id,
+                error=str(recovery_error)
+            )
+
         # Check indexing progress ONCE per user (100% COMPLETED status required for workflow processing)
         # This prevents OOM crashes and incorrect AI responses due to insufficient RAG context
         indexing_ready, progress_percent = await _check_indexing_threshold(user_id, session)
