@@ -258,6 +258,46 @@ async def login(
         raise HTTPException(status_code=422, detail=str(ve))
 
 
+@router.post("/set-password")
+async def set_password(
+    password: str = Form(...),
+    user: User = Depends(get_current_user),
+    db_service: DatabaseService = Depends(get_db_service),
+):
+    """Set password for the current authenticated user.
+
+    This endpoint is used during onboarding after OAuth authentication.
+    Users must be authenticated (have a valid JWT token) to set their password.
+
+    Args:
+        password: The new password to set
+        user: The authenticated user (from JWT token)
+        db_service: Database service dependency
+
+    Returns:
+        dict: Success message
+
+    Raises:
+        HTTPException: If password validation fails
+    """
+    try:
+        # Sanitize and validate password
+        password = sanitize_string(password)
+        validate_password_strength(password)
+
+        # Hash and save password
+        async with db_service.async_session() as session:
+            user.hashed_password = User.hash_password(password)
+            session.add(user)
+            await session.commit()
+
+        logger.info("password_set_successfully", user_id=user.id)
+        return {"message": "Password set successfully"}
+    except ValueError as ve:
+        logger.error("set_password_validation_failed", error=str(ve), exc_info=True)
+        raise HTTPException(status_code=422, detail=str(ve))
+
+
 @router.post("/session", response_model=SessionResponse)
 async def create_session(
     user: User = Depends(get_current_user),
