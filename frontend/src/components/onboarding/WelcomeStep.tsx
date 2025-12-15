@@ -49,6 +49,22 @@ export default function WelcomeStep({ onNext }: StepProps) {
         </p>
       </div>
 
+      {/* How it works explanation */}
+      <Card className="w-full shadow-md border-primary/30 bg-primary/5">
+        <CardContent className="py-5">
+          <div className="space-y-3 text-left">
+            <h3 className="font-semibold text-base flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              First-Time Setup
+            </h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This is a one-time setup process. You'll connect your services, create a password,
+              and then use the login page for all future visits. Let's get started!
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Core benefits */}
       <Card className="w-full shadow-md border-border/50">
         <CardHeader className="space-y-3 pb-6">
@@ -129,6 +145,12 @@ export default function WelcomeStep({ onNext }: StepProps) {
               3
             </div>
             <span className="text-base">Create your folders <span className="text-muted-foreground text-sm">(2 minutes)</span></span>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-sm font-bold text-primary-foreground shadow-sm">
+              4
+            </div>
+            <span className="text-base">Set your password <span className="text-muted-foreground text-sm">(30 seconds)</span></span>
           </div>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 text-sm font-bold text-white shadow-sm">

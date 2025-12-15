@@ -83,84 +83,106 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Sign In</CardTitle>
-        <CardDescription>
-          Welcome back! Sign in to access your dashboard.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Error message */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Email field */}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-9"
-                disabled={isLoading}
-                required
-              />
-            </div>
+    <div className="flex flex-col items-center text-center space-y-6 max-w-md mx-auto">
+      {/* Login header */}
+      <div className="w-full space-y-3">
+        <div className="mb-4 flex justify-center">
+          <div className="rounded-full bg-gradient-to-br from-primary/20 to-primary/10 p-5 shadow-lg shadow-primary/10">
+            <Lock className="h-14 w-14 text-primary" />
           </div>
+        </div>
+        <h1 className="text-3xl font-bold leading-tight">Welcome Back</h1>
+        <p className="text-lg text-muted-foreground">
+          Sign in to access your Mail Agent dashboard
+        </p>
+      </div>
 
-          {/* Password field */}
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-9"
-                disabled={isLoading}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Submit button */}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in...
-              </>
-            ) : (
-              'Sign In'
+      {/* Login form card */}
+      <Card className="w-full shadow-md border-border/50">
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-2xl">Sign In</CardTitle>
+          <CardDescription className="text-base">
+            Enter your credentials to continue
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Error message */}
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
-          </Button>
 
-          {/* Link to onboarding for new users */}
-          <p className="text-sm text-center text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <a href="/onboarding" className="text-primary hover:underline">
+            {/* Email field */}
+            <div className="space-y-2 text-left">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-9"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password field */}
+            <div className="space-y-2 text-left">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-9"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Submit button */}
+            <Button
+              type="submit"
+              className="w-full mt-6"
+              size="lg"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Link to onboarding for new users */}
+      <Card className="w-full border-muted">
+        <CardContent className="py-4">
+          <p className="text-sm text-muted-foreground">
+            <strong className="text-foreground">New to Mail Agent?</strong><br />
+            First-time users need to complete the onboarding process to connect services and set up their account.{' '}
+            <a href="/onboarding" className="text-primary hover:underline font-medium">
               Get started
             </a>
           </p>
-        </form>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -298,6 +298,17 @@ class ApiClient {
   }
 
   /**
+   * Set password for the current user during onboarding
+   * Called after OAuth but before completing onboarding
+   * Requires authentication token in headers
+   */
+  async setPassword(password: string) {
+    return this.post<ApiResponse<{ message: string }>>('/api/v1/auth/set-password', {
+      password,
+    });
+  }
+
+  /**
    * Get Gmail OAuth configuration
    * Returns authorization URL with client_id and scopes
    * AC: 4 - Response validation with typed interface

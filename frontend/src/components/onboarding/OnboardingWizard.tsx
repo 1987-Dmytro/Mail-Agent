@@ -8,6 +8,7 @@ import WelcomeStep from './WelcomeStep';
 import GmailStep from './GmailStep';
 import TelegramStep from './TelegramStep';
 import FolderSetupStep from './FolderSetupStep';
+import PasswordSetupStep from './PasswordSetupStep';
 import CompletionStep from './CompletionStep';
 
 /**
@@ -82,12 +83,13 @@ export default function OnboardingWizard() {
   // ============================================
 
   /**
-   * Current wizard step (1-5)
+   * Current wizard step (1-6)
    * Step 1: Welcome
    * Step 2: Gmail Connection
    * Step 3: Telegram Linking
    * Step 4: Folder Setup
-   * Step 5: Completion
+   * Step 5: Password Setup
+   * Step 6: Completion
    */
   const [currentStep, setCurrentStep] = useState<number>(1);
 
@@ -125,13 +127,14 @@ export default function OnboardingWizard() {
     'Connect Gmail',
     'Link Telegram',
     'Setup Folders',
+    'Set Password',
     'Complete',
   ];
 
   /**
    * Total number of steps in wizard
    */
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   // ============================================
   // Validation Logic
@@ -146,7 +149,8 @@ export default function OnboardingWizard() {
    * - Step 2 (Gmail): gmailConnected === true required
    * - Step 3 (Telegram): telegramConnected === true required
    * - Step 4 (Folders): folders.length >= 1 required
-   * - Step 5 (Complete): No validation, just navigate to dashboard
+   * - Step 5 (Password): Password setup handled by component, proceed via API success
+   * - Step 6 (Complete): No validation, just navigate to dashboard
    */
   const canProceedToNextStep = (): boolean => {
     switch (currentStep) {
@@ -159,6 +163,8 @@ export default function OnboardingWizard() {
       case 4:
         return folders.length >= 1;
       case 5:
+        return true; // Password step, validation handled by component
+      case 6:
         return true; // Completion step, no validation
       default:
         return false;
@@ -478,6 +484,14 @@ export default function OnboardingWizard() {
                 />
               )}
               {currentStep === 5 && (
+                <PasswordSetupStep
+                  onNext={handleNext}
+                  onBack={handleBack}
+                  onStepComplete={handleStepComplete}
+                  currentState={wizardState}
+                />
+              )}
+              {currentStep === 6 && (
                 <CompletionStep
                   onNext={handleNext}
                   onBack={handleBack}
