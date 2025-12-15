@@ -28,11 +28,11 @@ logger = structlog.get_logger(__name__)
 
 
 async def _check_indexing_threshold(user_id: int, db_session) -> tuple[bool, float]:
-    """Check if user's indexing progress meets 60% threshold for email processing.
+    """Check if user's indexing is 100% complete before allowing email processing.
 
     This function prevents email workflow processing when RAG context is insufficient.
-    Worker should NOT process emails until database is indexed at least 60%, otherwise
-    AI responses will be incorrect due to lack of historical context.
+    Worker should NOT process emails until database is indexed 100% (COMPLETED status),
+    otherwise AI responses will be incorrect and OOM crashes may occur.
 
     Args:
         user_id: User ID to check
@@ -40,7 +40,7 @@ async def _check_indexing_threshold(user_id: int, db_session) -> tuple[bool, flo
 
     Returns:
         tuple[bool, float]: (is_ready, progress_percent)
-            - is_ready: True if indexing >= 60% or completed, False otherwise
+            - is_ready: True ONLY if indexing status is COMPLETED, False otherwise
             - progress_percent: Current progress percentage (0-100)
 
     Example:
@@ -57,22 +57,21 @@ async def _check_indexing_threshold(user_id: int, db_session) -> tuple[bool, flo
     progress = result.scalar_one_or_none()
 
     if not progress:
-        # No indexing progress record - allow processing (backward compatibility)
-        return True, 0.0
-
-    if progress.status == IndexingStatus.COMPLETED:
-        # Indexing complete - always allow processing
-        return True, 100.0
-
-    if progress.total_emails == 0:
-        # No emails to index yet - block processing
+        # No indexing progress record - block processing until indexing starts
         return False, 0.0
 
-    # Calculate percentage
-    percent = (progress.processed_count / progress.total_emails) * 100
-    is_ready = percent >= 60.0
+    if progress.status == IndexingStatus.COMPLETED:
+        # Indexing complete - allow processing
+        return True, 100.0
 
-    return is_ready, percent
+    # Indexing in progress or paused - calculate percentage but block processing
+    if progress.total_emails == 0:
+        return False, 0.0
+
+    percent = (progress.processed_count / progress.total_emails) * 100
+    # CRITICAL: Only allow processing when status is COMPLETED (not just 60% or 100%)
+    # This prevents race conditions where processed_count reaches 100% before status updates
+    return False, percent
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=300, soft_time_limit=270)
@@ -171,8 +170,8 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
     skip_count = 0
 
     async with database_service.async_session() as session:
-        # Check indexing progress threshold ONCE per user (60% minimum required for workflow processing)
-        # This prevents incorrect AI responses due to insufficient RAG context
+        # Check indexing progress ONCE per user (100% COMPLETED status required for workflow processing)
+        # This prevents OOM crashes and incorrect AI responses due to insufficient RAG context
         indexing_ready, progress_percent = await _check_indexing_threshold(user_id, session)
         for email in emails:
             message_id = email.get("message_id")
@@ -246,6 +245,19 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
             # Story 2.3: Start email classification workflow
             # Workflow runs AFTER email committed - no long-lived transaction
             # Workflow will run: extract_context → classify → send_telegram → await_approval (PAUSE)
+
+            # CRITICAL: Check if indexing is complete before starting workflow
+            # This prevents OOM crashes and incorrect AI responses due to insufficient RAG context
+            if not indexing_ready:
+                logger.warning(
+                    "workflow_skipped_indexing_incomplete",
+                    email_id=email_id,
+                    user_id=user_id,
+                    progress_percent=round(progress_percent, 1),
+                    note=f"Indexing must be 100% complete before workflow can start. Current: {progress_percent:.1f}%"
+                )
+                continue  # Skip workflow for this email, will be processed after indexing completes
+
             try:
                 # Create new session for workflow (email already committed above)
                 async with database_service.async_session() as workflow_session:
