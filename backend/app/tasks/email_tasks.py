@@ -375,15 +375,21 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
             pending_emails = pending_result.scalars().all()
 
             if pending_emails:
+                # Limit reprocessing to prevent task timeout
+                # Process max 5 emails per cycle, remaining will be picked up in next cycle
+                MAX_REPROCESS_PER_CYCLE = 5
+                emails_to_process = pending_emails[:MAX_REPROCESS_PER_CYCLE]
+
                 logger.info(
                     "reprocessing_pending_emails",
                     user_id=user_id,
                     count=len(pending_emails),
-                    note="Starting workflows for emails that were blocked before indexing completed"
+                    processing_now=len(emails_to_process),
+                    note=f"Processing {len(emails_to_process)} of {len(pending_emails)} pending emails (batch limit to prevent timeout)"
                 )
 
                 reprocessed_count = 0
-                for pending_email in pending_emails:
+                for pending_email in emails_to_process:
                     try:
                         # Create new session for workflow
                         async with database_service.async_session() as workflow_session:
