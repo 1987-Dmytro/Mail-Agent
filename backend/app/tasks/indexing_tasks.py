@@ -394,7 +394,7 @@ def check_and_resume_interrupted_indexing() -> dict:
             )
             interrupted_jobs = result.scalars().all()
 
-            # DB-BASED LOCKING: Check updated_at timestamp instead of Celery inspect
+            # DB-BASED LOCKING: Check created_at timestamp instead of Celery inspect
             # This prevents race conditions with solo pool where inspect.active() doesn't work
             now = datetime.now(UTC)
             cooldown_seconds = 30  # Minimum 30 seconds between resume attempts
@@ -403,14 +403,15 @@ def check_and_resume_interrupted_indexing() -> dict:
             skipped_count = 0
             for job in interrupted_jobs:
                 try:
-                    # Check if job was updated recently (within cooldown period)
-                    time_since_update = (now - job.updated_at).total_seconds()
+                    # Check if job was created recently (within cooldown period)
+                    # Use created_at as proxy for last activity
+                    time_since_created = (now - job.created_at).total_seconds()
 
-                    if time_since_update < cooldown_seconds:
+                    if time_since_created < cooldown_seconds:
                         logger.info(
                             "skipping_resume_cooldown_active",
                             user_id=job.user_id,
-                            time_since_update_sec=round(time_since_update, 1),
+                            time_since_created_sec=round(time_since_created, 1),
                             cooldown_sec=cooldown_seconds,
                             processed=job.processed_count,
                             total=job.total_emails,
@@ -426,7 +427,7 @@ def check_and_resume_interrupted_indexing() -> dict:
                         user_id=job.user_id,
                         processed=job.processed_count,
                         total=job.total_emails,
-                        last_update=job.updated_at.isoformat(),
+                        created_at=job.created_at.isoformat(),
                     )
                 except Exception as e:
                     logger.error(

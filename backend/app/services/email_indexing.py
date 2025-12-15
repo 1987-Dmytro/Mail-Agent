@@ -784,17 +784,6 @@ class EmailIndexingService:
                 await self.mark_complete()
                 return progress
 
-        # Update timestamp to activate cooldown (prevents concurrent tasks)
-        async with self.db_service.async_session() as session:
-            result = await session.execute(
-                select(IndexingProgress).where(IndexingProgress.id == progress.id)
-            )
-            prog = result.scalar_one_or_none()
-            if prog:
-                # Touch updated_at to signal "task is running"
-                prog.updated_at = datetime.now(UTC)
-                await session.commit()
-
         self.logger.info(
             "indexing_resumed",
             user_id=self.user_id,
