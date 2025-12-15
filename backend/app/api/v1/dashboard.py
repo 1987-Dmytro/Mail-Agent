@@ -126,6 +126,16 @@ async def get_dashboard_stats(
         # Check Gmail connection (gmail_oauth_token exists)
         gmail_connected = current_user.gmail_oauth_token is not None
 
+        # Debug logging
+        logger.info(
+            "dashboard_connection_check",
+            user_id=current_user.id,
+            gmail_oauth_token_exists=gmail_connected,
+            gmail_oauth_token_length=len(current_user.gmail_oauth_token) if current_user.gmail_oauth_token else 0,
+            telegram_id_exists=current_user.telegram_id is not None,
+            telegram_id_value=current_user.telegram_id,
+        )
+
         # Check Telegram connection (telegram_id exists)
         telegram_connected = current_user.telegram_id is not None
 
