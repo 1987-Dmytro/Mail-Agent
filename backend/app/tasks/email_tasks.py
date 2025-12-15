@@ -356,11 +356,20 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
         # This runs ONCE per polling cycle, AFTER new emails are processed
         # If indexing is now complete, we reprocess stuck pending emails
         if indexing_ready:
-            # Query for pending emails (emails that were added before indexing completed)
-            pending_statement = select(EmailProcessingQueue).where(
-                EmailProcessingQueue.user_id == user_id,
-                EmailProcessingQueue.status == "pending"
-            ).order_by(EmailProcessingQueue.received_at)
+            # Query for pending emails WITHOUT workflow_mappings (truly never processed)
+            # LEFT JOIN to find emails that don't have a workflow record yet
+            from app.models.workflow_mapping import WorkflowMapping
+
+            pending_statement = (
+                select(EmailProcessingQueue)
+                .outerjoin(WorkflowMapping, EmailProcessingQueue.id == WorkflowMapping.email_id)
+                .where(
+                    EmailProcessingQueue.user_id == user_id,
+                    EmailProcessingQueue.status == "pending",
+                    WorkflowMapping.id.is_(None)  # Only emails WITHOUT workflow records
+                )
+                .order_by(EmailProcessingQueue.received_at)
+            )
 
             pending_result = await session.execute(pending_statement)
             pending_emails = pending_result.scalars().all()
