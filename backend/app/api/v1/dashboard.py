@@ -244,8 +244,8 @@ async def get_dashboard_stats(
             telegram_connected=telegram_connected,
         )
 
-        # Return stats
-        return DashboardStatsResponse(
+        # Return stats wrapped in 'data' field for frontend consistency
+        stats_data = DashboardStatsResponse(
             total_processed=total_processed,
             pending_approval=pending_approval,
             auto_sorted=auto_sorted,
@@ -260,6 +260,7 @@ async def get_dashboard_stats(
             indexing_status=indexing_status,
             indexing_error=indexing_error,
         )
+        return {"data": stats_data}
 
     except Exception as e:
         logger.error(
