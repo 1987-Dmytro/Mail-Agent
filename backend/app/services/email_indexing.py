@@ -93,7 +93,7 @@ class EmailIndexingService:
         db_service: DatabaseService = None,
         gmail_client: GmailClient = None,
         embedding_service: EmbeddingService = None,
-        vector_db_client: VectorDBClient = None,
+        vector_db_client: PineconeVectorDBClient = None,
         telegram_bot: TelegramBotClient = None,
     ):
         """Initialize email indexing service for specific user.
@@ -103,7 +103,7 @@ class EmailIndexingService:
             db_service: Optional DatabaseService for dependency injection (testing)
             gmail_client: Optional GmailClient for dependency injection (testing)
             embedding_service: Optional EmbeddingService for dependency injection (testing)
-            vector_db_client: Optional VectorDBClient for dependency injection (testing)
+            vector_db_client: Optional PineconeVectorDBClient for dependency injection (testing)
             telegram_bot: Optional TelegramBotClient for dependency injection (testing)
 
         Example:
