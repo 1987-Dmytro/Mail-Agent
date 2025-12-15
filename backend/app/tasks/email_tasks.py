@@ -27,6 +27,67 @@ from app.tasks.indexing_tasks import index_new_email_background
 logger = structlog.get_logger(__name__)
 
 
+async def _check_indexing_threshold(user_id: int, db_session) -> tuple[bool, float]:
+    """Check if user's indexing progress meets 60% threshold for email processing.
+
+    This function ensures emails are not processed (classified/responded to) until
+    the vector database has at least 60% of historical emails indexed. This prevents
+    incorrect AI responses due to insufficient RAG context.
+
+    Args:
+        user_id: The user ID to check
+        db_session: Database session
+
+    Returns:
+        tuple[bool, float]: (is_ready, progress_percent)
+            - is_ready: True if indexing >= 60% or completed, False otherwise
+            - progress_percent: Current progress percentage (0-100)
+
+    Example:
+        >>> is_ready, percent = await _check_indexing_threshold(user_id=1, db_session=session)
+        >>> print(f"Ready: {is_ready}, Progress: {percent}%")
+        Ready: False, Progress: 45.2%
+    """
+    from app.models.indexing_progress import IndexingProgress, IndexingStatus
+
+    result = await db_session.execute(
+        select(IndexingProgress).where(IndexingProgress.user_id == user_id)
+    )
+    progress = result.scalar_one_or_none()
+
+    # No indexing record = no indexing started = not ready
+    if not progress:
+        logger.debug("no_indexing_record", user_id=user_id)
+        return False, 0.0
+
+    # If indexing is completed, always ready
+    if progress.status == IndexingStatus.COMPLETED:
+        logger.debug("indexing_completed", user_id=user_id)
+        return True, 100.0
+
+    # If total_emails is 0, can't calculate percentage
+    if progress.total_emails == 0:
+        logger.debug("total_emails_zero", user_id=user_id)
+        return False, 0.0
+
+    # Calculate percentage
+    percent = (progress.processed_count / progress.total_emails) * 100
+
+    # Ready if >= 60%
+    is_ready = percent >= 60.0
+
+    logger.debug(
+        "indexing_threshold_check",
+        user_id=user_id,
+        processed=progress.processed_count,
+        total=progress.total_emails,
+        percent=percent,
+        is_ready=is_ready,
+    )
+
+    return is_ready, percent
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=300, soft_time_limit=270)
 def poll_user_emails(self, user_id: int):
     """Poll Gmail inbox for new emails for specific user.
@@ -118,6 +179,20 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
 
     logger.info("emails_fetched", user_id=user_id, count=len(emails))
 
+    # Check indexing progress threshold (60% minimum required for workflow processing)
+    # This prevents incorrect AI responses due to insufficient RAG context
+    async with database_service.async_session() as threshold_session:
+        indexing_ready, progress_percent = await _check_indexing_threshold(user_id, threshold_session)
+
+    if not indexing_ready:
+        logger.warning(
+            "indexing_threshold_not_met",
+            user_id=user_id,
+            progress_percent=progress_percent,
+            threshold_percent=60.0,
+            note="Emails will be saved but workflow skipped until indexing reaches 60%",
+        )
+
     # Process each email (check for duplicates, extract metadata)
     new_count = 0
     skip_count = 0
@@ -191,6 +266,20 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                 subject=email.get("subject"),
                 received_at=email.get("received_at"),
             )
+
+            # Check if indexing threshold is met before starting workflow
+            # This prevents AI from generating incorrect responses due to insufficient RAG context
+            if not indexing_ready:
+                logger.info(
+                    "workflow_skipped_indexing_threshold",
+                    user_id=user_id,
+                    email_id=email_id,
+                    message_id=message_id,
+                    progress_percent=progress_percent,
+                    threshold_percent=60.0,
+                    note="Email saved but workflow skipped - will be processed when indexing reaches 60%",
+                )
+                continue  # Skip to next email
 
             # Story 2.3: Start email classification workflow
             # Workflow runs AFTER email committed - no long-lived transaction
