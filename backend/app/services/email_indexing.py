@@ -671,21 +671,63 @@ class EmailIndexingService:
             #     "snippet": "Just a quick reminder about..."
             # }
         """
+        message_id = email.get("message_id", "unknown")
+        self.logger.info(
+            "metadata_extraction_started",
+            message_id=message_id,
+            subject=email.get("subject", "")[:50]
+        )
+
         # Detect language from body
         language = "en"  # Default fallback
         try:
             body = email.get("body", "")
+            body_size_kb = len(body) / 1024 if body else 0
+            self.logger.info(
+                "language_detection_started",
+                message_id=message_id,
+                body_size_kb=round(body_size_kb, 2)
+            )
+
             if body and len(body.strip()) > 10:
                 language = detect(body)
-        except LangDetectException:
+
+            self.logger.info(
+                "language_detection_completed",
+                message_id=message_id,
+                language=language
+            )
+        except LangDetectException as e:
             # Detection failed - use default
+            self.logger.warning(
+                "language_detection_failed",
+                message_id=message_id,
+                error=str(e)
+            )
+            pass
+        except Exception as e:
+            # Unexpected error during language detection
+            self.logger.error(
+                "language_detection_unexpected_error",
+                message_id=message_id,
+                error=str(e),
+                error_type=type(e).__name__
+            )
+            # Continue with default language
             pass
 
         # Extract snippet (first 200 chars of body)
+        self.logger.info("snippet_extraction_started", message_id=message_id)
         body = email.get("body", "")
         snippet = body[:200] if len(body) > 200 else body
+        self.logger.info(
+            "snippet_extraction_completed",
+            message_id=message_id,
+            snippet_size=len(snippet)
+        )
 
         # Format date as ISO string (YYYY-MM-DD) and extract timestamp
+        self.logger.info("date_formatting_started", message_id=message_id)
         date = email.get("date", datetime.now(UTC))
         if isinstance(date, datetime):
             date_str = date.strftime("%Y-%m-%d")
@@ -695,7 +737,10 @@ class EmailIndexingService:
         else:
             date_str = str(date)
             timestamp = int(datetime.now(UTC).timestamp())
+        self.logger.info("date_formatting_completed", message_id=message_id)
 
+        # Construct metadata dict
+        self.logger.info("metadata_dict_construction_started", message_id=message_id)
         metadata = {
             "user_id": str(self.user_id),  # Required for multi-tenant filtering in semantic search
             "message_id": email["message_id"],
@@ -707,7 +752,9 @@ class EmailIndexingService:
             "language": language,
             "snippet": snippet,
         }
+        self.logger.info("metadata_dict_construction_completed", message_id=message_id)
 
+        self.logger.info("metadata_extraction_completed", message_id=message_id)
         return metadata
 
     async def update_progress(
