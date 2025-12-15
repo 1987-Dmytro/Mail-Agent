@@ -179,8 +179,11 @@ class Settings:
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
-        # ChromaDB Vector Database Configuration (Epic 3 - Story 3.1)
+        # ChromaDB Vector Database Configuration (Epic 3 - Story 3.1) - DEPRECATED
         self.CHROMADB_PATH = os.getenv("CHROMADB_PATH", "./backend/data/chromadb")
+
+        # Pinecone Vector Database Configuration (Epic 3 - Production Vector DB)
+        self.PINECONE_API_KEY = os.getenv("PINECONE_API_KEY", "")
 
         # Logging Configuration
         self.LOG_DIR = Path(os.getenv("LOG_DIR", "logs"))
