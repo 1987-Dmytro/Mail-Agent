@@ -44,7 +44,7 @@ class DashboardStatsResponse(BaseModel):
     indexing_error: str | None = Field(None, description="Error message if indexing failed")
 
 
-@router.get("/stats", response_model=DashboardStatsResponse)
+@router.get("/stats")
 async def get_dashboard_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
@@ -270,7 +270,8 @@ async def get_dashboard_stats(
             indexing_status=indexing_status,
             indexing_error=indexing_error,
         )
-        return {"data": stats_data}
+        # Convert Pydantic model to dict and wrap in 'data' field
+        return {"data": stats_data.model_dump()}
 
     except Exception as e:
         logger.error(
