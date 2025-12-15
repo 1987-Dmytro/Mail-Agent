@@ -200,80 +200,134 @@ class EmailIndexingService:
             progress_id=progress.id,
         )
 
-        # Retrieve emails from Gmail (progressively updates total_emails during fetch)
-        emails = await self.retrieve_gmail_emails(days_back=days_back, progress_id=progress.id)
-        total_emails = len(emails)
-
-        self.logger.info(
-            "gmail_emails_retrieved",
-            user_id=self.user_id,
-            total_emails=total_emails,
-            days_back=days_back,
-        )
-
-        # Verify final total_emails count matches (should already be set by progressive updates)
-        async with self.db_service.async_session() as session:
-            result = await session.execute(
-                select(IndexingProgress).where(IndexingProgress.id == progress.id)
-            )
-            progress = result.scalar_one()
-            # Final verification - should match unless some messages failed to fetch
-            if progress.total_emails != total_emails:
-                self.logger.warning(
-                    "gmail_total_mismatch",
-                    user_id=self.user_id,
-                    progressive_total=progress.total_emails,
-                    final_total=total_emails,
-                )
-                progress.total_emails = total_emails
-                await session.commit()
-            await session.refresh(progress)
-
-        # Process emails in batches
+        # Process emails in streaming mode: retrieve Gmail pages and process immediately
+        # This avoids loading all 1369 emails into memory (prevents OOM on Nano instance)
         try:
-            for i in range(0, total_emails, self.EMBEDDING_BATCH_SIZE):
-                batch = emails[i : i + self.EMBEDDING_BATCH_SIZE]
-                batch_number = (i // self.EMBEDDING_BATCH_SIZE) + 1
-                total_batches = (total_emails + self.EMBEDDING_BATCH_SIZE - 1) // self.EMBEDDING_BATCH_SIZE
+            # Calculate cutoff date (90 days ago)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days_back)
+            cutoff_timestamp = int(cutoff_date.timestamp())
+            query = f"after:{cutoff_timestamp}"
+
+            self.logger.info(
+                "gmail_retrieval_started_streaming",
+                user_id=self.user_id,
+                days_back=days_back,
+                cutoff_date=cutoff_date.isoformat(),
+                query=query,
+            )
+
+            current_page_token = None
+            page_count = 0
+            total_processed = 0
+            gmail_page_buffer = []  # Buffer for current Gmail page (max 100 emails)
+
+            # Pagination loop - process each page immediately
+            while True:
+                page_count += 1
+
+                # Get page of message IDs from Gmail
+                service = await self.gmail_client._get_gmail_service()
+                list_params = {
+                    "userId": "me",
+                    "q": query,
+                    "maxResults": self.GMAIL_PAGE_SIZE,
+                }
+                if current_page_token:
+                    list_params["pageToken"] = current_page_token
+
+                try:
+                    list_result = service.users().messages().list(**list_params).execute()
+                except Exception as e:
+                    raise GmailAPIError(f"Failed to list messages: {str(e)}") from e
+
+                messages = list_result.get("messages", [])
+
+                if not messages:
+                    break  # No more messages
 
                 self.logger.info(
-                    "processing_batch",
+                    "gmail_page_retrieved",
                     user_id=self.user_id,
-                    batch_number=batch_number,
-                    total_batches=total_batches,
-                    batch_size=len(batch),
+                    page_count=page_count,
+                    messages_in_page=len(messages),
                 )
 
-                # Process batch (embed + store)
-                processed_count = await self.process_batch(batch)
-
-                # Update progress with checkpoint
-                last_message_id = batch[-1]["message_id"] if batch else None
-                await self.update_progress(
-                    processed_count=i + processed_count,
-                    last_message_id=last_message_id,
-                )
-
-                # Rate limiting: sleep between batches (except last batch)
-                if i + self.EMBEDDING_BATCH_SIZE < total_emails:
-                    self.logger.info(
-                        "rate_limit_delay",
-                        user_id=self.user_id,
-                        delay_seconds=self.RATE_LIMIT_DELAY_SECONDS,
-                        reason="Gemini API rate limit (50 requests/min)",
+                # Update total_emails progressively
+                async with self.db_service.async_session() as session:
+                    result = await session.execute(
+                        select(IndexingProgress).where(IndexingProgress.id == progress.id)
                     )
-                    await asyncio.sleep(self.RATE_LIMIT_DELAY_SECONDS)
+                    prog = result.scalar_one_or_none()
+                    if prog:
+                        prog.total_emails += len(messages)
+                        await session.commit()
+
+                # Fetch full details for each message in page and add to buffer
+                gmail_page_buffer = []
+                for msg in messages:
+                    try:
+                        message_detail = service.users().messages().get(
+                            userId="me",
+                            id=msg["id"],
+                            format="full",
+                        ).execute()
+                        email_data = await self._parse_gmail_message(message_detail)
+                        gmail_page_buffer.append(email_data)
+                    except Exception as e:
+                        self.logger.warning(
+                            "failed_to_fetch_message_detail",
+                            user_id=self.user_id,
+                            message_id=msg["id"],
+                            error=str(e),
+                        )
+                        continue
+
+                # Process this Gmail page immediately (embeddings + Pinecone)
+                # Split into 50-email batches if needed
+                for i in range(0, len(gmail_page_buffer), self.EMBEDDING_BATCH_SIZE):
+                    batch = gmail_page_buffer[i : i + self.EMBEDDING_BATCH_SIZE]
+
+                    self.logger.info(
+                        "processing_batch_streaming",
+                        user_id=self.user_id,
+                        page_count=page_count,
+                        batch_size=len(batch),
+                        processed_so_far=total_processed,
+                    )
+
+                    # Process batch (embed + store)
+                    processed_count = await self.process_batch(batch)
+                    total_processed += processed_count
+
+                    # Update progress
+                    last_message_id = batch[-1]["message_id"] if batch else None
+                    await self.update_progress(
+                        processed_count=total_processed,
+                        last_message_id=last_message_id,
+                    )
+
+                # Clear buffer to free memory
+                gmail_page_buffer = []
+
+                # Check for next page
+                current_page_token = list_result.get("nextPageToken")
+                if not current_page_token:
+                    break  # No more pages
+
+                # Rate limiting between Gmail pages
+                await asyncio.sleep(1)  # Small delay between Gmail API calls
 
             # Mark indexing complete
             await self.mark_complete()
 
             # Send Telegram notification
-            await self._send_completion_notification(total_emails)
+            await self._send_completion_notification(total_processed)
 
             self.logger.info(
-                "indexing_completed",
+                "indexing_completed_streaming",
                 user_id=self.user_id,
-                total_emails=total_emails,
+                total_emails=total_processed,
+                pages_fetched=page_count,
             )
 
             # Return final progress record

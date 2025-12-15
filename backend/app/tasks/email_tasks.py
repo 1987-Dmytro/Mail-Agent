@@ -27,6 +27,54 @@ from app.tasks.indexing_tasks import index_new_email_background
 logger = structlog.get_logger(__name__)
 
 
+async def _check_indexing_threshold(user_id: int, db_session) -> tuple[bool, float]:
+    """Check if user's indexing progress meets 60% threshold for email processing.
+
+    This function prevents email workflow processing when RAG context is insufficient.
+    Worker should NOT process emails until database is indexed at least 60%, otherwise
+    AI responses will be incorrect due to lack of historical context.
+
+    Args:
+        user_id: User ID to check
+        db_session: Active database session
+
+    Returns:
+        tuple[bool, float]: (is_ready, progress_percent)
+            - is_ready: True if indexing >= 60% or completed, False otherwise
+            - progress_percent: Current progress percentage (0-100)
+
+    Example:
+        async with database_service.async_session() as session:
+            is_ready, percent = await _check_indexing_threshold(user_id, session)
+            if not is_ready:
+                logger.info("skipping_workflow", progress_percent=percent)
+    """
+    from app.models.indexing_progress import IndexingProgress, IndexingStatus
+
+    result = await db_session.execute(
+        select(IndexingProgress).where(IndexingProgress.user_id == user_id)
+    )
+    progress = result.scalar_one_or_none()
+
+    if not progress:
+        # No indexing progress record - allow processing (backward compatibility)
+        return True, 0.0
+
+    if progress.status == IndexingStatus.COMPLETED:
+        # Indexing complete - always allow processing
+        return True, 100.0
+
+    if progress.total_emails == 0:
+        # No emails to index yet - block processing
+        return False, 0.0
+
+    # Calculate percentage
+    percent = (progress.processed_count / progress.total_emails) * 100
+    is_ready = percent >= 60.0
+
+    return is_ready, percent
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, time_limit=300, soft_time_limit=270)
 def poll_user_emails(self, user_id: int):
     """Poll Gmail inbox for new emails for specific user.
