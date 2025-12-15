@@ -235,7 +235,7 @@ class ContextRetrievalService:
         sender: str,
         user_id: int,
         days: int = 90,
-        max_emails: int = 10  # Limited to 10 most recent emails for token budget
+        max_emails: int = 5  # Reduced from 10 to prevent OOM on Nano (512MB)
     ) -> Tuple[List[EmailMessage], int]:
         """Retrieve recent emails from a specific sender over last N days.
 
@@ -300,14 +300,38 @@ class ContextRetrievalService:
             metadatas = results["metadatas"]
             total_count = len(ids)
 
-            email_messages: List[EmailMessage] = []
+            # OPTIMIZATION: Sort by timestamp BEFORE fetching full bodies to prevent OOM
+            # Old flow: Fetch all 50 → sort → keep 10 = 50 Gmail API calls
+            # New flow: Sort metadata → take top 10 → fetch only 10 = 10 Gmail API calls
 
+            # Step 1: Extract timestamps from metadata and create lightweight records
+            email_metadata_list = []
             for i, message_id in enumerate(ids):
-                try:
-                    # Fetch full email details from Gmail
-                    email_detail = await self.gmail_client.get_message_detail(message_id)
+                metadata = metadatas[i]
+                # Use timestamp from vector DB metadata (set during indexing)
+                sort_timestamp = metadata.get("timestamp", 0)
+                email_metadata_list.append({
+                    "message_id": message_id,
+                    "metadata": metadata,
+                    "_timestamp": sort_timestamp
+                })
 
-                    metadata = metadatas[i]
+            # Step 2: Sort by timestamp (oldest → newest)
+            email_metadata_list.sort(key=lambda x: x["_timestamp"])
+
+            # Step 3: Take only max_emails most recent (last N after sorting)
+            if len(email_metadata_list) > max_emails:
+                email_metadata_list = email_metadata_list[-max_emails:]
+
+            # Step 4: NOW fetch full bodies ONLY for top N emails (not all 50!)
+            email_messages: List[EmailMessage] = []
+            for item in email_metadata_list:
+                message_id = item["message_id"]
+                metadata = item["metadata"]
+
+                try:
+                    # Fetch full email details from Gmail ONLY for selected emails
+                    email_detail = await self.gmail_client.get_message_detail(message_id)
 
                     # Use received_at from Gmail as the canonical timestamp
                     received_at = email_detail["received_at"]
@@ -316,7 +340,6 @@ class ContextRetrievalService:
                         sort_timestamp = int(received_at.timestamp())
                     else:
                         date_str = str(received_at)
-                        # Fallback: try to parse string or use metadata timestamp
                         sort_timestamp = metadata.get("timestamp", 0)
 
                     email_message: EmailMessage = {
@@ -326,7 +349,7 @@ class ContextRetrievalService:
                         "body": email_detail["body"],
                         "date": date_str,
                         "thread_id": email_detail["thread_id"],
-                        "_timestamp": sort_timestamp  # For sorting
+                        "_timestamp": sort_timestamp
                     }
 
                     email_messages.append(email_message)
@@ -338,14 +361,6 @@ class ContextRetrievalService:
                         error=str(e)
                     )
                     continue
-
-            # Sort chronologically (oldest → newest) using Gmail's received_at timestamp
-            email_messages.sort(key=lambda x: x.get("_timestamp", 0))
-
-            # Limit to max_emails most recent emails (take last N after sorting)
-            # This keeps token usage within Groq 12k limit while preserving chronological order
-            if len(email_messages) > max_emails:
-                email_messages = email_messages[-max_emails:]  # Keep last N (most recent)
 
             self.logger.info(
                 "sender_history_retrieval_completed",
@@ -1011,13 +1026,13 @@ class ContextRetrievalService:
             # NOTE: Must complete before Step 3 to enable adaptive k calculation (AC #5)
             thread_history, original_thread_length = await self._get_thread_history(gmail_thread_id)
 
-            # Step 2.5: Fetch sender conversation history (last 90 days, max 10 emails)
-            # Limited to 10 most recent emails to fit within Groq 12k token limit
+            # Step 2.5: Fetch sender conversation history (last 90 days, max 5 emails)
+            # Reduced from 10 to 5 to prevent OOM on Nano instance (512MB RAM)
             sender_history, sender_history_count = await self._get_sender_history(
                 sender=email.sender,
                 user_id=self.user_id,
                 days=90,
-                max_emails=10,  # Limit to 10 most recent emails for token budget
+                max_emails=5,  # Reduced from 10 to prevent OOM crashes
             )
 
             self.logger.info(
