@@ -389,8 +389,49 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                 )
 
                 reprocessed_count = 0
+                skipped_archived_count = 0
                 for pending_email in emails_to_process:
                     try:
+                        # Check if email still in Inbox (not archived/deleted manually)
+                        try:
+                            message_details = await gmail_client.get_message_by_id(pending_email.gmail_message_id)
+                            labels = message_details.get("labelIds", [])
+
+                            # Skip if email not in INBOX (manually archived/deleted)
+                            if "INBOX" not in labels:
+                                logger.info(
+                                    "pending_email_skipped_not_in_inbox",
+                                    email_id=pending_email.id,
+                                    user_id=user_id,
+                                    message_id=pending_email.gmail_message_id,
+                                    labels=labels,
+                                    note="Email manually archived/moved, skipping workflow"
+                                )
+
+                                # Update status to skip future reprocessing
+                                async with database_service.async_session() as update_session:
+                                    stmt = select(EmailProcessingQueue).where(
+                                        EmailProcessingQueue.id == pending_email.id
+                                    )
+                                    result = await update_session.execute(stmt)
+                                    email_to_update = result.scalar_one_or_none()
+                                    if email_to_update:
+                                        email_to_update.status = "skipped_archived"
+                                        await update_session.commit()
+
+                                skipped_archived_count += 1
+                                continue
+
+                        except Exception as gmail_check_error:
+                            # If Gmail check fails, log but continue with workflow
+                            # (email might be deleted, which is fine - we'll skip it on next error)
+                            logger.warning(
+                                "gmail_inbox_check_failed",
+                                email_id=pending_email.id,
+                                error=str(gmail_check_error),
+                                note="Continuing with workflow despite check failure"
+                            )
+
                         # Create new session for workflow
                         async with database_service.async_session() as workflow_session:
                             # Initialize workflow tracker
@@ -446,11 +487,12 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                             exc_info=True,
                         )
 
-                if reprocessed_count > 0:
+                if reprocessed_count > 0 or skipped_archived_count > 0:
                     logger.info(
                         "reprocessing_complete",
                         user_id=user_id,
                         reprocessed=reprocessed_count,
+                        skipped_archived=skipped_archived_count,
                         total_pending=len(pending_emails)
                     )
 
