@@ -394,8 +394,8 @@ async def _poll_user_emails_async(user_id: int) -> tuple[int, int]:
                     try:
                         # Check if email still in Inbox (not archived/deleted manually)
                         try:
-                            message_details = await gmail_client.get_message_by_id(pending_email.gmail_message_id)
-                            labels = message_details.get("labelIds", [])
+                            message_details = await gmail_client.get_message_detail(pending_email.gmail_message_id)
+                            labels = message_details.get("labels", [])
 
                             # Skip if email not in INBOX (manually archived/deleted)
                             if "INBOX" not in labels:
