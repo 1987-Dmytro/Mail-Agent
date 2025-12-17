@@ -298,14 +298,25 @@ class ApiClient {
   }
 
   /**
-   * Set password for the current user during onboarding
-   * Called after OAuth but before completing onboarding
-   * Requires authentication token in headers
+   * Set password for authenticated user (during onboarding)
+   * @param password - New password to set
    */
   async setPassword(password: string) {
-    return this.post<ApiResponse<{ message: string }>>('/api/v1/auth/set-password', {
-      password,
-    });
+    // Backend expects form data (application/x-www-form-urlencoded)
+    const formData = new URLSearchParams();
+    formData.append('password', password);
+
+    const response = await this.client.post<ApiResponse<{ message: string }>>(
+      '/api/v1/auth/set-password',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    return response.data;
   }
 
   /**
