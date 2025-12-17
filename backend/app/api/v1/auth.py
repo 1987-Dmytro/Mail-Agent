@@ -119,6 +119,7 @@ async def get_current_user(
 
 async def get_current_session(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    db_service: DatabaseService = Depends(get_db_service),
 ) -> Session:
     """Get the current session ID from the token.
 
