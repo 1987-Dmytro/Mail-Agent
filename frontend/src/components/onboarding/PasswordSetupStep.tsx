@@ -36,8 +36,8 @@ export default function PasswordSetupStep({ onNext, currentState }: StepProps) {
    * Validate password meets requirements
    */
   const validatePassword = (): string | null => {
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters';
+    if (password.length < 4) {
+      return 'Password must be at least 4 characters';
     }
 
     if (password !== confirmPassword) {
@@ -168,13 +168,13 @@ export default function PasswordSetupStep({ onNext, currentState }: StepProps) {
           <div className="text-left space-y-2 pt-2">
             <p className="text-sm font-medium text-muted-foreground">Password requirements:</p>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li className={`flex items-center gap-2 ${password.length >= 8 ? 'text-green-600' : ''}`}>
-                {password.length >= 8 ? (
+              <li className={`flex items-center gap-2 ${password.length >= 4 ? 'text-green-600' : ''}`}>
+                {password.length >= 4 ? (
                   <Check className="h-4 w-4" />
                 ) : (
                   <span className="h-4 w-4 flex items-center justify-center">•</span>
                 )}
-                At least 8 characters
+                At least 4 characters
               </li>
               <li className={`flex items-center gap-2 ${passwordsMatch ? 'text-green-600' : ''}`}>
                 {passwordsMatch ? (
