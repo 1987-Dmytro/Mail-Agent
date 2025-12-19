@@ -284,7 +284,7 @@ export function TelegramLink({ onSuccess, onError, onNavigate }: TelegramLinkPro
    * AC: 5 (deep link button)
    */
   function openTelegramApp() {
-    const deepLink = `tg://resolve?domain=mailagentbot&start=${linkingCode}`;
+    const deepLink = `tg://resolve?domain=June_25_AMB_bot&start=${linkingCode}`;
 
     try {
       window.open(deepLink, '_blank');
@@ -294,7 +294,7 @@ export function TelegramLink({ onSuccess, onError, onNavigate }: TelegramLinkPro
     } catch (error) {
       console.error('Failed to open Telegram:', error);
       toast.error('Please open Telegram manually', {
-        description: 'Search for @MailAgentBot and send the code.',
+        description: 'Search for @June_25_AMB_bot and send the code.',
       });
     }
   }
@@ -345,7 +345,7 @@ export function TelegramLink({ onSuccess, onError, onNavigate }: TelegramLinkPro
             Link Telegram Account
           </CardTitle>
           <CardDescription>
-            Connect to @MailAgentBot to receive email notifications
+            Connect to @June_25_AMB_bot to receive email notifications
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -363,7 +363,7 @@ export function TelegramLink({ onSuccess, onError, onNavigate }: TelegramLinkPro
                 <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
                   2
                 </span>
-                <span className="pt-0.5">Search for <strong>@MailAgentBot</strong></span>
+                <span className="pt-0.5">Search for <strong>@June_25_AMB_bot</strong></span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
@@ -422,7 +422,7 @@ export function TelegramLink({ onSuccess, onError, onNavigate }: TelegramLinkPro
             <Alert>
               <Loader2 className="h-4 w-4 animate-spin" />
               <AlertDescription>
-                Waiting for verification... Send the code to @MailAgentBot in Telegram.
+                Waiting for verification... Send the code to @June_25_AMB_bot in Telegram.
               </AlertDescription>
             </Alert>
           )}
