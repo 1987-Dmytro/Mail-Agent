@@ -62,13 +62,20 @@ class ToneDetectionService:
     ) -> str:
         """Detect appropriate response tone for an email.
 
-        Uses hybrid approach:
-        - Rule-based for government domains → "formal"
-        - Rule-based for casual greetings/content → "casual" (NEW)
-        - Rule-based for known business clients → "professional"
-        - Rule-based for personal contacts → "casual"
-        - LLM-based for ambiguous cases
-        - Fallback to "professional" if uncertain
+        Uses intelligent LLM-based approach with minimal rules:
+        - Rule-based ONLY for government domains → "formal" (safety-critical)
+        - LLM-based for everything else → analyzes content, context, and relationship
+        - Fallback to "professional" if LLM unavailable
+
+        This approach avoids rigid rules that can't capture nuance:
+        - Colleague writing "Привет, как дела с проектом?" → professional (not casual)
+        - Startup partner writing informally → professional (not casual)
+        - Friend writing about work topic → casual (despite work content)
+
+        LLM considers:
+        - Email content (greeting, tone, topic)
+        - Sender history (past conversations)
+        - Relationship context (personal vs professional)
 
         Args:
             email: Email object to analyze
@@ -92,17 +99,7 @@ class ToneDetectionService:
             has_thread_history=bool(thread_history),
         )
 
-        # Rule 0: Check email content for casual indicators (HIGHEST PRIORITY)
-        # This runs BEFORE domain checks because content is more reliable than domain
-        if self._has_casual_content(email):
-            logger.info(
-                "tone_detected_via_rule",
-                method="casual_content_detected",
-                tone="casual",
-            )
-            return "casual"
-
-        # Rule 1: Government domains → formal
+        # ONLY Rule: Government domains → formal (safety-critical)
         if self._is_government_domain(sender_domain):
             logger.info(
                 "tone_detected_via_rule",
@@ -112,29 +109,7 @@ class ToneDetectionService:
             )
             return "formal"
 
-        # Rule 2: Known business clients → professional
-        # (In production, this would check against FolderCategories database)
-        if self._is_business_client(sender_email):
-            logger.info(
-                "tone_detected_via_rule",
-                method="business_client",
-                sender=sender_email[:50],
-                tone="professional",
-            )
-            return "professional"
-
-        # Rule 3: Personal contacts → casual
-        # (In production, this would check user's contacts or previous casual threads)
-        if self._is_personal_contact(sender_email, thread_history):
-            logger.info(
-                "tone_detected_via_rule",
-                method="personal_contact",
-                sender=sender_email[:50],
-                tone="casual",
-            )
-            return "casual"
-
-        # Rule 4: Ambiguous cases → LLM analysis
+        # Everything else → LLM analysis with rich context
         if self.gemini_model:
             try:
                 llm_tone = self._detect_tone_with_llm(email, thread_history)
@@ -151,12 +126,12 @@ class ToneDetectionService:
                     fallback="professional",
                 )
 
-        # Fallback: Default to professional
+        # Fallback: Default to professional if LLM unavailable
         logger.info(
             "tone_detection_fallback",
             sender=sender_email[:50],
             tone="professional",
-            reason="no_rule_match_and_llm_unavailable",
+            reason="llm_unavailable",
         )
         return "professional"
 
@@ -308,7 +283,13 @@ class ToneDetectionService:
     def _detect_tone_with_llm(
         self, email: EmailProcessingQueue, thread_history: Optional[List[EmailProcessingQueue]]
     ) -> str:
-        """Use LLM to detect tone for ambiguous cases.
+        """Use LLM to intelligently detect tone based on content and relationship context.
+
+        LLM analyzes:
+        - Email content (greeting, tone, formality)
+        - Relationship type (personal friend vs colleague vs business partner)
+        - Communication history and patterns
+        - Topic context (work-related vs personal)
 
         Args:
             email: Email to analyze
@@ -320,33 +301,61 @@ class ToneDetectionService:
         Raises:
             Exception: If LLM analysis fails
         """
-        # Build context from thread history
+        # Build rich context from thread history
         thread_context = ""
-        if thread_history:
-            thread_context = "\n\nPrevious emails in thread:\n"
-            for i, prev_email in enumerate(thread_history[-3:], 1):  # Last 3 emails
-                thread_context += f"{i}. From: {prev_email.sender}\n   Subject: {prev_email.subject}\n   Body: {prev_email.body[:200]}...\n\n"
+        if thread_history and len(thread_history) > 0:
+            thread_context = "\n\n=== PREVIOUS CONVERSATION HISTORY ===\n"
+            for i, prev_email in enumerate(thread_history[-5:], 1):  # Last 5 emails for better context
+                thread_context += f"\nEmail {i}:\n"
+                thread_context += f"From: {prev_email.sender}\n"
+                thread_context += f"Subject: {prev_email.subject}\n"
+                thread_context += f"Content: {prev_email.body[:300]}...\n"
+                thread_context += f"---\n"
+        else:
+            thread_context = "\n\n=== NO PREVIOUS CONVERSATION HISTORY ===\n(This is the first email from this sender)\n"
 
-        # Construct LLM prompt for tone detection
-        prompt = f"""Analyze the following email and determine the appropriate response tone.
+        # Construct intelligent LLM prompt for context-aware tone detection
+        prompt = f"""You are analyzing an email to determine the appropriate RESPONSE TONE based on the relationship context and communication style.
 
-CRITICAL: Pay attention to the greeting and how the sender addresses you:
-- Informal greetings (Привет, Хай, Hi, Hey) → casual
-- Informal addressing (ты, тебя instead of Вы, Вас) → casual
-- Personal topics (birthday, party, meeting friends) → casual
-- Formal greetings (Здравствуйте, Уважаемый) → formal
-- Formal addressing (Вы, Вас, Ваш) → professional/formal
-
-Current Email:
+=== CURRENT EMAIL ===
 From: {email.sender}
 Subject: {email.subject}
-Body: {email.body[:500]}...
+Content: {email.body[:700]}
 {thread_context}
 
-Respond with ONLY ONE WORD - the appropriate tone level:
-- "formal" for government, legal, or official correspondence
-- "professional" for business communication
-- "casual" for personal, friendly emails (friends, family, informal invitations)
+=== YOUR TASK ===
+Determine the appropriate response tone by analyzing:
+
+1. RELATIONSHIP TYPE:
+   - Personal friend/family → casual
+   - Work colleague (even if writing informally) → professional
+   - Business partner/client → professional
+   - Stranger → professional
+
+2. COMMUNICATION CONTEXT:
+   - Personal invitation (birthday, coffee, meeting) → casual
+   - Work discussion (even casual greeting) → professional
+   - Mixed (friend discussing work) → depends on relationship history
+
+3. SENDER'S TONE:
+   - Greeting style (Привет vs Здравствуйте, Hi vs Dear Sir)
+   - Addressing (ты vs Вы, informal vs formal)
+   - Overall writing style
+
+4. CONVERSATION HISTORY:
+   - What tone was used in previous emails?
+   - Is this a continuing personal or professional relationship?
+
+IMPORTANT NUANCES:
+- "Привет, как дела с проектом?" from colleague → professional (work topic)
+- "Привет, приглашаю на ДР" from friend → casual (personal invitation)
+- Informal greeting + work topic from colleague → still professional
+- Informal greeting + personal topic from friend → casual
+
+Respond with ONLY ONE WORD:
+- "formal" - for government/legal/official correspondence
+- "professional" - for work colleagues, business partners, clients (even if they write casually)
+- "casual" - for personal friends, family, informal invitations (non-work relationships)
 
 Response (one word only):"""
 
