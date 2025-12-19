@@ -189,9 +189,17 @@ def format_response_prompt(
         ...     tone="formal"
         ... )
     """
-    # Validate inputs
+    # Validate and fallback for unsupported languages
     if language not in LANGUAGE_NAMES:
-        raise ValueError(f"Unsupported language: {language}. Supported: {list(LANGUAGE_NAMES.keys())}")
+        import structlog
+        logger = structlog.get_logger()
+        logger.warning(
+            "unsupported_language_fallback",
+            detected_language=language,
+            fallback_language="en",
+            supported_languages=list(LANGUAGE_NAMES.keys())
+        )
+        language = "en"  # Fallback to English for unsupported languages
 
     if tone not in ["formal", "professional", "casual"]:
         raise ValueError(f"Unsupported tone: {tone}. Supported: formal, professional, casual")
