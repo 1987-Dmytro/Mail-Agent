@@ -64,6 +64,7 @@ class ToneDetectionService:
 
         Uses hybrid approach:
         - Rule-based for government domains → "formal"
+        - Rule-based for casual greetings/content → "casual" (NEW)
         - Rule-based for known business clients → "professional"
         - Rule-based for personal contacts → "casual"
         - LLM-based for ambiguous cases
@@ -90,6 +91,16 @@ class ToneDetectionService:
             sender=sender_email[:50],  # Truncate for privacy
             has_thread_history=bool(thread_history),
         )
+
+        # Rule 0: Check email content for casual indicators (HIGHEST PRIORITY)
+        # This runs BEFORE domain checks because content is more reliable than domain
+        if self._has_casual_content(email):
+            logger.info(
+                "tone_detected_via_rule",
+                method="casual_content_detected",
+                tone="casual",
+            )
+            return "casual"
 
         # Rule 1: Government domains → formal
         if self._is_government_domain(sender_domain):
@@ -218,10 +229,81 @@ class ToneDetectionService:
         """
         # TODO: Integrate with contacts database in future story
         # For now, simple heuristic: free email providers might be personal
-        free_email_providers = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "mail.ru"]
+        free_email_providers = [
+            "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "mail.ru",
+            "keemail.me", "tuta.com", "proton.me", "protonmail.com"  # Privacy-focused personal email
+        ]
         domain = self._extract_domain(sender_email)
 
         return any(domain.endswith(provider) for provider in free_email_providers)
+
+    def _has_casual_content(self, email: EmailProcessingQueue) -> bool:
+        """Check if email content contains casual/informal indicators.
+
+        This is the MOST RELIABLE indicator of tone - analyzes actual content
+        instead of just domain. Checks for:
+        - Informal greetings (Привет, Хай, Hi, Hey, Hallo)
+        - Informal addressing (ты, тебя, твой vs Вы, Вас, Ваш)
+        - Casual topics (ДР, день рождения, birthday, party)
+        - Emojis or casual punctuation (!!!, ???)
+
+        Args:
+            email: Email object to analyze
+
+        Returns:
+            True if email contains casual indicators
+        """
+        # Combine subject + body for analysis (first 500 chars)
+        content = f"{email.subject} {email.body[:500]}".lower()
+
+        # Casual greetings - multilingual
+        casual_greetings = [
+            # Russian
+            "привет", "приветик", "здорово", "здравствуй", "хай", "салют",
+            # Ukrainian
+            "привіт", "вітаю", "здоров",
+            # English
+            "hi ", "hey", "hello there", "yo ", "sup ",
+            # German
+            "hallo", "hi ", "hey", "moin", "servus",
+        ]
+
+        # Informal addressing - "ты" form (Russian/Ukrainian)
+        informal_pronouns = [
+            # Russian ты-form
+            " ты ", " тебя", " тебе", " тобой", " твой", " твоя", " твоё", " твои",
+            " приглашаю тебя", " спрошу тебя", " благодарю тебя",
+            # Ukrainian ти-form
+            " ти ", " тебе", " тобі", " твій", " твоя", " твоє", " твої",
+        ]
+
+        # Casual topics/keywords
+        casual_topics = [
+            "др ", "день рождения", "днюха", "birthday", "party", "вечеринка",
+            "встреча", "пиво", "кофе", "coffee", "beer", "hang out",
+        ]
+
+        # Check for casual greetings
+        if any(greeting in content for greeting in casual_greetings):
+            logger.debug("casual_content_detected", reason="casual_greeting")
+            return True
+
+        # Check for informal pronouns
+        if any(pronoun in content for pronoun in informal_pronouns):
+            logger.debug("casual_content_detected", reason="informal_pronoun")
+            return True
+
+        # Check for casual topics
+        if any(topic in content for topic in casual_topics):
+            logger.debug("casual_content_detected", reason="casual_topic")
+            return True
+
+        # Check for emojis or excessive punctuation
+        if "😊" in content or "!!!" in content or "???" in content:
+            logger.debug("casual_content_detected", reason="emojis_or_punctuation")
+            return True
+
+        return False
 
     def _detect_tone_with_llm(
         self, email: EmailProcessingQueue, thread_history: Optional[List[EmailProcessingQueue]]
@@ -248,6 +330,13 @@ class ToneDetectionService:
         # Construct LLM prompt for tone detection
         prompt = f"""Analyze the following email and determine the appropriate response tone.
 
+CRITICAL: Pay attention to the greeting and how the sender addresses you:
+- Informal greetings (Привет, Хай, Hi, Hey) → casual
+- Informal addressing (ты, тебя instead of Вы, Вас) → casual
+- Personal topics (birthday, party, meeting friends) → casual
+- Formal greetings (Здравствуйте, Уважаемый) → formal
+- Formal addressing (Вы, Вас, Ваш) → professional/formal
+
 Current Email:
 From: {email.sender}
 Subject: {email.subject}
@@ -257,7 +346,7 @@ Body: {email.body[:500]}...
 Respond with ONLY ONE WORD - the appropriate tone level:
 - "formal" for government, legal, or official correspondence
 - "professional" for business communication
-- "casual" for personal, friendly emails
+- "casual" for personal, friendly emails (friends, family, informal invitations)
 
 Response (one word only):"""
 
