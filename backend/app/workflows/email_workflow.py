@@ -142,7 +142,7 @@ def route_after_approval(state: EmailWorkflowState) -> str:
     Routes emails based on classification AND user approval decision:
     - "needs_response" + "approve" → show_draft (show draft for manual confirmation)
     - "sort_only" + "approve" → execute_action (skip email sending)
-    - "reject" → send_confirmation (skip all actions, just confirm rejection)
+    - "reject" → execute_action (save approval_history and update status)
     - "change_folder" → execute_action (use selected_folder instead of proposed_folder)
 
     This function implements manual draft approval workflow (Epic 3 Story 3.9):
@@ -154,8 +154,7 @@ def route_after_approval(state: EmailWorkflowState) -> str:
     Returns:
         str: Routing key for path_map - one of:
             - "show_draft" - Show response draft for manual approval (Story 3.9)
-            - "execute_only" - Execute action without sending email
-            - "reject" - Skip to confirmation
+            - "execute_only" - Execute action (includes reject to save approval_history)
 
     Example:
         >>> state = EmailWorkflowState(
@@ -176,23 +175,23 @@ def route_after_approval(state: EmailWorkflowState) -> str:
 
         >>> state = EmailWorkflowState(user_decision="reject", ...)
         >>> route = route_after_approval(state)
-        >>> print(route)  # "reject"
+        >>> print(route)  # "execute_only"
     """
     classification = state.get("classification", "sort_only")
     user_decision = state.get("user_decision", "approve")
     email_id = state.get("email_id", "unknown")
 
-    # Handle rejection - skip all actions
+    # Handle rejection - go through execute_action to save approval_history
     if user_decision == "reject":
         logger.info(
             "workflow_routing_after_approval",
             email_id=email_id,
             classification=classification,
             user_decision=user_decision,
-            next_node="send_confirmation",
-            reason="User rejected - skipping all actions"
+            next_node="execute_action",
+            reason="User rejected - executing action to save approval_history and update status"
         )
-        return "reject"
+        return "execute_only"
 
     # Handle folder change or approval
     # For both "approve" and "change_folder", we need to apply the Gmail action
